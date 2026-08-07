@@ -8,3 +8,5 @@ backend/scratch_*.php
 # OS cruft
 .DS_Store
 Thumbs.db
+*:Zone.Identifier
+frontend/#0.0.0.0#
