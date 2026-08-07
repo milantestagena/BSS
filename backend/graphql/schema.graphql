@@ -1,0 +1,219 @@
+"A datetime string with format `Y-m-d H:i:s`, e.g. `2018-05-23 13:43:32`."
+scalar DateTime @scalar(class: "Nuwave\\Lighthouse\\Schema\\Types\\Scalars\\DateTime")
+
+"A date string with format `Y-m-d`, e.g. `2018-05-23`."
+scalar Date @scalar(class: "Nuwave\\Lighthouse\\Schema\\Types\\Scalars\\Date")
+
+"Arbitrary JSON value (object/array/scalar), used for taxonomy `meta` and session `free_text_answers`."
+scalar JSON @scalar(class: "MLL\\GraphQLScalars\\MixedScalar")
+
+"Indicates what fields are available at the top level of a query operation."
+type Query {
+    "Find a single user by an identifying attribute."
+    user(
+      "Search by primary key."
+      id: ID @eq @rules(apply: ["prohibits:email", "required_without:email"])
+
+      "Search by email address."
+      email: String @eq @rules(apply: ["prohibits:id", "required_without:id", "email"])
+    ): User @find
+
+    "List multiple users."
+    users(
+      "Filters by name. Accepts SQL LIKE wildcards `%` and `_`."
+      name: String @where(operator: "like")
+    ): [User!]! @paginate(defaultCount: 10)
+
+    "Active wizard steps in order, each with its questions."
+    wizardSteps: [WizardStep!]! @all(scopes: ["active"])
+
+    "A single search session by id."
+    searchSession(id: ID @eq): SearchSession @find
+
+    "Suggested taxonomy nodes of any type, filtered by the session's implies/excludes relations and ranked by preference-tag overlap."
+    suggestedGeography(
+        sessionId: ID!
+        type: String!
+        parentId: ID
+    ): [TaxonomyNode!]! @field(resolver: "App\\GraphQL\\Resolvers\\GeographyResolver@suggested")
+
+    "Compiles a session (which should already have a destination city chosen) into real Booking.com request parameters plus Honest Report signals for the AI layer. Shape: { bookingParams: JSON, honestReportSignals: JSON } — kept as JSON since both shapes are still evolving; see wizard_architecture memory."
+    compiledSearchQuery(sessionId: ID!): JSON!
+        @field(resolver: "App\\GraphQL\\Resolvers\\SearchSessionQueryResolver@compiled")
+
+    "A themed wizard campaign by key (e.g. 'kasno-letovanje'), with its questions in campaign order."
+    wizardCampaign(key: String! @eq): WizardCampaign @find
+
+    "Typeahead search over the GeoNames world-cities catalog (population > 15000), for the home_city question. Requires 3+ characters, capped at 10 results ranked by population."
+    homeCitySearch(query: String!): [WorldCity!]!
+        @field(resolver: "App\\GraphQL\\Resolvers\\WorldCityResolver@search")
+}
+
+"Indicates what fields are available at the top level of a mutation operation."
+type Mutation {
+    "Start a new, empty search session. No login required."
+    startSearchSession: SearchSession! @field(resolver: "App\\GraphQL\\Resolvers\\SearchSessionResolver@start")
+
+    "Start a new session under a themed campaign — applies the campaign's preset answers immediately, so dependent questions/excludes are already active from the first read."
+    startCampaignSession(campaignKey: String!): SearchSession!
+        @field(resolver: "App\\GraphQL\\Resolvers\\SearchSessionResolver@startCampaign")
+
+    "Write answers collected so far onto a search session."
+    updateSearchSession(id: ID!, input: UpdateSearchSessionInput!): SearchSession!
+        @field(resolver: "App\\GraphQL\\Resolvers\\SearchSessionResolver@update")
+
+    "Find-or-create the taxonomy_node a homeCitySearch result corresponds to, so home_city_id keeps pointing at a real taxonomy node (reuses the existing distance-calculation machinery). Call this first, then pass the returned node's id as homeCityId in updateSearchSession."
+    selectWorldCityAsHomeCity(worldCityId: ID!): TaxonomyNode!
+        @field(resolver: "App\\GraphQL\\Resolvers\\WorldCityResolver@selectAsHomeCity")
+
+    "Auto-detects home_city from the visitor's request IP (see IpGeolocationClient) instead of asking — null if it can't be geolocated (private/local IP, lookup failure), which the frontend treats the same as 'never answered'."
+    detectHomeCity: TaxonomyNode
+        @field(resolver: "App\\GraphQL\\Resolvers\\WorldCityResolver@detectHomeCity")
+}
+
+"A node in the self-referencing taxonomy tree (trip types, group types, personas, geography, ...)."
+type TaxonomyNode {
+    id: ID!
+    parent: TaxonomyNode @belongsTo
+    children: [TaxonomyNode!]! @hasMany
+    type: String!
+    slug: String!
+    label: String!
+    sortOrder: Int! @rename(attribute: "sort_order")
+    meta: JSON
+    "Populated only when returned from `suggestedGeography` — higher is a better match."
+    matchScore: Int @rename(attribute: "match_score")
+    "Populated only when returned from `suggestedGeography` for type=country: true if this country only appears because nothing fit the stated budget and it's one of the 2 closest fallbacks — show an 'more expensive than asked, but nearest fit' note."
+    budgetCaveat: Boolean @rename(attribute: "budget_caveat")
+    "Populated only when returned from `suggestedGeography` — true if forced on by an `implies` relation from an already-selected answer (e.g. Foodie -> Great food). Shown selected-and-locked in the UI rather than hidden, so the reason is visible instead of the option silently vanishing."
+    implied: Boolean
+}
+
+"One page of the wizard, admin-orderable and toggleable."
+type WizardStep {
+    id: ID!
+    key: String!
+    label: String!
+    sortOrder: Int! @rename(attribute: "sort_order")
+    isActive: Boolean! @rename(attribute: "is_active")
+    questions: [WizardQuestion!]! @hasMany
+}
+
+"A themed wizard entry point (e.g. 'Kasno letovanje') — its own question subset/order over the same global wizard_questions, plus preset answers applied at session start. See wizard_architecture memory, 2026-07-29/30."
+type WizardCampaign {
+    id: ID!
+    key: String!
+    label: String!
+    landingHeadline: String @rename(attribute: "landing_headline")
+    "Values written directly onto the session at start — e.g. {termin_category: 'kasno_kupanje'}. Fields covered here are never asked as a question for this campaign."
+    presetAnswers: JSON @rename(attribute: "preset_answers")
+    "This campaign's questions, in campaign-specific order (independent of each question's global sort_order)."
+    questions: [WizardQuestion!]! @belongsToMany
+}
+
+"A single question within a wizard step."
+type WizardQuestion {
+    id: ID!
+    key: String!
+    label: String!
+    "The global wizard_step this question normally belongs to — used by campaign mode (see WizardCampaign.questions) to group its curated question subset onto the same pages the generic flow already uses, instead of one page per question."
+    step: WizardStep @belongsTo
+    "taxonomy_choice | taxonomy_multi_choice | number | number_array | date_range | boolean | text"
+    inputType: String! @rename(attribute: "input_type")
+    "The TaxonomyNode.type this question pulls choices from, when inputType is taxonomy_choice/taxonomy_multi_choice."
+    taxonomyType: String @rename(attribute: "taxonomy_type")
+    "Dot-path onto SearchSession (or free_text_answers) that this question's answer maps to."
+    sessionField: String @rename(attribute: "session_field")
+    allowFreeText: Boolean! @rename(attribute: "allow_free_text")
+    "Blocks Proceed on this question's step until it's answered. Extensible flag, not hardcoded per-key — see the migration's docblock."
+    mandatory: Boolean! @rename(attribute: "mandatory")
+    "Only show this question if this node is in the session's selected-nodes set. Null means always show. Drives sub-questions (e.g. 'jeftino' -> budget question) without a code deploy."
+    dependsOn: TaxonomyNode @belongsTo(relation: "dependsOn")
+    sortOrder: Int! @rename(attribute: "sort_order")
+    "Resolved taxonomy choices for this question. Pass parentId to scope (e.g. cities under a chosen country)."
+    options(parentId: ID): [TaxonomyNode!]
+        @field(resolver: "App\\GraphQL\\Resolvers\\WizardQuestionResolver@options")
+}
+
+"State of one in-progress or completed wizard run. No user required until the login-gated final step."
+type SearchSession {
+    id: ID!
+    tripType: TaxonomyNode @belongsTo(relation: "tripType")
+    adultsCount: Int @rename(attribute: "adults_count")
+    childrenAges: [Int!] @rename(attribute: "children_ages")
+    needsCrib: [Boolean!] @rename(attribute: "needs_crib")
+    numberOfRooms: Int @rename(attribute: "number_of_rooms")
+    "Total trip spending budget in EUR — separate from budgetTier (accommodation price/night only). Feeds BudgetEstimationEngine."
+    totalBudget: Float @rename(attribute: "total_budget")
+    groupType: TaxonomyNode @belongsTo(relation: "groupType")
+    persona: TaxonomyNode @belongsTo(relation: "persona")
+    budgetTier: TaxonomyNode @belongsTo(relation: "budgetTier")
+    tipSmestaja: TaxonomyNode @belongsTo(relation: "tipSmestaja")
+    terminCategory: String @rename(attribute: "termin_category")
+    dateFrom: Date @rename(attribute: "date_from")
+    dateTo: Date @rename(attribute: "date_to")
+    countryRegion: TaxonomyNode @belongsTo(relation: "countryRegion")
+    city: TaxonomyNode @belongsTo(relation: "city")
+    "Where the user is traveling from — own step/question, same `city` taxonomy_type as the destination `city` field. See distanceFromHomeKm."
+    homeCity: TaxonomyNode @belongsTo(relation: "homeCity")
+    "Great-circle distance between homeCity and city, in km. Null until both are picked or if either is missing lat/lng meta."
+    distanceFromHomeKm: Float @method
+    freeTextAnswers: JSON @rename(attribute: "free_text_answers")
+    status: String!
+    "Every taxonomy node currently selected on this session (trip type, persona, preference tags, ...) — mirrors SearchSession::selectedTaxonomyNodeIds(). Frontend uses this to evaluate WizardQuestion.dependsOn without duplicating the resolution logic in TypeScript."
+    selectedTaxonomyNodeIds: [ID!]! @method
+    createdAt: DateTime! @rename(attribute: "created_at")
+    updatedAt: DateTime! @rename(attribute: "updated_at")
+}
+
+"A GeoNames world city (population > 15000) — see homeCitySearch."
+type WorldCity {
+    id: ID!
+    name: String!
+    countryCode: String! @rename(attribute: "country_code")
+    lat: Float!
+    lng: Float!
+    population: Int
+}
+
+input UpdateSearchSessionInput {
+    tripTypeId: ID
+    adultsCount: Int
+    childrenAges: [Int!]
+    needsCrib: [Boolean!]
+    numberOfRooms: Int
+    totalBudget: Float
+    groupTypeId: ID
+    personaId: ID
+    budgetTierId: ID
+    tipSmestajaId: ID
+    terminCategory: String
+    dateFrom: Date
+    dateTo: Date
+    countryRegionId: ID
+    cityId: ID
+    homeCityId: ID
+    freeTextAnswers: JSON
+    status: String
+}
+
+"Account of a person who uses this application."
+type User {
+    "Unique primary key."
+    id: ID!
+
+    "Non-unique name."
+    name: String!
+
+    "Unique email address."
+    email: String!
+
+    "When the email was verified."
+    email_verified_at: DateTime
+
+    "When the account was created."
+    created_at: DateTime!
+
+    "When the account was last updated."
+    updated_at: DateTime!
+}

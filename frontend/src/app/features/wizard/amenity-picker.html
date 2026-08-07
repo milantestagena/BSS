@@ -1,0 +1,83 @@
+<div class="mb-6 space-y-6">
+  <div>
+    <div class="mb-2 flex flex-wrap gap-2">
+      @for (slug of yesSlugs(); track slug) {
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-sm text-emerald-800">
+          {{ labelFor(slug) }}
+          <button type="button" class="text-emerald-500 hover:text-emerald-800" (click)="removeYes(slug)">×</button>
+        </span>
+      }
+      @for (text of customYes(); track text) {
+        <span
+          class="inline-flex items-center gap-1 rounded-full border border-dashed border-emerald-300 px-3 py-1 text-sm text-emerald-700"
+          title="Not in the amenity list — added to your wishlist notes below"
+        >
+          {{ text }}
+        </span>
+      }
+    </div>
+    <div class="relative">
+      <input
+        type="text"
+        placeholder="Type and hit Enter (e.g. pool, breakfast, AC)..."
+        [ngModel]="yesQuery()"
+        (ngModelChange)="yesQuery.set($event)"
+        (keydown.enter)="onYesEnter()"
+        class="w-full rounded-lg border border-emerald-300 bg-emerald-50/40 px-3 py-2 text-sm
+               focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400"
+      />
+      @if (yesSuggestions().length > 0) {
+        <ul class="absolute z-10 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg">
+          @for (opt of yesSuggestions(); track opt.slug) {
+            <li>
+              <button type="button" class="block w-full px-3 py-2 text-left text-sm hover:bg-emerald-50" (click)="addYes(opt.slug)">
+                {{ opt.label }}
+              </button>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+  </div>
+
+  <div>
+    <div class="mb-2 flex flex-wrap gap-2">
+      @for (slug of noSlugs(); track slug) {
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-3 py-1 text-sm text-rose-800">
+          {{ labelFor(slug) }}
+          <button type="button" class="text-rose-500 hover:text-rose-800" (click)="removeNo(slug)">×</button>
+        </span>
+      }
+      @for (text of customNo(); track text) {
+        <span
+          class="inline-flex items-center gap-1 rounded-full border border-dashed border-rose-300 px-3 py-1 text-sm text-rose-700"
+          title="Not in the amenity list — noted separately"
+        >
+          {{ text }}
+        </span>
+      }
+    </div>
+    <div class="relative">
+      <input
+        type="text"
+        placeholder="Type and hit Enter (things you'd rather avoid)..."
+        [ngModel]="noQuery()"
+        (ngModelChange)="noQuery.set($event)"
+        (keydown.enter)="onNoEnter()"
+        class="w-full rounded-lg border border-rose-300 bg-rose-50/40 px-3 py-2 text-sm
+               focus:outline-none focus:ring-2 focus:ring-rose-400 focus:border-rose-400"
+      />
+      @if (noSuggestions().length > 0) {
+        <ul class="absolute z-10 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg">
+          @for (opt of noSuggestions(); track opt.slug) {
+            <li>
+              <button type="button" class="block w-full px-3 py-2 text-left text-sm hover:bg-rose-50" (click)="addNo(opt.slug)">
+                {{ opt.label }}
+              </button>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+  </div>
+</div>

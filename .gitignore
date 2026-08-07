@@ -1,0 +1,10 @@
+# Claude Code local session/config state — not project source.
+.claude/
+
+# One-off tinker scratch scripts (see CLAUDE.md workflow) — always deleted after use,
+# this is just a safety net in case one is ever left behind.
+backend/scratch_*.php
+
+# OS cruft
+.DS_Store
+Thumbs.db

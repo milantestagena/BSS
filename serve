@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+echo "==> Backend (Docker: laravel.test, pgsql, redis)"
+cd "$PROJECT_ROOT/backend"
+docker compose up -d
+docker compose ps
+
+echo
+echo "==> Pristupne tačke"
+echo "  Wizard (frontend):     http://localhost:4837"
+echo "  Filament admin:        http://localhost:8000/admin  (admin@bss.test / password)"
+echo "  GraphQL endpoint:      http://localhost:8000/graphql"
+echo
+
+echo "==> Frontend (Angular, port 4837) — Ctrl+C zaustavlja samo frontend, backend ostaje da radi"
+cd "$PROJECT_ROOT/frontend"
+# NAPOMENA: koristi lokalni CLI, ne "ng" iz PATH-a — Ubuntu paket "ng-common"
+# (Mg, stari tekst-editor) drži /usr/bin/ng i zaklanja pravi Angular CLI.
+./node_modules/.bin/ng serve --port 4837 --host 0.0.0.0

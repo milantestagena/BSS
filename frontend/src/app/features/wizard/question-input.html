@@ -1,0 +1,95 @@
+<div class="mb-6">
+  <label class="mb-2 block text-sm font-semibold text-slate-800">
+    {{ mainLabel }}
+    @if (question.mandatory) {
+      <span class="ml-1 align-middle text-lg font-bold text-amber-500" title="Required">*</span>
+      <span class="ml-1 align-middle text-xs font-normal normal-case text-amber-600">(required)</span>
+    }
+    @if (hintLabel; as hint) {
+      <span class="font-medium text-emerald-600">({{ hint }})</span>
+    }
+  </label>
+
+  @switch (question.inputType) {
+    @case ('number') {
+      <div class="max-w-[10rem]">
+        <ui-text-field
+          type="number"
+          [step]="numberStep"
+          [value]="numberAsString"
+          (valueChange)="onNumberChange($event)"
+        />
+      </div>
+    }
+
+    @case ('number_array') {
+      <ui-text-field
+        placeholder="npr. 2, 7, 14"
+        [value]="childrenAgesText"
+        (valueChange)="onChildrenAgesChange($event)"
+      />
+    }
+
+    @case ('boolean') {
+      <label class="inline-flex items-center gap-2 text-sm text-slate-700">
+        <input
+          type="checkbox"
+          class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+          [checked]="!!value"
+          (change)="onBooleanChange($any($event.target).checked)"
+        />
+        Yes
+      </label>
+    }
+
+    @case ('text') {
+      <ui-text-field
+        [multiline]="true"
+        [value]="textValue"
+        (valueChange)="onTextChange($event)"
+      />
+    }
+
+    @case ('date_range') {
+      <div class="flex max-w-md items-center gap-3">
+        <ui-date-field [value]="dateFromValue" (valueChange)="onDateFromChange($event)" />
+        <span class="text-slate-400">—</span>
+        <ui-date-field [value]="dateToValue" (valueChange)="onDateToChange($event)" />
+      </div>
+    }
+
+    @case ('taxonomy_choice') {
+      <div class="flex flex-wrap gap-2">
+        @for (node of resolvedOptions; track node.id) {
+          <ui-choice
+            [selected]="isSelected(node) || !!node.implied"
+            [disabled]="!!node.implied"
+            [score]="showMatchScores ? (node.matchScore ?? null) : null"
+            (toggled)="onSingleChoiceChange(node)"
+          >
+            {{ node.label }}
+          </ui-choice>
+        }
+      </div>
+    }
+
+    @case ('taxonomy_multi_choice') {
+      <div class="flex flex-wrap gap-2">
+        @for (node of resolvedOptions; track node.id) {
+          <ui-choice
+            [selected]="isMultiSelected(node) || !!node.implied"
+            [disabled]="!!node.implied"
+            (toggled)="onMultiChoiceToggle(node)"
+          >
+            {{ node.label }}
+          </ui-choice>
+        }
+      </div>
+    }
+  }
+
+  <!-- allowFreeText helper text hidden for now, 2026-08-06 (owner's call) — it points at a
+       free-text input that doesn't actually exist next to any question yet ("na vise mesta al
+       ni na jednom nemamo stvarno polje za unos"), which would confuse a Booking reviewer
+       testing the flow. Revisit once a real per-question free-text field exists. -->
+</div>

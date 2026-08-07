@@ -1,0 +1,40 @@
+<div class="relative mb-6">
+  @if (selectedLabel(); as label) {
+    <div class="flex items-center gap-2 rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm">
+      <span class="font-medium text-slate-800">{{ label }}</span>
+      <button type="button" class="ml-auto text-xs text-slate-400 hover:text-slate-700" (click)="selectedLabel.set(null)">
+        Promeni
+      </button>
+    </div>
+  } @else {
+    <input
+      #input
+      type="text"
+      [placeholder]="placeholder()"
+      [ngModel]="query()"
+      (ngModelChange)="onInput($event)"
+      class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm
+             focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+    />
+
+    @if (loading()) {
+      <div class="mt-1 text-xs text-slate-400">Tražim...</div>
+    }
+
+    @if (results().length > 0) {
+      <ul class="absolute z-10 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg">
+        @for (city of results(); track city.id) {
+          <li>
+            <button
+              type="button"
+              class="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
+              (click)="select(city)"
+            >
+              {{ city.name }}, {{ city.countryCode }}
+            </button>
+          </li>
+        }
+      </ul>
+    }
+  }
+</div>
