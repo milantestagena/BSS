@@ -14,7 +14,11 @@ import { WizardComponent } from './features/wizard/wizard';
  * resolved `campaignKey` string, never the URL shape it came from.
  */
 export const routes: Routes = [
-  { path: '', component: WizardComponent },
+  // Bare root redirects straight to the one live campaign — owner's call, 2026-08-07: a
+  // reviewer landing on the root domain with no path shouldn't have to guess where to go.
+  // Revisit once more than one campaign is live (root would then need a real chooser, not
+  // a hardcoded redirect to just one of them).
+  { path: '', redirectTo: 'latesummer', pathMatch: 'full' },
   {
     path: 'latesummer',
     component: WizardComponent,
