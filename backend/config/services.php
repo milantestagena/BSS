@@ -39,4 +39,12 @@ return [
         'key' => env('OPENAI_API_KEY'),
     ],
 
+    // See CLAUDE.md section 5/8, "Login preko Google-a". Waiting on the owner's real Client
+    // ID/Secret, 2026-08-10 — see app/Http/Controllers/Auth/GoogleAuthController.php.
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI', env('APP_URL') . '/auth/google/callback'),
+    ],
+
 ];

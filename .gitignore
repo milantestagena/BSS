@@ -4,6 +4,7 @@
 # One-off tinker scratch scripts (see CLAUDE.md workflow) — always deleted after use,
 # this is just a safety net in case one is ever left behind.
 backend/scratch_*.php
+backend/scratch_*.json
 
 # OS cruft
 .DS_Store

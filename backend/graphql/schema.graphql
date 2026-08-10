@@ -47,6 +47,9 @@ type Query {
     "Typeahead search over the GeoNames world-cities catalog (population > 15000), for the home_city question. Requires 3+ characters, capped at 10 results ranked by population."
     homeCitySearch(query: String!): [WorldCity!]!
         @field(resolver: "App\\GraphQL\\Resolvers\\WorldCityResolver@search")
+
+    "The currently logged-in user (via the Google OAuth session cookie), or null if anonymous. See CLAUDE.md section 5/8."
+    me: User @auth
 }
 
 "Indicates what fields are available at the top level of a mutation operation."
@@ -81,6 +84,7 @@ type Mutation {
     """
     generateHonestReport(sessionId: ID!, listingName: String!, listingDescription: String!, reviews: [String!]): HonestReport!
         @field(resolver: "App\\GraphQL\\Resolvers\\HonestReportResolver@generate")
+        @aiCredits
 }
 
 "A node in the self-referencing taxonomy tree (trip types, group types, personas, geography, ...)."
@@ -235,4 +239,13 @@ type User {
 
     "When the account was last updated."
     updated_at: DateTime!
+
+    "AI-credit balance and welcome-bonus/booking-bonus history — see CLAUDE.md section 5."
+    wallet: Wallet @hasOne
+}
+
+"See CLAUDE.md section 5, 'Credit / Wallet sistem'. balance is a credit count, not currency."
+type Wallet {
+    id: ID!
+    balance: Int!
 }
