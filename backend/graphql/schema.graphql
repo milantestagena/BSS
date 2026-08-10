@@ -69,6 +69,18 @@ type Mutation {
     "Auto-detects home_city from the visitor's request IP (see IpGeolocationClient) instead of asking — null if it can't be geolocated (private/local IP, lookup failure), which the frontend treats the same as 'never answered'."
     detectHomeCity: TaxonomyNode
         @field(resolver: "App\\GraphQL\\Resolvers\\WorldCityResolver@detectHomeCity")
+
+    """
+    AI-generated "Honest Report" (pros/cons) for one listing, grounded in the session's
+    compiled honestReportSignals plus the given listing's own description/reviews text — see
+    HonestReportGenerator. The listing itself isn't a backend concept; the caller (today, the
+    frontend's mock hotel cards) supplies whatever description/reviews text it has, real or
+    mock, and this resolver never needs to know which. English only for now — no per-locale
+    translation yet, since reports are per-session/per-listing, not stable reusable content
+    like taxonomy labels (see HonestReportGenerator's docblock).
+    """
+    generateHonestReport(sessionId: ID!, listingName: String!, listingDescription: String!, reviews: [String!]): HonestReport!
+        @field(resolver: "App\\GraphQL\\Resolvers\\HonestReportResolver@generate")
 }
 
 "A node in the self-referencing taxonomy tree (trip types, group types, personas, geography, ...)."
@@ -164,6 +176,13 @@ type SearchSession {
     selectedTaxonomyNodeIds: [ID!]! @method
     createdAt: DateTime! @rename(attribute: "created_at")
     updatedAt: DateTime! @rename(attribute: "updated_at")
+}
+
+"AI-generated pros/cons breakdown for one listing, matched against one session's stated preferences. See generateHonestReport."
+type HonestReport {
+    pros: [String!]!
+    cons: [String!]!
+    summary: String!
 }
 
 "A GeoNames world city (population > 15000) — see homeCitySearch."

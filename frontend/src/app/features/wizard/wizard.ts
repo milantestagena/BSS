@@ -95,24 +95,106 @@ interface MockHotel {
   sqm: number;
   distanceToBeachM: number;
   propertyType: string;
+  /** Fed to generateHonestReport as-is — real listing text once Booking data exists, invented
+   *  but realistic for now (2026-08-10). Deliberately includes at least one minor gripe per
+   *  review, same "honest, not a sales pitch" spirit as the AI prompt itself. */
+  description: string;
+  reviews: string[];
 }
 
 const MOCK_HOTELS: MockHotel[] = [
-  { name: 'Seaside Breeze Apartments', pricePerNightEur: 62, rating: 8.4, sqm: 55, distanceToBeachM: 150, propertyType: 'Apartment' },
-  { name: 'Villa Aurora', pricePerNightEur: 78, rating: 9.1, sqm: 90, distanceToBeachM: 400, propertyType: 'Villa' },
-  { name: 'Coral Bay Retreat', pricePerNightEur: 54, rating: 7.8, sqm: 40, distanceToBeachM: 80, propertyType: 'Studio' },
-  { name: 'Sunset Harbor Suites', pricePerNightEur: 69, rating: 8.7, sqm: 65, distanceToBeachM: 250, propertyType: 'Suite' },
-  { name: 'Olive Grove Studios', pricePerNightEur: 48, rating: 7.5, sqm: 35, distanceToBeachM: 600, propertyType: 'Studio' },
-  { name: 'Blue Horizon Residence', pricePerNightEur: 71, rating: 8.9, sqm: 70, distanceToBeachM: 120, propertyType: 'Apartment' },
-  { name: 'Palm Court Apartments', pricePerNightEur: 59, rating: 8.0, sqm: 50, distanceToBeachM: 300, propertyType: 'Apartment' },
-  { name: 'Marina View Loft', pricePerNightEur: 65, rating: 8.3, sqm: 45, distanceToBeachM: 90, propertyType: 'Loft' },
-  { name: 'Golden Sands Bungalow', pricePerNightEur: 56, rating: 8.6, sqm: 48, distanceToBeachM: 60, propertyType: 'Bungalow' },
-  { name: 'Whitewashed Villa', pricePerNightEur: 83, rating: 9.3, sqm: 100, distanceToBeachM: 350, propertyType: 'Villa' },
+  {
+    name: 'Seaside Breeze Apartments', pricePerNightEur: 62, rating: 8.4, sqm: 55, distanceToBeachM: 150, propertyType: 'Apartment',
+    description: 'A bright one-bedroom apartment on a quiet side street, 150m from the beach, with a private balcony, AC, and a shared rooftop terrace.',
+    reviews: [
+      'Balcony had a great sea glimpse, and the rooftop terrace was perfect for evening drinks.',
+      'Kitchen was small but had everything we needed. Building has no elevator, worth knowing if you have luggage.',
+    ],
+  },
+  {
+    name: 'Villa Aurora', pricePerNightEur: 78, rating: 9.1, sqm: 90, distanceToBeachM: 400, propertyType: 'Villa',
+    description: 'A spacious 3-bedroom villa with a private pool and garden, 400m from the beach, popular with families and larger groups.',
+    reviews: [
+      'The private pool made this trip — kids barely wanted to leave the villa. Plenty of space for two families.',
+      'Beautiful and quiet, but you need a car or a 5-10 min walk to reach any restaurants.',
+    ],
+  },
+  {
+    name: 'Coral Bay Retreat', pricePerNightEur: 54, rating: 7.8, sqm: 40, distanceToBeachM: 80, propertyType: 'Studio',
+    description: 'A cozy studio 80m from the beach, with a small shared pool and a kitchenette, on a quiet residential street 10 minutes from the main strip.',
+    reviews: [
+      'Loved how close it was to the beach, but the walls are thin and we heard neighbors at night.',
+      'Kitchenette was basic but enough for breakfast. AC worked great in the heat.',
+    ],
+  },
+  {
+    name: 'Sunset Harbor Suites', pricePerNightEur: 69, rating: 8.7, sqm: 65, distanceToBeachM: 250, propertyType: 'Suite',
+    description: 'A modern suite overlooking the harbor, 250m from the beach, with a full kitchen, washing machine, and free parking.',
+    reviews: [
+      'Harbor view at sunset was stunning, and having a washing machine was a nice bonus for a longer stay.',
+      'Free parking was tight to maneuver into, but manageable. Great value for the space.',
+    ],
+  },
+  {
+    name: 'Olive Grove Studios', pricePerNightEur: 48, rating: 7.5, sqm: 35, distanceToBeachM: 600, propertyType: 'Studio',
+    description: 'A simple, budget-friendly studio set among olive trees, 600m from the beach, with a fan (no AC) and a small shared pool.',
+    reviews: [
+      'Great price for what you get, and the pool area was peaceful. Beach walk is a bit far in the midday heat.',
+      'No AC was tough on the hottest nights — a fan alone wasn\'t quite enough for us.',
+    ],
+  },
+  {
+    name: 'Blue Horizon Residence', pricePerNightEur: 71, rating: 8.9, sqm: 70, distanceToBeachM: 120, propertyType: 'Apartment',
+    description: 'A two-bedroom apartment 120m from the beach with sea-view balcony, AC in both bedrooms, and a communal pool with sun loungers.',
+    reviews: [
+      'Sea view from the balcony every morning was unbeatable, and the pool loungers were rarely all taken.',
+      'Very close to a beach bar, so it can get a bit noisy on weekend evenings.',
+    ],
+  },
+  {
+    name: 'Palm Court Apartments', pricePerNightEur: 59, rating: 8.0, sqm: 50, distanceToBeachM: 300, propertyType: 'Apartment',
+    description: 'A family-run apartment complex 300m from the beach, with a playground on-site, AC, and a communal BBQ area.',
+    reviews: [
+      'Playground was great for our kids, and the owners were incredibly helpful with local tips.',
+      'Decor is a bit dated, but everything was clean and worked fine.',
+    ],
+  },
+  {
+    name: 'Marina View Loft', pricePerNightEur: 65, rating: 8.3, sqm: 45, distanceToBeachM: 90, propertyType: 'Loft',
+    description: 'A stylish open-plan loft 90m from the beach, overlooking the marina, with AC, a rainfall shower, and a small work desk.',
+    reviews: [
+      'Beautiful marina view and the shower was genuinely great. Loved working from the desk with that view.',
+      'Open-plan layout means zero privacy between sleeping and living area — fine for a couple, not for friends sharing.',
+    ],
+  },
+  {
+    name: 'Golden Sands Bungalow', pricePerNightEur: 56, rating: 8.6, sqm: 48, distanceToBeachM: 60, propertyType: 'Bungalow',
+    description: 'A single-story bungalow just 60m from the beach, with a private shaded patio, AC, and free bike rentals for guests.',
+    reviews: [
+      'Closest we\'ve stayed to a beach — genuinely a 60-second walk. Bikes were a nice touch for exploring.',
+      'Very basic furnishings, but honestly you\'re barely indoors given how close the beach is.',
+    ],
+  },
+  {
+    name: 'Whitewashed Villa', pricePerNightEur: 83, rating: 9.3, sqm: 100, distanceToBeachM: 350, propertyType: 'Villa',
+    description: 'A large whitewashed villa with an infinity pool and sea view, 350m from the beach, sleeping up to 6, with a full outdoor kitchen.',
+    reviews: [
+      'The infinity pool view alone is worth it — best sunset spot of our whole trip. Outdoor kitchen made group dinners easy.',
+      'Top end of our budget, but split between our group of 6 it worked out reasonably.',
+    ],
+  },
 ];
 
 interface HotelHighlight {
   text: string;
   colorClass: string;
+}
+
+/** See WizardService.generateHonestReport / HonestReportGenerator (backend). */
+interface HonestReport {
+  pros: string[];
+  cons: string[];
+  summary: string;
 }
 
 /** Rating-for-price composite — same ratio computeHotelHighlight() uses for its own
@@ -253,6 +335,33 @@ export class WizardComponent implements OnInit {
    *  pass doesn't double-claim superlatives across calls — mockHotels never changes at
    *  runtime, so this only ever gets populated once in practice. */
   private readonly claimedHighlights = new Set<string>();
+
+  /** AI-generated pros/cons per hotel, keyed by name — see WizardService.generateHonestReport
+   *  and HonestReportGenerator (backend). 'loading' while in flight, null if it failed (best-
+   *  effort — a missing Honest Report must never block the results screen from showing). */
+  readonly honestReports = signal<Record<string, HonestReport | 'loading' | null>>({});
+
+  honestReportFor(hotel: MockHotel): HonestReport | 'loading' | null {
+    return this.honestReports()[hotel.name] ?? null;
+  }
+
+  /** Fired once when the results screen first shows (see goNext()) — all cards load in
+   *  parallel, not sequentially, since GPT-4o-mini is fast/cheap enough that there's no need
+   *  to ration it (see CLAUDE.md, "AI troškovi zanemarljivi"). */
+  private async loadHonestReports(): Promise<void> {
+    this.honestReports.update((current) => {
+      const next = { ...current };
+      for (const hotel of this.mockHotels) next[hotel.name] = 'loading';
+      return next;
+    });
+
+    await Promise.all(
+      this.mockHotels.map(async (hotel) => {
+        const report = await this.wizard.generateHonestReport(hotel.name, hotel.description, hotel.reviews);
+        this.honestReports.update((current) => ({ ...current, [hotel.name]: report }));
+      })
+    );
+  }
 
   private async startWizard(): Promise<void> {
     await this.wizard.init(this.campaignKey ?? undefined);
@@ -451,6 +560,7 @@ export class WizardComponent implements OnInit {
       await this.wizard.goNext();
       if (this.wizard.currentStepIndex() >= this.wizard.steps().length) {
         this.finished.set(true);
+        void this.loadHonestReports();
         return;
       }
 

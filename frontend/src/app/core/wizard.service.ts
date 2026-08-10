@@ -74,6 +74,17 @@ const COMPILED_QUERY = `
   }
 `;
 
+/** First real AI feature in this project, 2026-08-10 — see HonestReportGenerator (backend).
+ *  listingName/Description/reviews come from whatever the caller has (today, MOCK_HOTELS on
+ *  the frontend; real Booking.com listing text later) — this mutation doesn't care which. */
+const GENERATE_HONEST_REPORT_MUTATION = `
+  mutation GenerateHonestReport($sessionId: ID!, $listingName: String!, $listingDescription: String!, $reviews: [String!]) {
+    generateHonestReport(sessionId: $sessionId, listingName: $listingName, listingDescription: $listingDescription, reviews: $reviews) {
+      pros cons summary
+    }
+  }
+`;
+
 const UPDATE_SESSION_MUTATION = `
   mutation UpdateSession($id: ID!, $input: UpdateSearchSessionInput!) {
     updateSearchSession(id: $id, input: $input) {
@@ -271,6 +282,27 @@ export class WizardService {
       await this.refreshCompiledQuery();
     } catch {
       // best-effort — a visitor we can't geolocate just has no home_city, same as before
+    }
+  }
+
+  /** Null if there's no active session yet (shouldn't happen once finished() is true, but
+   *  matches this class's existing "best-effort, never throw into the caller" convention for
+   *  anything that isn't core wizard flow — see detectHomeCity). */
+  async generateHonestReport(
+    listingName: string,
+    listingDescription: string,
+    reviews: string[]
+  ): Promise<{ pros: string[]; cons: string[]; summary: string } | null> {
+    const sessionId = this.sessionId();
+    if (!sessionId) return null;
+
+    try {
+      const data = await this.gql.request<{
+        generateHonestReport: { pros: string[]; cons: string[]; summary: string };
+      }>(GENERATE_HONEST_REPORT_MUTATION, { sessionId, listingName, listingDescription, reviews });
+      return data.generateHonestReport;
+    } catch {
+      return null;
     }
   }
 

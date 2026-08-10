@@ -5,7 +5,13 @@ import { firstValueFrom } from 'rxjs';
 // 127.0.0.1, not "localhost": WSL2's automatic port-forwarding only binds IPv4,
 // so "localhost" makes the browser try [::1] first, wait for it to time out, then
 // fall back to IPv4 — several extra seconds per request for nothing.
-const GRAPHQL_ENDPOINT = 'http://127.0.0.1:8000/graphql';
+// In production (any other hostname), frontend and backend share one origin behind
+// nginx, so a relative path is correct and needs no per-environment config file —
+// deploy note, 2026-08-06.
+const GRAPHQL_ENDPOINT =
+  location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+    ? 'http://127.0.0.1:8000/graphql'
+    : '/graphql';
 
 interface GraphQLResponse<T> {
   data?: T;

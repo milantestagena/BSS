@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { WizardComponent } from './features/wizard/wizard';
+import { PrivacyPolicyComponent } from './features/legal/privacy-policy';
 
 /**
  * `data.campaignKey` matches a `wizard_campaigns.key` row (backend) — the SINGLE place a
@@ -19,6 +20,9 @@ export const routes: Routes = [
   // Revisit once more than one campaign is live (root would then need a real chooser, not
   // a hardcoded redirect to just one of them).
   { path: '', redirectTo: 'latesummer', pathMatch: 'full' },
+  // Required by the CJ Affiliate Publisher Service Agreement as a condition of running
+  // Booking.com affiliate links — 2026-08-10.
+  { path: 'privacy', component: PrivacyPolicyComponent },
   {
     path: 'latesummer',
     component: WizardComponent,
