@@ -45,7 +45,7 @@ class ReferralAttributionService
             return null;
         }
 
-        if ($code->partner->email === $user->email) {
+        if ($code->partner->user_id === $user->id) {
             return null;
         }
 

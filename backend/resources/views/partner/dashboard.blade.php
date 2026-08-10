@@ -10,7 +10,7 @@
         header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
         h1 { font-size: 1.25rem; margin: 0; }
         .muted { color: #94a3b8; font-size: 0.875rem; }
-        form.logout button { background: none; border: 1px solid #334155; color: #e2e8f0; padding: 0.4rem 0.9rem; border-radius: 6px; cursor: pointer; }
+        .logout { background: none; border: 1px solid #334155; color: #e2e8f0; padding: 0.4rem 0.9rem; border-radius: 6px; text-decoration: none; font-size: 0.875rem; }
         .totals { display: flex; gap: 1rem; margin-bottom: 2rem; }
         .stat { background: #1e293b; border-radius: 10px; padding: 1rem 1.25rem; flex: 1; }
         .stat .label { color: #94a3b8; font-size: 0.8rem; }
@@ -32,13 +32,10 @@
 <div class="wrap">
     <header>
         <div>
-            <h1>{{ $partner->name }}</h1>
+            <h1>{{ $partner->user->name }}</h1>
             <div class="muted">Share rate: {{ rtrim(rtrim(number_format($partner->share_percentage, 2), '0'), '.') }}% on first booking</div>
         </div>
-        <form class="logout" method="POST" action="{{ route('partner.logout') }}">
-            @csrf
-            <button type="submit">Sign out</button>
-        </form>
+        <a class="logout" href="{{ route('auth.logout') }}">Sign out</a>
     </header>
 
     <div class="totals">

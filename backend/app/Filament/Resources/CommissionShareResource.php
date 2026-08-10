@@ -28,7 +28,7 @@ class CommissionShareResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('attribution.partner.name')->label('Partner')->searchable(),
+                Tables\Columns\TextColumn::make('attribution.partner.user.name')->label('Partner')->searchable(),
                 Tables\Columns\TextColumn::make('attribution.user.name')->label('Referred user'),
                 Tables\Columns\TextColumn::make('booking_reference')->placeholder('—'),
                 Tables\Columns\TextColumn::make('booking_sequence_number')->label('Booking #'),

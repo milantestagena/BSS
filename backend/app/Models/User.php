@@ -4,6 +4,8 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -17,24 +19,26 @@ use Illuminate\Notifications\Notifiable;
  *  need per-campaign tuning yet" convention (see BudgetEstimationEngine). */
 const WELCOME_BONUS_CREDITS = 5;
 
-#[Fillable(['name', 'email', 'password', 'google_id', 'avatar_url', 'referral_source'])]
+#[Fillable(['name', 'email', 'password', 'google_id', 'avatar_url', 'referral_source', 'is_admin'])]
 #[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_admin' => 'boolean',
         ];
+    }
+
+    /** Gates the Filament /admin panel — see the add_is_admin_to_users_table migration. */
+    public function canAccessPanel(Panel $panel): bool
+    {
+        return $this->is_admin;
     }
 
     public function wallet(): HasOne
@@ -45,6 +49,20 @@ class User extends Authenticatable
     public function creditTransactions(): HasMany
     {
         return $this->hasMany(CreditTransaction::class);
+    }
+
+    /** The referral partner (reseller) profile for this user, if an admin has promoted them —
+     *  see CLAUDE.md section 6 and ReferralPartner. Most users never have one. */
+    public function resellerProfile(): HasOne
+    {
+        return $this->hasOne(ReferralPartner::class);
+    }
+
+    /** The first-touch referral attribution for this user, if they signed up through a
+     *  partner's code — see ReferralAttributionService. Null for organic signups. */
+    public function referralAttribution(): HasOne
+    {
+        return $this->hasOne(ReferralAttribution::class);
     }
 
     /**

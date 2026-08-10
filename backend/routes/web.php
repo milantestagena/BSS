@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\Auth\GoogleAuthController;
-use App\Http\Controllers\Partner\PartnerAuthController;
 use App\Http\Controllers\Partner\PartnerDashboardController;
 use Illuminate\Support\Facades\Route;
 
@@ -14,11 +13,9 @@ Route::get('/auth/google/redirect', [GoogleAuthController::class, 'redirect'])->
 Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])->name('auth.google.callback');
 Route::get('/auth/logout', [GoogleAuthController::class, 'logout'])->name('auth.logout');
 
-// Referral partner (influencer) login + dashboard — see CLAUDE.md section 6. Plain
-// server-rendered Blade, not Angular: this is an internal tool for a handful of manually
-// onboarded partners, not the customer-facing wizard, so it doesn't need the SPA/GraphQL
-// stack. Same-origin session auth via the 'partner' guard — no CORS complications here.
-Route::get('/partner/login', [PartnerAuthController::class, 'showLogin'])->name('partner.login');
-Route::post('/partner/login', [PartnerAuthController::class, 'login'])->name('partner.login.submit');
-Route::post('/partner/logout', [PartnerAuthController::class, 'logout'])->name('partner.logout');
-Route::middleware('auth:partner')->get('/partner/dashboard', [PartnerDashboardController::class, 'index'])->name('partner.dashboard');
+// Reseller (influencer partner) dashboard — see CLAUDE.md section 6. Plain server-rendered
+// Blade, not Angular: internal tool for a handful of promoted users, not the customer-facing
+// wizard. Logs in via the SAME "Sign in with Google" flow as every customer (normal 'web'
+// guard session) — PartnerDashboardController itself checks whether that user has been
+// promoted to a reseller, redirecting to Google if not even logged in yet.
+Route::get('/partner/dashboard', [PartnerDashboardController::class, 'index'])->name('partner.dashboard');
