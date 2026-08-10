@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\ReferralAttributionService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Laravel\Socialite\Facades\Socialite;
 
@@ -31,7 +33,7 @@ class GoogleAuthController extends Controller
         return $driver->redirect();
     }
 
-    public function callback(): RedirectResponse
+    public function callback(Request $request): RedirectResponse
     {
         $googleUser = Socialite::driver('google')->user();
 
@@ -43,13 +45,20 @@ class GoogleAuthController extends Controller
                 $user->update(['google_id' => $googleUser->getId(), 'avatar_url' => $googleUser->getAvatar()]);
             }
         } else {
+            $refSource = session('pending_referral_source');
+
             $user = User::create([
                 'name' => $googleUser->getName() ?? $googleUser->getNickname() ?? 'Traveler',
                 'email' => $googleUser->getEmail(),
                 'google_id' => $googleUser->getId(),
                 'avatar_url' => $googleUser->getAvatar(),
-                'referral_source' => session('pending_referral_source'),
+                'referral_source' => $refSource,
             ]);
+
+            // The full influencer attribution (CLAUDE.md section 6) is separate from the
+            // lightweight `referral_source` string above — only fires when `?ref=` matches a
+            // real, partner-owned ReferralCode.
+            app(ReferralAttributionService::class)->attribute($user, $refSource, $request->ip());
         }
 
         session()->forget('pending_referral_source');

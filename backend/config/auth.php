@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\ReferralPartner;
 use App\Models\User;
 
 return [
@@ -42,6 +43,14 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // Influencer/affiliate partner login — separate from customer Google OAuth ('web'
+        // guard/'users' provider). See CLAUDE.md section 6: architecturally and conceptually
+        // separate from the user-to-user credit referral system.
+        'partner' => [
+            'driver' => 'session',
+            'provider' => 'partners',
+        ],
     ],
 
     /*
@@ -71,6 +80,11 @@ return [
         //     'driver' => 'database',
         //     'table' => 'users',
         // ],
+
+        'partners' => [
+            'driver' => 'eloquent',
+            'model' => ReferralPartner::class,
+        ],
     ],
 
     /*
