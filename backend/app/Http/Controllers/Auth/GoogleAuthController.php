@@ -55,13 +55,13 @@ class GoogleAuthController extends Controller
         session()->forget('pending_referral_source');
         Auth::login($user, remember: true);
 
-        return redirect(config('app.url'));
+        return redirect(config('app.frontend_url'));
     }
 
     public function logout(): RedirectResponse
     {
         Auth::logout();
 
-        return redirect(config('app.url'));
+        return redirect(config('app.frontend_url'));
     }
 }

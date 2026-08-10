@@ -54,6 +54,13 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    // Where to send the browser after Google OAuth login/logout — see GoogleAuthController.
+    // Same origin as APP_URL in production (frontend/backend share one domain behind nginx),
+    // but a DIFFERENT port locally (Angular dev server on 4837 vs Laravel on 8000) — bug
+    // caught 2026-08-10, login redirected to the bare Laravel welcome page instead of back
+    // into the app. Falls back to APP_URL so production needs no extra .env entry.
+    'frontend_url' => env('FRONTEND_URL', env('APP_URL', 'http://localhost')),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone
