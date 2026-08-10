@@ -1193,9 +1193,10 @@ class WizardSeeder extends Seeder
     }
 
     /**
-     * Minimal, mechanism-proving relations only — content is explicitly not the point yet
-     * (owner's steer: "nebitne su persone... fokus na vezama"). These four rows exist to
-     * prove implies/suggests/excludes work end-to-end, not to be an exhaustive rule set.
+     * Started as minimal, mechanism-proving relations only (owner's early steer: "nebitne su
+     * persone... fokus na vezama"). Grew real content 2026-08-10 with the persona <->
+     * preference_tag vibe-matching pairs below — still not meant to be exhaustive, just the
+     * pairs with an actual logical relationship.
      */
     private function seedRelations(): void
     {
@@ -1203,6 +1204,22 @@ class WizardSeeder extends Seeder
         $this->relate('trip_type', 'city_break', 'excludes', 'termin_category', 'zimovanje');
         $this->relate('persona', 'gurman', 'implies', 'preference_tag', 'dobra_hrana');
         $this->relate('preference_tag', 'jeftino', 'suggests', 'budget_tier', 'do_20e');
+
+        // Persona <-> preference_tag ("Atmosphere / Vibe") vibe-matching, owner's call
+        // 2026-08-10: fills the gap where e.g. "Partygoer" was showing "Family-friendly
+        // atmosphere" as a live option (see wizard_architecture chat, "kao iz 2 sveta da su").
+        // implies = definitional trait for that persona; excludes = genuine vibe contradiction.
+        // Deliberately NOT touching pivo/vino for partijaner — partying doesn't imply drinking
+        // (owner's call: "neki partijaju na Ekserima") — nor the cultural-availability tags
+        // (halal/vegan/lgbt/alkohol) for any persona, since those are personal/cultural
+        // requirements independent of trip vibe. Not exhaustive — only the pairs with a real
+        // logical relationship, everything else stays freely selectable.
+        $this->relate('persona', 'istrazivac', 'implies', 'preference_tag', 'van_utabanih_staza');
+        $this->relate('persona', 'partijaner', 'implies', 'preference_tag', 'zivahna_nocna_zabava');
+        $this->relate('persona', 'partijaner', 'excludes', 'preference_tag', 'porodicna_atmosfera');
+        $this->relate('persona', 'partijaner', 'excludes', 'preference_tag', 'mirno_i_tiho');
+        $this->relate('persona', 'flegma', 'implies', 'preference_tag', 'mirno_i_tiho');
+        $this->relate('persona', 'flegma', 'excludes', 'preference_tag', 'zivahna_nocna_zabava');
 
         // Owner's call, 2026-08-03: "porodica ne moz da bude partigoer" — filters 'partijaner'
         // out of persona_group's options once group_type=porodica is selected. Uses the SAME
