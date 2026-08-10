@@ -23,8 +23,11 @@ export class GraphqlService {
   constructor(private http: HttpClient) {}
 
   async request<T>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
+    // withCredentials: needed for the Google OAuth session cookie to reach the backend —
+    // matters most locally, where frontend (4837) and backend (8000) are different origins.
+    // See config/cors.php (backend) for the matching allowed_origins/supports_credentials.
     const response = await firstValueFrom(
-      this.http.post<GraphQLResponse<T>>(GRAPHQL_ENDPOINT, { query, variables })
+      this.http.post<GraphQLResponse<T>>(GRAPHQL_ENDPOINT, { query, variables }, { withCredentials: true })
     );
 
     if (response.errors?.length) {
