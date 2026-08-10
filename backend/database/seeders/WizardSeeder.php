@@ -1088,7 +1088,10 @@ class WizardSeeder extends Seeder
                 // opis tu fokusira na neku egzoticniju zelju da ne trosimo AI tokene da izvlaci
                 // amenities") — now doubles as the Big YES/NO picker's fallback: unmatched
                 // typed text (no taxonomy match) lands here instead of being lost.
-                ['key' => 'smestaj_preference', 'en' => "Anything unusual on your wishlist? (Standard stuff like parking/kitchen will get its own checklist soon)", 'sr' => 'Ima li nešto neobično na tvojoj listi želja? (Standardne stvari kao parking/kuhinja uskoro dobijaju svoj čekbox)', 'input_type' => 'text', 'session_field' => 'free_text_answers.smestaj_preference', 'allow_free_text' => true],
+                // "(...will get its own checklist soon)" hint retired 2026-08-10 — it predates
+                // the Big YES/NO picker above (built 2026-08-04), which already covers exactly
+                // that ("soon" promise was stale). Rewritten to point at it instead.
+                ['key' => 'smestaj_preference', 'en' => "Anything unusual on your wishlist? (Regular stuff like pool or parking? Type it in the box above instead)", 'sr' => 'Ima li nešto neobično na tvojoj listi želja? (Obične stvari kao bazen ili parking? Ukucaj ih u polje iznad)', 'input_type' => 'text', 'session_field' => 'free_text_answers.smestaj_preference', 'allow_free_text' => true],
                 // Hidden field, no UI of its own — the Big-NO picker's unmatched-text fallback
                 // routes here instead of smestaj_preference (bug fixed 2026-08-04: both used to
                 // share smestaj_preference, which reads backwards for an avoid-item — "wishlist:
