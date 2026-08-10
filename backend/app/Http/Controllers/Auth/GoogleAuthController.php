@@ -57,4 +57,11 @@ class GoogleAuthController extends Controller
 
         return redirect(config('app.url'));
     }
+
+    public function logout(): RedirectResponse
+    {
+        Auth::logout();
+
+        return redirect(config('app.url'));
+    }
 }

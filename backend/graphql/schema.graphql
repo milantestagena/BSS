@@ -231,6 +231,9 @@ type User {
     "Unique email address."
     email: String!
 
+    "Google profile picture URL, if logged in via Google — see GoogleAuthController."
+    avatarUrl: String @rename(attribute: "avatar_url")
+
     "When the email was verified."
     email_verified_at: DateTime
 

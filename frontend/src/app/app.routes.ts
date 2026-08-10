@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { WizardComponent } from './features/wizard/wizard';
 import { PrivacyPolicyComponent } from './features/legal/privacy-policy';
+import { AccountPageComponent } from './features/account/account-page';
 
 /**
  * `data.campaignKey` matches a `wizard_campaigns.key` row (backend) — the SINGLE place a
@@ -23,6 +24,7 @@ export const routes: Routes = [
   // Required by the CJ Affiliate Publisher Service Agreement as a condition of running
   // Booking.com affiliate links — 2026-08-10.
   { path: 'privacy', component: PrivacyPolicyComponent },
+  { path: 'account', component: AccountPageComponent },
   {
     path: 'latesummer',
     component: WizardComponent,
