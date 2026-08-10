@@ -1,12 +1,12 @@
 <div class="mb-6">
   <label class="mb-2 block text-sm font-semibold text-slate-800">
     {{ mainLabel }}
+    @if (hintLabel; as hint) {
+      <span class="font-medium text-emerald-600">({{ hint }})</span>
+    }
     @if (question.mandatory) {
       <span class="ml-1 align-middle text-lg font-bold text-amber-500" title="Required">*</span>
       <span class="ml-1 align-middle text-xs font-normal normal-case text-amber-600">(required)</span>
-    }
-    @if (hintLabel; as hint) {
-      <span class="font-medium text-emerald-600">({{ hint }})</span>
     }
   </label>
 

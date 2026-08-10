@@ -1039,7 +1039,7 @@ class WizardSeeder extends Seeder
                 // da mu vratimo ko data, a da valja") — first use of the generic `mandatory`
                 // flag (see its migration's docblock); WizardComponent.canProceed() blocks
                 // Proceed/the rooms-together Yes-No on this step until it's answered.
-                ['key' => 'total_budget', 'en' => 'How much do you plan to spend on accommodation & food?', 'sr' => 'Koliko planirate da potrošite na smeštaj i hranu?', 'input_type' => 'number', 'session_field' => 'total_budget', 'mandatory' => true],
+                ['key' => 'total_budget', 'en' => 'How much do you plan to spend on accommodation & food? (€)', 'sr' => 'Koliko planirate da potrošite na smeštaj i hranu? (€)', 'input_type' => 'number', 'session_field' => 'total_budget', 'mandatory' => true],
             ]],
             ['key' => 'odakle_putujes', 'en' => 'Where you\'re traveling from', 'sr' => 'Odakle putuješ', 'questions' => [
                 ['key' => 'home_city', 'en' => 'Which city are you traveling from?', 'sr' => 'Iz kog grada putuješ?', 'input_type' => 'taxonomy_choice', 'taxonomy_type' => 'city', 'session_field' => 'home_city_id', 'allow_free_text' => true],
