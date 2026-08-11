@@ -33,7 +33,7 @@ Cilj: ~5.000€/mesec prihoda od affiliate provizija, što odgovara ~110–145 p
 - Login/credit gate se primenjuje **samo na koraku konkretnog smeštaja** (korak 8 u wizard flow-u).
 - Slobodni tekstualni unosi ("Imaš bolju ideju") unutar sesije **ne troše dodatne kredite** — korisnici se aktivno ohrabruju da ih koriste.
 - Honest Report se **uvek prevodi sa kanonskog engleskog izvora**, nikad se ne generiše nezavisno po jeziku (radi faktičke konzistentnosti).
-- **i18n:** engleski je kanonski izvor; lazy on-demand AI prevod sa "AI translated, see original" disclaimer-om; `translation_status` polje + hash-based staleness detection.
+- **i18n:** engleski je kanonski izvor; `Translation` model + `HasTranslations` trait (hash-based staleness detection) + `TranslateDirective` (`@translate` na GraphQL polju, čita `X-Locale` header) su izgrađeni i live (nemački, 2026-08-11). Za NOVI sadržaj bez prevoda: owner eksplicitno traži od Claude-a u sesiji da prevede (nije automatizovan AI trigger/pipeline — namerna odluka, 2026-08-11, "preko ovog prompta, ja te zamolim, ti izvršiš"). Honest Report se prevodi isto — uvek generisan na engleskom prvo, pa preveden (nikad nezavisno generisan po jeziku).
 - Referral nagrade (user-to-user) se aktiviraju **samo na potvrđen booking**, nikad na signup (anti-abuse).
 - Anti-abuse se oslanja na **credit scarcity + silent rate limiting**, ne na punitivni UX.
 
