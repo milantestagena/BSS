@@ -8,10 +8,10 @@ import { SpinnerComponent } from './spinner';
   template: `
     <button
       type="button"
-      class="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium
+      class="inline-flex items-center justify-center gap-2 rounded-lg font-medium
              transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2
              disabled:cursor-not-allowed disabled:opacity-50"
-      [class]="variantClasses()"
+      [class]="variantClasses() + ' ' + sizeClasses()"
       [disabled]="disabled() || loading()"
       (click)="onClick()"
     >
@@ -24,9 +24,17 @@ import { SpinnerComponent } from './spinner';
 })
 export class ButtonComponent {
   variant = input<'primary' | 'secondary'>('primary');
+  /** 'lg' for a screen's single primary CTA (e.g. the campaign intro) — owner's ask,
+   *  2026-08-11: the default size read as small/lightweight next to a big hero heading,
+   *  "malo pritegni izgled". Every other button (Back/Proceed/Change/...) stays 'md'. */
+  size = input<'md' | 'lg'>('md');
   disabled = input(false);
   loading = input(false);
   clicked = output<void>();
+
+  sizeClasses(): string {
+    return this.size() === 'lg' ? 'px-8 py-3.5 text-base font-semibold' : 'px-4 py-2 text-sm';
+  }
 
   variantClasses(): string {
     // Warm amber primary, 2026-08-06 (owner's call, "boja za proceed treba da se promeni") —
