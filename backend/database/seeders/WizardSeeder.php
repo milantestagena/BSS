@@ -37,6 +37,7 @@ class WizardSeeder extends Seeder
         $this->seedSwimDestinations();
         $this->seedSwimCountryProfiles();
         $this->seedCityAndCountryVibeProfiles();
+        $this->seedSwimAtmosphereTags();
         $this->seedAccommodationSeasons();
         $this->seedHolidayPricingWindows();
         $this->seedHolidays();
@@ -615,6 +616,32 @@ class WizardSeeder extends Seeder
             'mikonos' => ['Mykonos', 'Mikonos', 'grcka', 37.4467, 25.3289, [10 => [23, 23], 11 => [18, 21], 12 => [14, 19]]],
             'kos' => ['Kos', 'Kos', 'grcka', 36.8933, 27.2877, [10 => [24, 23.5], 11 => [19, 21.5], 12 => [15, 19.5]]],
 
+            // Expansion round, 2026-08-11 (owner's ask) — climate values below are rough
+            // same-latitude-neighbor placeholders (e.g. Naxos/Paros/Milos copy Santorini's,
+            // Zakynthos/Kefalonia/Lefkada copy Corfu's), NOT real data — `climate:import` runs
+            // right after seeding and overwrites every row here with real Open-Meteo history.
+            // Cyclades (alongside existing Santorini/Mykonos).
+            'naksos' => ['Naxos', 'Naksos', 'grcka', 37.1036, 25.3766, [10 => [23, 23], 11 => [19, 21], 12 => [15, 19]]],
+            'paros' => ['Paros', 'Paros', 'grcka', 37.0857, 25.1488, [10 => [23, 23], 11 => [19, 21], 12 => [15, 19]]],
+            'milos' => ['Milos', 'Milos', 'grcka', 36.7231, 24.4230, [10 => [23, 23], 11 => [19, 21], 12 => [15, 19]]],
+            // Dodecanese (alongside existing Rhodes/Kos).
+            'karpatos' => ['Karpathos', 'Karpatos', 'grcka', 35.5069, 27.2144, [10 => [25, 24], 11 => [20, 22], 12 => [16, 19.5]]],
+            'simi' => ['Symi', 'Simi', 'grcka', 36.6167, 27.8333, [10 => [25, 24], 11 => [20, 22], 12 => [16, 19.5]]],
+            'kalimnos' => ['Kalymnos', 'Kalimnos', 'grcka', 36.9481, 26.9836, [10 => [24, 23.5], 11 => [19, 21.5], 12 => [15, 19.5]]],
+            // Crete (alongside existing Heraklion) — different coast/microclimate.
+            'hanja' => ['Chania', 'Hanja', 'grcka', 35.5138, 24.0180, [10 => [24, 23.5], 11 => [20, 21.5], 12 => [16, 19]]],
+            'retimno' => ['Rethymno', 'Retimno', 'grcka', 35.3667, 24.4833, [10 => [24, 23.5], 11 => [20, 21.5], 12 => [16, 19]]],
+            // Peloponnese mainland.
+            'kalamata' => ['Kalamata', 'Kalamata', 'grcka', 37.0389, 22.1142, [10 => [23, 22.5], 11 => [18, 20.5], 12 => [14, 18]]],
+            // Ionian (alongside existing Corfu) — owner's call, 2026-08-11: don't pre-exclude by
+            // "north of Athens" instinct, let the real climate import decide what's actually warm.
+            'zakintos' => ['Zakynthos', 'Zakintos', 'grcka', 37.7870, 20.8995, [10 => [22, 23], 11 => [17, 20.5], 12 => [13, 18]]],
+            'kefalonija' => ['Kefalonia', 'Kefalonija', 'grcka', 38.1751, 20.4892, [10 => [21.5, 22.5], 11 => [16.5, 20], 12 => [12.5, 17.5]]],
+            'lefkada' => ['Lefkada', 'Lefkada', 'grcka', 38.8333, 20.7167, [10 => [21, 22], 11 => [16, 19.5], 12 => [12, 17]]],
+            // Sporades — owner's ask, explicitly required ("pod obavezno").
+            'skopelos' => ['Skopelos', 'Skopelos', 'grcka', 39.1225, 23.7275, [10 => [20.5, 21.5], 11 => [15.5, 19], 12 => [11.5, 16]]],
+            'skijatos' => ['Skiathos', 'Skijatos', 'grcka', 39.1633, 23.4919, [10 => [20.5, 21.5], 11 => [15.5, 19], 12 => [11.5, 16]]],
+
             // Italy — coastal south, distinct from Rim's city-break narrative.
             'taormina' => ['Taormina', 'Taormina', 'italija', 37.8525, 15.2870, [10 => [22, 23], 11 => [17, 21], 12 => [14, 18.5]]],
             'kaljari' => ['Cagliari', 'Kaljari', 'italija', 39.2238, 9.1217, [10 => [21, 22], 11 => [16, 19.5], 12 => [12, 17]]],
@@ -890,6 +917,65 @@ class WizardSeeder extends Seeder
             $country->update(['meta' => [...($country->meta ?? []), 'vibe_profile' => [
                 'description' => $description, 'source' => 'manual_estimate',
             ]]]);
+        }
+    }
+
+    /**
+     * Populates the meta['drinks']/meta['atmosphere']/meta['food'] keys GeographyResolver's
+     * match_score actually reads (unlike vibe_profile above, which is hover-card text only).
+     * Owner's split, 2026-08-11: "razdvojimo Pub i Rave, uz pub da ide Pivo, uz Rave... samo
+     * rave lokacije, ostalo ne mozemo da koristimo" — Rave is intentionally a short, strict
+     * list (only destinations whose PRIMARY character is nightlife, not a place that merely
+     * contains a known party sub-district — Corfu/Rhodes/Crete/Tenerife/Gran Canaria are all
+     * genuinely mixed per their own vibe_profile text above and are deliberately excluded here).
+     */
+    private function seedSwimAtmosphereTags(): void
+    {
+        $cityAtmosphere = [
+            'ajia_napa' => ['atmosphere' => ['zivahna_nocna_zabava']],
+            'st_julians' => ['atmosphere' => ['zivahna_nocna_zabava'], 'drinks' => ['pivo']],
+            'bodrum' => ['atmosphere' => ['zivahna_nocna_zabava']],
+            'marmaris' => ['atmosphere' => ['zivahna_nocna_zabava']],
+            'mikonos' => ['atmosphere' => ['zivahna_nocna_zabava']],
+            'albufeira' => ['atmosphere' => ['zivahna_nocna_zabava']],
+            'hvar' => ['atmosphere' => ['zivahna_nocna_zabava']],
+            'kaljari' => ['food' => ['dobra_hrana']],
+            'split' => ['food' => ['dobra_hrana']],
+        ];
+
+        foreach ($cityAtmosphere as $slug => $tags) {
+            $city = TaxonomyNode::where('type', 'city')->where('slug', $slug)->first();
+            if (! $city) {
+                continue;
+            }
+            $meta = $city->meta ?? [];
+            foreach ($tags as $key => $values) {
+                $meta[$key] = array_unique([...($meta[$key] ?? []), ...$values]);
+            }
+            $city->update(['meta' => $meta]);
+        }
+
+        // Country-level: British-colonial pub/beer heritage (Malta, Cyprus) and the three
+        // standout Mediterranean food/wine reputations — applied here so the "pick a region"
+        // wizard step (country-type suggestions) also differentiates, not just city picking.
+        $countryAtmosphere = [
+            'malta' => ['drinks' => ['pivo']],
+            'kipar' => ['drinks' => ['pivo']],
+            'grcka' => ['food' => ['dobra_hrana'], 'drinks' => ['vino']],
+            'italija' => ['food' => ['dobra_hrana'], 'drinks' => ['vino']],
+            'turska' => ['food' => ['dobra_hrana']],
+        ];
+
+        foreach ($countryAtmosphere as $slug => $tags) {
+            $country = TaxonomyNode::where('type', 'country')->where('slug', $slug)->first();
+            if (! $country) {
+                continue;
+            }
+            $meta = $country->meta ?? [];
+            foreach ($tags as $key => $values) {
+                $meta[$key] = array_unique([...($meta[$key] ?? []), ...$values]);
+            }
+            $country->update(['meta' => $meta]);
         }
     }
 
