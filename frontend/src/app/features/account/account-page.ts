@@ -48,10 +48,10 @@ import { AuthService } from '../../core/auth.service';
             />
             <button
               type="button"
-              (click)="copyLink()"
+              (click)="share()"
               class="shrink-0 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
             >
-              {{ copied() ? 'Copied!' : 'Copy' }}
+              {{ copied() ? 'Copied!' : canNativeShare ? 'Share' : 'Copy' }}
             </button>
           </div>
         </div>
@@ -86,7 +86,28 @@ export class AccountPageComponent implements OnInit {
     return `${location.origin}/?ref=u${id}`;
   }
 
-  copyLink(): void {
+  /** Web Share API — supported on iOS/Android Safari+Chrome and most desktop browsers except
+   *  Firefox. Where available it opens the OS's native share sheet (WhatsApp, Instagram, SMS,
+   *  Messenger, email, whatever the person actually has installed) instead of us hardcoding a
+   *  handful of specific social platforms. Falls back to copy-to-clipboard everywhere else. */
+  get canNativeShare(): boolean {
+    return typeof navigator !== 'undefined' && 'share' in navigator;
+  }
+
+  share(): void {
+    if (this.canNativeShare) {
+      navigator
+        .share({
+          title: 'TripInele',
+          text: 'Planning a late-summer swim trip? This wizard finds you a spot — and you get free AI credits if you use my link.',
+          url: this.shareLink,
+        })
+        .catch(() => {
+          // User cancelled the native share sheet — not an error, nothing to do.
+        });
+      return;
+    }
+
     void navigator.clipboard.writeText(this.shareLink).then(() => {
       this.copied.set(true);
       setTimeout(() => this.copied.set(false), 2000);
