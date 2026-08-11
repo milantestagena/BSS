@@ -32,6 +32,7 @@ class SearchSession extends Model
         'home_city_id',
         'free_text_answers',
         'status',
+        'ai_credit_charged_at',
     ];
 
     protected $casts = [
@@ -41,6 +42,7 @@ class SearchSession extends Model
         'free_text_answers' => 'array',
         'date_from' => 'date',
         'date_to' => 'date',
+        'ai_credit_charged_at' => 'datetime',
     ];
 
     public function user(): BelongsTo

@@ -2,6 +2,7 @@
 
 namespace App\GraphQL\Directives;
 
+use App\Models\SearchSession;
 use App\Models\User;
 use Illuminate\Cache\RateLimiter;
 use Nuwave\Lighthouse\Exceptions\RateLimitException;
@@ -48,27 +49,54 @@ class AiCreditsDirective extends BaseDirective implements FieldMiddleware
             /** @var User|null $user */
             $user = $context->user();
 
-            if ($user) {
-                $wallet = $user->wallet;
-                if (! $wallet || $wallet->balance <= 0) {
-                    throw new OutOfCreditsException();
+            // Bug fixed 2026-08-11 (owner caught live: "odoshe 10 kredita na 1 pretragu") — this
+            // field is called once per listing shown on the results screen, all in parallel (see
+            // wizard.ts loadHonestReports), but CLAUDE.md section 3 is explicit: credits are
+            // spent per complete search SESSION, not per AI call. An atomic "claim" (UPDATE ...
+            // WHERE ai_credit_charged_at IS NULL) decides which ONE of the N concurrent calls is
+            // the charge — a plain read-then-write here would race and still charge N times.
+            $chargeThisCall = true;
+            if (isset($args['sessionId'])) {
+                $claimed = SearchSession::whereKey($args['sessionId'])
+                    ->whereNull('ai_credit_charged_at')
+                    ->update(['ai_credit_charged_at' => now()]);
+                $chargeThisCall = $claimed > 0;
+            }
+
+            if ($chargeThisCall) {
+                try {
+                    if ($user) {
+                        $wallet = $user->wallet;
+                        if (! $wallet || $wallet->balance <= 0) {
+                            throw new OutOfCreditsException();
+                        }
+
+                        $wallet->decrement('balance');
+                        $user->creditTransactions()->create([
+                            'amount' => -1,
+                            'type' => 'ai_query',
+                            'description' => 'Honest Report generation',
+                        ]);
+                    } else {
+                        $limiter = app(RateLimiter::class);
+                        $key = 'ai-credits:' . request()->ip();
+
+                        if ($limiter->tooManyAttempts($key, self::ANONYMOUS_LIMIT_PER_HOUR)) {
+                            throw new RateLimitException($resolveInfo->fieldName);
+                        }
+
+                        $limiter->hit($key, 3600);
+                    }
+                } catch (\Throwable $e) {
+                    // Claimed but failed to actually charge (out of credits / rate-limited) —
+                    // release the claim so this session isn't stuck permanently "free" without
+                    // ever having genuinely paid.
+                    if (isset($args['sessionId'])) {
+                        SearchSession::whereKey($args['sessionId'])->update(['ai_credit_charged_at' => null]);
+                    }
+
+                    throw $e;
                 }
-
-                $wallet->decrement('balance');
-                $user->creditTransactions()->create([
-                    'amount' => -1,
-                    'type' => 'ai_query',
-                    'description' => 'Honest Report generation',
-                ]);
-            } else {
-                $limiter = app(RateLimiter::class);
-                $key = 'ai-credits:' . request()->ip();
-
-                if ($limiter->tooManyAttempts($key, self::ANONYMOUS_LIMIT_PER_HOUR)) {
-                    throw new RateLimitException($resolveInfo->fieldName);
-                }
-
-                $limiter->hit($key, 3600);
             }
 
             return $resolver($root, $args, $context, $resolveInfo);

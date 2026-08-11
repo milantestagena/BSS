@@ -10,6 +10,7 @@ import { CitySearchComponent, WorldCityResult } from './city-search';
 import { AmenityPickerComponent } from './amenity-picker';
 import { ButtonComponent } from '../../ui/button';
 import { SpinnerComponent } from '../../ui/spinner';
+import { InfoPopoverComponent } from '../../ui/info-popover';
 
 /** Questions rendered by the combined <app-travelers-input> widget instead of individually —
  *  see travelers-input.ts. */
@@ -256,6 +257,7 @@ function computeHotelHighlight(hotel: MockHotel, all: MockHotel[], claimed: Set<
     AmenityPickerComponent,
     ButtonComponent,
     SpinnerComponent,
+    InfoPopoverComponent,
   ],
   templateUrl: './wizard.html',
 })
@@ -372,8 +374,20 @@ export class WizardComponent implements OnInit {
 
   /** Fired once when the results screen first shows (see goNext()) — all cards load in
    *  parallel, not sequentially, since GPT-4o-mini is fast/cheap enough that there's no need
-   *  to ration it (see CLAUDE.md, "AI troškovi zanemarljivi"). */
+   *  to ration it (see CLAUDE.md, "AI troškovi zanemarljivi").
+   *
+   *  Bug fixed 2026-08-11 (owner caught live: "odoshe 10 kredita na 1 pretragu... a nije nista
+   *  upisano") — this used to call generateHonestReport unconditionally for every mock hotel,
+   *  burning a credit each (see AiCreditsDirective), even when the user typed NOTHING into the
+   *  AI-only fields. Matches the owner's original design (2026-08-09): the AI layer should only
+   *  run at all when there's a real signal (smestaj_preference wishlist notes or the Big-NO
+   *  avoid notes/picks) for it to act on — otherwise the structured taxonomy results ARE the
+   *  answer, for free, no AI needed. */
   private async loadHonestReports(): Promise<void> {
+    if (!this.hasAdvancedSearchSignals()) {
+      return;
+    }
+
     this.honestReports.update((current) => {
       const next = { ...current };
       for (const hotel of this.mockHotels) next[hotel.name] = 'loading';
@@ -386,6 +400,15 @@ export class WizardComponent implements OnInit {
         this.honestReports.update((current) => ({ ...current, [hotel.name]: report }));
       })
     );
+  }
+
+  /** True when the user actually gave the AI something to act on — see loadHonestReports(). */
+  private hasAdvancedSearchSignals(): boolean {
+    const wishlist = (this.wizard.getAnswer('smestaj_preference') as string) ?? '';
+    const avoidNotes = (this.wizard.getAnswer('smestaj_avoid') as string) ?? '';
+    const avoidPicks = (this.wizard.getAnswer('amenities_no') as string[]) ?? [];
+
+    return wishlist.trim() !== '' || avoidNotes.trim() !== '' || avoidPicks.length > 0;
   }
 
   private async startWizard(): Promise<void> {
@@ -585,6 +608,10 @@ export class WizardComponent implements OnInit {
       await this.wizard.goNext();
       if (this.wizard.currentStepIndex() >= this.wizard.steps().length) {
         this.finished.set(true);
+        // Owner's ask, 2026-08-11 ("skrol nije na top page, a to je must") — the chat-scroll
+        // flow leaves the page scrolled wherever the last question was; the results screen is a
+        // different "page" entirely and must always open at the top.
+        window.scrollTo(0, 0);
         void this.loadHonestReports();
         return;
       }

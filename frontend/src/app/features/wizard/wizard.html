@@ -57,17 +57,6 @@
         </p>
       </div>
     </div>
-  } @else if (!showIntro() && wizard.currentStep(); as step) {
-    <!-- Idiot-proof "why are we asking this" explainer, 2026-08-06 (owner's ask) — aimed at a
-         first-time viewer (e.g. a Booking Affiliate reviewer) following along. See
-         STEP_DESCRIPTIONS / stepDescription() for the copy and the first-step campaign-context
-         prepend. -->
-    <div class="fixed left-8 top-24 hidden w-72 lg:block">
-      <div class="rounded-2xl border border-white/50 bg-white/95 p-5 shadow-xl shadow-black/20 ring-1 ring-black/5 backdrop-blur-sm">
-        <h3 class="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">{{ step.label }}</h3>
-        <p class="whitespace-pre-line text-sm leading-relaxed text-slate-600">{{ stepDescription(step) }}</p>
-      </div>
-    </div>
   }
 
   <div class="mx-auto w-full max-w-2xl">
@@ -108,7 +97,12 @@
         </p>
       </div>
 
-      <h2 class="mb-6 text-xl font-semibold text-slate-900">Here's what we found for you</h2>
+      <h2
+        class="mb-6 rounded-xl border border-white/50 bg-white/90 px-4 py-3 text-xl font-semibold
+               text-slate-900 shadow-lg shadow-black/10 ring-1 ring-black/5 backdrop-blur-sm"
+      >
+        Here's what we found for you
+      </h2>
 
       <div class="space-y-4">
         @for (hotel of sortedHotels; track hotel.name; let isTopPick = $first) {
@@ -189,12 +183,18 @@
             <!-- Chat bubbles: what the site asks/suggests is left-aligned, what the user
                  answered is right-aligned — owner's explicit ask, 2026-08-04. -->
             <div class="mb-6 flex flex-col gap-2">
-              <div class="flex justify-start">
+              <div class="flex items-center justify-start gap-2">
                 <div
                   class="max-w-[80%] rounded-2xl rounded-bl-sm bg-slate-100 px-4 py-2.5 text-sm text-slate-700"
                 >
                   {{ step.label }}
                 </div>
+                <!-- Owner's call, 2026-08-11: keep the info icon on past/collapsed steps too,
+                     not just the active one — "bez obzira sto je proso, nije visak". -->
+                <ui-info-popover>
+                  <h3 class="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">{{ step.label }}</h3>
+                  <p class="whitespace-pre-line">{{ stepDescription(step) }}</p>
+                </ui-info-popover>
               </div>
               <div class="flex flex-col items-end gap-1">
                 <div
@@ -238,12 +238,20 @@
                    chata, a ovo sto se klikce i unosi da bude van chata, da se vidi space
                    izmedju". Same bubble styling as the collapsed-history question bubbles above,
                    just bold since it's the active one. -->
-              <div class="mb-6 flex justify-start">
+              <div class="mb-6 flex items-center justify-start gap-2">
                 <div
                   class="max-w-[80%] rounded-2xl rounded-bl-sm bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-800"
                 >
                   {{ step.label }}
                 </div>
+                <!-- Replaces the old `hidden lg:block` left-column explainer, 2026-08-11 —
+                     that column was invisible below the lg breakpoint, which was the actual
+                     cause of the explainer not showing on mobile. Same stepDescription() copy,
+                     just relocated so it works identically everywhere. -->
+                <ui-info-popover>
+                  <h3 class="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">{{ step.label }}</h3>
+                  <p class="whitespace-pre-line">{{ stepDescription(step) }}</p>
+                </ui-info-popover>
               </div>
 
               <!-- Frosted panel, 2026-08-06 — the actual interactive controls (choices, text

@@ -1,2 +1,10 @@
 @import "tailwindcss";
 @import "flatpickr/dist/flatpickr.css";
+
+/* Dims/blurs the page behind any native [popover] element (see ui/info-popover.ts) — owner's
+   ask, 2026-08-11. Global, not component-scoped: ::backdrop is a browser-synthesized top-layer
+   pseudo-element that Angular's style encapsulation doesn't reliably reach. */
+[popover]::backdrop {
+  background: rgba(15, 23, 42, 0.35);
+  backdrop-filter: blur(2px);
+}

@@ -84,4 +84,24 @@ class AiCreditsDirectiveTest extends TestCase
 
         $response->assertJsonPath('errors.0.message', 'Out of AI credits.');
     }
+
+    /** Bug fixed 2026-08-11 — see AiCreditsDirective's claim comment. One session, several
+     *  listings (the real flow: one generateHonestReport call per hotel shown), only the FIRST
+     *  call should actually spend a credit. */
+    public function test_logged_in_user_only_charged_once_per_session_across_multiple_listings(): void
+    {
+        $this->fakeOpenAi();
+        $session = SearchSession::create(['status' => 'in_progress']);
+        $user = User::factory()->create(); // 5 welcome credits
+
+        $this->actingAs($user)->postJson('/graphql', ['query' => self::MUTATION, 'variables' => ['id' => $session->id]])
+            ->assertJsonPath('data.generateHonestReport.summary', 'ok');
+        $this->actingAs($user)->postJson('/graphql', ['query' => self::MUTATION, 'variables' => ['id' => $session->id]])
+            ->assertJsonPath('data.generateHonestReport.summary', 'ok');
+        $this->actingAs($user)->postJson('/graphql', ['query' => self::MUTATION, 'variables' => ['id' => $session->id]])
+            ->assertJsonPath('data.generateHonestReport.summary', 'ok');
+
+        $this->assertSame(4, $user->wallet->fresh()->balance);
+        $this->assertSame(1, $user->creditTransactions()->where('type', 'ai_query')->count());
+    }
 }
