@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, signal, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnInit, effect, signal, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { WizardService } from '../../core/wizard.service';
@@ -354,13 +354,34 @@ export class WizardComponent implements OnInit {
    *  clicks past the intro. */
   readonly showIntro = signal(false);
 
+  /** Skips the effect's first (constructor-time) run — locale.locale() already reflects the
+   *  right value for ngOnInit's own initial fetch, a second fetch right away would be wasted. */
+  private isFirstLocaleEffect = true;
+
   constructor(
     public wizard: WizardService,
     public auth: AuthService,
     public i18n: I18nService,
     public locale: LocaleService,
     private route: ActivatedRoute
-  ) {}
+  ) {
+    // Owner's ask, 2026-08-11 ("ne menja se sve na promenu jezika, a mora") — backend-sourced
+    // step/question/option labels are fetched once and cached in WizardService/geographyOptions,
+    // so flipping the EN/DE toggle alone only re-renders the static i18n strings. This re-fetches
+    // the backend content too, in place, without touching session/answers/current step.
+    effect(() => {
+      this.locale.locale();
+
+      if (this.isFirstLocaleEffect) {
+        this.isFirstLocaleEffect = false;
+        return;
+      }
+
+      if (!this.wizard.sessionId()) return;
+
+      void this.wizard.refreshLabels().then(() => this.loadGeographyForAllVisitedSteps());
+    });
+  }
 
   /** Gates the AI-only free-text fields (smestaj_preference textarea + amenity picker's Big-NO
    *  side) — CLAUDE.md section 3/8, owner's ask 2026-08-11: these two are the only inputs that
@@ -835,8 +856,8 @@ export class WizardComponent implements OnInit {
     if (step.questions.some((q) => TRAVELERS_QUESTION_KEYS.has(q.key))) {
       const adults = (this.wizard.getAnswer('adults_count') as number) ?? 0;
       const children = (this.wizard.getAnswer('children_ages') as number[]) ?? [];
-      const adultLabel = adults > 1 ? 'adults' : 'adult';
-      const childrenLabel = children.length > 1 ? 'children' : 'child';
+      const adultLabel = this.i18n.t(adults > 1 ? 'adultsPlural' : 'adultSingular');
+      const childrenLabel = this.i18n.t(children.length > 1 ? 'childrenCount' : 'childCount');
       parts.push(children.length > 0 ? `${adults} ${adultLabel}, ${children.length} ${childrenLabel}` : `${adults} ${adultLabel}`);
     }
 
@@ -844,8 +865,8 @@ export class WizardComponent implements OnInit {
       const rooms = this.wizard.getAnswer(ROOMS_QUESTION_KEY) as number | undefined;
 
       if (rooms != null) {
-        const roomLabel = rooms > 1 ? 'rooms' : 'room';
-        parts.push(rooms === 1 ? 'Together in 1 unit' : `${rooms} ${roomLabel}`);
+        const roomLabel = this.i18n.t(rooms > 1 ? 'roomsPlural' : 'roomSingular');
+        parts.push(rooms === 1 ? this.i18n.t('togetherOneUnit') : `${rooms} ${roomLabel}`);
       }
     }
 
@@ -869,11 +890,11 @@ export class WizardComponent implements OnInit {
       parts.push(this.formatAnswer(question, value));
     }
 
-    return parts.length > 0 ? parts.join(' • ') : '—';
+    return parts.length > 0 ? parts.join(' • ') : this.i18n.t('noAnswer');
   }
 
   private formatAnswer(question: WizardQuestion, value: unknown): string {
-    if (question.inputType === 'boolean') return value ? 'Da' : 'Ne';
+    if (question.inputType === 'boolean') return this.i18n.t(value ? 'yes' : 'no');
     if (question.inputType === 'taxonomy_choice') return this.optionLabel(question.key, value);
     if (question.inputType === 'taxonomy_multi_choice' && Array.isArray(value)) {
       return value.map((v) => this.optionLabel(question.key, v)).join(', ');
@@ -906,6 +927,27 @@ export class WizardComponent implements OnInit {
     const step = this.wizard.currentStep();
     if (!step) return;
 
+    await this.loadGeographyForStep(step);
+  }
+
+  /**
+   * Re-fetches options for every taxonomy_choice/multi_choice question on EVERY already-visited
+   * step, not just the current one — needed on a locale switch (see the constructor's locale
+   * effect), since a PAST step's collapsed chat-bubble summary reads `optionLabel()` against
+   * whatever `geographyOptions` entry that step last loaded, which loadGeographyForCurrentStep()
+   * alone would never touch again once the user has moved past it (owner caught this live: past
+   * steps stayed in the old language after switching EN/DE). Sequential, not parallel — this is
+   * only triggered by an explicit language switch, not the hot path, and staying sequential
+   * avoids hammering the backend with a burst of concurrent requests for a rare action.
+   */
+  private async loadGeographyForAllVisitedSteps(): Promise<void> {
+    for (const index of this.wizard.visitedStepIndices()) {
+      const step = this.wizard.steps()[index];
+      if (step) await this.loadGeographyForStep(step);
+    }
+  }
+
+  private async loadGeographyForStep(step: WizardStep): Promise<void> {
     for (const question of step.questions) {
       if (!question.taxonomyType) continue;
 

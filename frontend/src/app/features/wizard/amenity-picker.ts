@@ -1,7 +1,8 @@
-import { Component, OnInit, input, output, signal } from '@angular/core';
+import { Component, OnInit, effect, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { WizardService } from '../../core/wizard.service';
 import { I18nService } from '../../core/i18n.service';
+import { LocaleService } from '../../core/locale.service';
 
 interface AmenityOption {
   slug: string;
@@ -61,12 +62,33 @@ export class AmenityPickerComponent implements OnInit {
   readonly customYes = signal<string[]>([]);
   readonly customNo = signal<string[]>([]);
 
+  private isFirstLocaleEffect = true;
+
   constructor(
     private wizard: WizardService,
-    public i18n: I18nService
-  ) {}
+    public i18n: I18nService,
+    private locale: LocaleService
+  ) {
+    // Same fix as WizardComponent's constructor effect, 2026-08-11 ("ne menja se sve na
+    // promenu jezika, a mora") — this widget owns its own separate options fetch (see
+    // AMENITY_TYPES docblock), so it needs its own re-fetch-on-locale-switch too.
+    effect(() => {
+      this.locale.locale();
+
+      if (this.isFirstLocaleEffect) {
+        this.isFirstLocaleEffect = false;
+        return;
+      }
+
+      void this.fetchOptions();
+    });
+  }
 
   async ngOnInit(): Promise<void> {
+    await this.fetchOptions();
+  }
+
+  private async fetchOptions(): Promise<void> {
     const results = await Promise.all(AMENITY_TYPES.map((type) => this.wizard.loadGeographyOptions(type)));
     this.allOptions.set(
       results.flatMap((nodes, i) => nodes.map((n) => ({ slug: n.slug, label: n.label, type: AMENITY_TYPES[i] })))

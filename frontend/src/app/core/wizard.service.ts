@@ -150,6 +150,10 @@ export class WizardService {
 
   readonly currentStep = computed(() => this.steps()[this.currentStepIndex()] ?? null);
 
+  /** Remembered from init() so refreshLabels() can re-run the SAME query on a locale switch —
+   *  see refreshLabels() docblock. */
+  private campaignKey: string | null = null;
+
   readonly totalTravelers = computed(() => {
     const adults = (this.answers()['adults_count'] as number) || 0;
     const children = (this.answers()['children_ages'] as number[]) || [];
@@ -172,6 +176,7 @@ export class WizardService {
    * zero changes to support campaigns — they only ever see "the current step's questions."
    */
   async init(campaignKey?: string): Promise<void> {
+    this.campaignKey = campaignKey ?? null;
     this.loading.set(true);
     try {
       if (campaignKey) {
@@ -232,6 +237,27 @@ export class WizardService {
     }
 
     return steps;
+  }
+
+  /**
+   * Re-fetches step/question/option labels in the CURRENT locale (see GraphqlService's
+   * X-Locale header) without touching session state — same steps/questions in the same order,
+   * just relabeled. Triggered by WizardComponent when the user switches EN/DE mid-flow (owner's
+   * ask, 2026-08-11: "ne menja se sve na promenu jezika, a mora") — backend-sourced labels used
+   * to stay frozen at whatever locale was active during the original fetch, since switching the
+   * toggle only re-renders the STATIC i18n strings, never re-fetches GraphQL data on its own.
+   */
+  async refreshLabels(): Promise<void> {
+    if (this.campaignKey) {
+      const data = await this.gql.request<{ wizardCampaign: WizardCampaign }>(WIZARD_CAMPAIGN_QUERY, {
+        key: this.campaignKey,
+      });
+      this.steps.set(this.groupCampaignQuestionsIntoSteps(data.wizardCampaign.questions));
+      return;
+    }
+
+    const data = await this.gql.request<{ wizardSteps: WizardStep[] }>(WIZARD_STEPS_QUERY);
+    this.steps.set(data.wizardSteps);
   }
 
   setAnswer(key: string, value: unknown): void {
