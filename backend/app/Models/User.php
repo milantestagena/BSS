@@ -9,6 +9,7 @@ use Filament\Panel;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -19,7 +20,7 @@ use Illuminate\Notifications\Notifiable;
  *  need per-campaign tuning yet" convention (see BudgetEstimationEngine). */
 const WELCOME_BONUS_CREDITS = 5;
 
-#[Fillable(['name', 'email', 'password', 'google_id', 'avatar_url', 'referral_source', 'is_admin'])]
+#[Fillable(['name', 'email', 'password', 'google_id', 'avatar_url', 'referral_source', 'referred_by_user_id', 'is_admin'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements FilamentUser
 {
@@ -63,6 +64,24 @@ class User extends Authenticatable implements FilamentUser
     public function referralAttribution(): HasOne
     {
         return $this->hasOne(ReferralAttribution::class);
+    }
+
+    /**
+     * User-to-user CREDIT referral (CLAUDE.md section 3/6) — deliberately separate from the
+     * money-based ReferralPartner system above. Every user is implicitly their own referrer via
+     * a `?ref=u<id>` link (see GoogleAuthController), so this needs no extra table: just who
+     * referred THIS user, set once at signup and never overwritten (first-touch).
+     */
+    public function referredBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'referred_by_user_id');
+    }
+
+    /** This user's own shareable link — every logged-in user has one automatically, no
+     *  admin promotion needed (unlike the reseller/ReferralPartner program). */
+    public function referralCode(): string
+    {
+        return 'u' . $this->id;
     }
 
     /**

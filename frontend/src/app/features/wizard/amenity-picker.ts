@@ -35,6 +35,10 @@ const MAX_SUGGESTIONS = 6;
 export class AmenityPickerComponent implements OnInit {
   yesSlugs = input<string[]>([]);
   noSlugs = input<string[]>([]);
+  /** Big-NO drives no real Booking filter (see SearchSessionQueryCompiler) — it only ever feeds
+   *  the AI signal layer, so gating it behind login+credits costs anonymous/no-credit users
+   *  nothing real. Big-YES stays always enabled since it drives actual search filters. */
+  noDisabled = input(false);
 
   yesChange = output<string[]>();
   noChange = output<string[]>();

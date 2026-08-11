@@ -101,13 +101,38 @@ Ovo je **konceptualno i arhitekturno odvojeno** od user-to-user referral sistema
 
 ## 8. Trenutni fokus / sledeći koraci
 
-1. **Definisati `PassengerProfile` / `SearchSession` JSON shape** + DB schema/migracije (sledeća konkretna radna sesija)
-2. **Thin MVP prvo** — bez AI Honest Report-a — da se validira conversion signal pre punog build-a
-3. Struktura: `TaxonomyNode` (self-referencing stablo: `id, parent_id, type, slug, sort_order, meta jsonb`), `WizardStep`/`WizardQuestion`
-4. Paralelno (non-technical): affiliate program aplikacije, registracija firme, GDPR compliance
-5. Validacija CAC-a kroz male ad testove pre skaliranja
+**Status (2026-08-11):** Live na tripinele.com. AI Honest Report, User/Credits/Wallet, Google OAuth,
+i influencer/referral affiliate sistem (sekcija 6 — resellers se promovišu iz postojećih korisnika
+preko Filament admina, ne prave se sa posebnim login-om) su izgrađeni i deployovani. Booking.com
+affiliate prijava podneta 2026-08-07, odgovor se očekuje do ~15. avgusta — ako stigne na vreme,
+lansiranje pomera sa 25. avgusta na **1. septembar** (i dalje solidno unutar "kasno letovanje"
+sezone, bez žurbe — "kad bude spremno, biće spremno").
 
-**Pristup:** Phased implementation — validirati conversion signal sa thin MVP-om pre investiranja u pun AI feature set. Deo-time development, odluke se tretiraju kao rešene (bez ponovnog otvaranja) osim ako nema novih podataka.
+**Pre-launch punch lista (dogovoreno 2026-08-11):**
+
+1. **Proširiti listu gradova** — više grčkih ostrva, možda još jedna zemlja. Čisto data/seed rad.
+2. **Nedeljno ažuriranje cena** — owner šalje real cene sa terena, ubacuje se preko idempotentnog
+   `WizardSeeder`-a (`db:seed --class=WizardSeeder`, bezbedno na živoj bazi).
+3. **Automatsko skraćivanje liste gradova po temperaturi mora** — sezona ide od ~150 gradova ka
+   ~15 do oktobra (kasno letovanje, NE party trip — to je posebna buduća kampanja). Real
+   `sea_temp_c` podaci već postoje u `TaxonomyNodeClimate`; implementacija je nova narrowing faza
+   u `GeographyResolver` (isti pattern kao `filterByBudget`/`filterByCulturalAvailability`),
+   računa se live protiv ciljanog meseca — ne treba scheduled job.
+4. **Popuniti country-level taxonomy meta tagove** (hrana/pivo/vino/party vs pub atmosfera) —
+   `GeographyResolver::suggested()`'s `match_score` čita `meta.drinks/atmosphere/food/budget` po
+   zemlji, ali ti tagovi skoro nigde nisu popunjeni, pa match_score trenutno ne razlikuje ništa.
+   Ovo je razlog zašto se preference_tag izbor još ne oseti u rezultatima. "Party" i "pub"
+   atmosfera tretirani kao razdvojena meta-vrednost po zemlji (ne novi wizard-facing tag).
+5. **Nemački jezik** (DACH tržište). Skladišni sloj (`Translation` model, `HasTranslations` trait,
+   hash-based staleness detection) već postoji, ali AI translate-i-cache servis, GraphQL izlaganje
+   po locale-u, i frontend language switch još ne postoje — pravi posao. Claude piše statične UI
+   prevode + formatira poruke; owner dodaje language switch i nalazi native speaker-a za proveru.
+6. **Kontinuirano** (svakodnevno posle gornjeg): testiranje search flow-a, štelovanje
+   `weighted_toward`/`match_score` vrednosti na osnovu realnih rezultata.
+
+**Posle ove kampanje:** sajt je trajan posao, ne jednokratan projekat — sledeća kampanja (npr.
+zimovanje, "Dočekaj Novu godinu sa Orlovima") ponovo pokreće mehanizam razdvajanja/proširenja
+taksonomije, ali uvek kao iteracija na postojeće, ne redizajn.
 
 ---
 

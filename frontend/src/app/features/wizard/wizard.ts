@@ -2,6 +2,7 @@ import { Component, ElementRef, OnInit, signal, ViewChild } from '@angular/core'
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { WizardService } from '../../core/wizard.service';
+import { AuthService } from '../../core/auth.service';
 import { TaxonomyNode, WizardQuestion, WizardStep } from '../../core/wizard.types';
 import { QuestionInputComponent } from './question-input';
 import { TravelersInputComponent, TravelersValue } from './travelers-input';
@@ -296,7 +297,30 @@ export class WizardComponent implements OnInit {
    *  clicks past the intro. */
   readonly showIntro = signal(false);
 
-  constructor(public wizard: WizardService, private route: ActivatedRoute) {}
+  constructor(public wizard: WizardService, public auth: AuthService, private route: ActivatedRoute) {}
+
+  /** Gates the AI-only free-text fields (smestaj_preference textarea + amenity picker's Big-NO
+   *  side) — CLAUDE.md section 3/8, owner's ask 2026-08-11: these two are the only inputs that
+   *  actually feed the AI layer (Big-YES drives real Booking filters and stays free always).
+   *  Structured taxonomy pills are NEVER gated — only these two free-text signals. */
+  get aiSearchEnabled(): boolean {
+    const user = this.auth.currentUser();
+    return !!user && (user.wallet?.balance ?? 0) > 0;
+  }
+
+  /** null when the AI fields are enabled; otherwise the explanation shown next to them. */
+  get aiSearchGateMessage(): string | null {
+    if (this.aiSearchEnabled) return null;
+    if (!this.auth.loaded()) return null;
+
+    return this.auth.currentUser()
+      ? 'You’re out of AI credits.'
+      : 'Log in to use Big NO and AI precise search.';
+  }
+
+  get aiSearchOutOfCredits(): boolean {
+    return this.auth.loaded() && !!this.auth.currentUser() && !this.aiSearchEnabled;
+  }
 
   async ngOnInit(): Promise<void> {
     const data = this.route.snapshot.data;

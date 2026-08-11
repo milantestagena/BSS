@@ -273,10 +273,25 @@
                 <app-amenity-picker
                   [yesSlugs]="$any(wizard.getAnswer('amenities_yes')) ?? []"
                   [noSlugs]="$any(wizard.getAnswer('amenities_no')) ?? []"
+                  [noDisabled]="!aiSearchEnabled"
                   (yesChange)="onAmenityYesChange($event)"
                   (noChange)="onAmenityNoChange($event)"
                   (unmatchedText)="onAmenityUnmatchedText($event)"
                 />
+
+                @if (aiSearchGateMessage; as gateMessage) {
+                  <div class="-mt-4 mb-6 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                    <span>{{ gateMessage }}</span>
+                    @if (!aiSearchOutOfCredits) {
+                      <a [href]="auth.signInUrl" class="ml-1 font-semibold underline">Sign in with Google</a>
+                    } @else {
+                      <details class="mt-1">
+                        <summary class="cursor-pointer font-semibold">How do I get more credits?</summary>
+                        <p class="mt-1 text-amber-700">A confirmed booking through us earns you +20 credits.</p>
+                      </details>
+                    }
+                  </div>
+                }
               }
 
               @for (question of visibleQuestions; track question.id) {
@@ -319,6 +334,7 @@
                     [question]="question"
                     [options]="optionsFor(question)"
                     [value]="wizard.getAnswer(question.key)"
+                    [disabled]="question.key === 'smestaj_preference' && !aiSearchEnabled"
                     (valueChange)="onAnswerChange(question, $event)"
                   />
                 }

@@ -47,18 +47,31 @@ class GoogleAuthController extends Controller
         } else {
             $refSource = session('pending_referral_source');
 
+            // User-to-user CREDIT referral (CLAUDE.md section 3/6, distinct from the
+            // influencer/money ReferralAttribution below): every user's own share link is
+            // `?ref=u<id>` (see User::referralCode()) — checked FIRST since it's a cheap format
+            // match, no DB hit unless it actually looks like one.
+            $referredByUserId = null;
+            if ($refSource && preg_match('/^u(\d+)$/', $refSource, $m)) {
+                $referredByUserId = User::whereKey($m[1])->value('id');
+            }
+
             $user = User::create([
                 'name' => $googleUser->getName() ?? $googleUser->getNickname() ?? 'Traveler',
                 'email' => $googleUser->getEmail(),
                 'google_id' => $googleUser->getId(),
                 'avatar_url' => $googleUser->getAvatar(),
                 'referral_source' => $refSource,
+                'referred_by_user_id' => $referredByUserId,
             ]);
 
-            // The full influencer attribution (CLAUDE.md section 6) is separate from the
-            // lightweight `referral_source` string above — only fires when `?ref=` matches a
-            // real, partner-owned ReferralCode.
-            app(ReferralAttributionService::class)->attribute($user, $refSource, $request->ip());
+            // The full influencer attribution (CLAUDE.md section 6) is separate from both the
+            // lightweight `referral_source` string and the user-to-user credit referral above —
+            // only fires when `?ref=` matches a real, partner-owned ReferralCode. Skipped
+            // entirely once a user-to-user match already won (mutually exclusive ref formats).
+            if (! $referredByUserId) {
+                app(ReferralAttributionService::class)->attribute($user, $refSource, $request->ip());
+            }
         }
 
         session()->forget('pending_referral_source');

@@ -45,6 +45,7 @@
     @case ('text') {
       <ui-text-field
         [multiline]="true"
+        [disabled]="disabled"
         [value]="textValue"
         (valueChange)="onTextChange($event)"
       />

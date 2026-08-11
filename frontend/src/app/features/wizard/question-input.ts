@@ -15,6 +15,9 @@ export class QuestionInputComponent {
   @Input({ required: true }) question!: WizardQuestion;
   @Input() options: TaxonomyNode[] | null = null;
   @Input() value: unknown;
+  /** Only meaningful for input_type 'text' (smestaj_preference) — see wizard.html's
+   *  aiSearchDisabled/aiSearchGateReason. Structured taxonomy questions are never gated. */
+  @Input() disabled = false;
   @Output() valueChange = new EventEmitter<unknown>();
 
   get resolvedOptions(): TaxonomyNode[] {

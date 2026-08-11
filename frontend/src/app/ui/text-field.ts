@@ -9,9 +9,11 @@ import { FormsModule } from '@angular/forms';
     @if (multiline()) {
       <textarea
         class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm
-               focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+               focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400
+               disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
         rows="3"
         [placeholder]="placeholder()"
+        [disabled]="disabled()"
         [(ngModel)]="value"
       ></textarea>
     } @else {
@@ -19,10 +21,12 @@ import { FormsModule } from '@angular/forms';
         class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm
                [appearance:textfield] focus:outline-none focus:ring-2 focus:ring-slate-400
                focus:border-slate-400 [&::-webkit-inner-spin-button]:appearance-none
-               [&::-webkit-outer-spin-button]:appearance-none"
+               [&::-webkit-outer-spin-button]:appearance-none
+               disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
         [type]="type()"
         [step]="step()"
         [placeholder]="placeholder()"
+        [disabled]="disabled()"
         [(ngModel)]="value"
       />
     }
@@ -35,5 +39,6 @@ export class TextFieldComponent {
   step = input<string>('1');
   placeholder = input('');
   multiline = input(false);
+  disabled = input(false);
   value = model<string>('');
 }
