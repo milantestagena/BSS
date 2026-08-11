@@ -29,6 +29,12 @@ return [
 
     'allowed_origins' => [
         'http://127.0.0.1:4837',
+        // Browsers treat 'localhost' and '127.0.0.1' as different CORS origins even though
+        // they're the same machine — graphql.service.ts documents why 127.0.0.1 is the
+        // intended one (WSL2 IPv4 port-forwarding), but 'localhost' is easy to type out of
+        // habit/history, so it's whitelisted too rather than relying on everyone remembering.
+        // Bug caught live 2026-08-11: opened via localhost:4837, GraphQL blocked outright.
+        'http://localhost:4837',
         'https://tripinele.com',
         'https://www.tripinele.com',
     ],
