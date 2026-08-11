@@ -41,6 +41,43 @@ class HonestReportGenerator
         return $this->parse($raw);
     }
 
+    /**
+     * Translates an already-generated ENGLISH report — never called to generate one
+     * independently per language, see CLAUDE.md section 3: "Honest Report se uvek prevodi sa
+     * kanonskog engleskog izvora, nikad se ne generiše nezavisno po jeziku (radi faktičke
+     * konzistentnosti)". A literal translation keeps pros/cons/summary factually identical
+     * across locales — asking the model fresh in German could genuinely emphasize different
+     * points, which is exactly the inconsistency this rule exists to avoid. See
+     * HonestReportResolver, 2026-08-11 — always calls generate() first, this second.
+     *
+     * @param  array{pros: string[], cons: string[], summary: string}  $report
+     * @return array{pros: string[], cons: string[], summary: string}
+     */
+    public function translate(array $report, string $locale): array
+    {
+        $raw = $this->client->chat([
+            ['role' => 'system', 'content' => $this->translationSystemPrompt($locale)],
+            ['role' => 'user', 'content' => json_encode($report)],
+        ]);
+
+        return $this->parse($raw);
+    }
+
+    private function translationSystemPrompt(string $locale): string
+    {
+        $languageName = match ($locale) {
+            'de' => 'German',
+            default => $locale,
+        };
+
+        return <<<PROMPT
+        Translate the "pros", "cons", and "summary" values in the given JSON into {$languageName}.
+        This is a literal translation, not a rewrite — preserve the exact same facts, tone, and
+        number of items in each list; never add, remove, or soften a point. Respond with ONLY
+        valid JSON, in exactly the same shape: {"pros": ["...", "..."], "cons": ["...", "..."], "summary": "..."}
+        PROMPT;
+    }
+
     private function systemPrompt(): string
     {
         return <<<'PROMPT'

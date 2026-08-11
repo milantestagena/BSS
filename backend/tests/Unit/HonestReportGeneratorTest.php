@@ -91,4 +91,31 @@ class HonestReportGeneratorTest extends TestCase
 
         app(HonestReportGenerator::class)->generate($session, $this->listing);
     }
+
+    /** See HonestReportResolver, 2026-08-11 — translate() is always given an ALREADY-generated
+     *  English report, never used to generate one independently per language. */
+    public function test_translate_sends_the_english_report_and_target_language_to_the_model(): void
+    {
+        $englishReport = [
+            'pros' => ['Private pool matches the quiet-stay preference.'],
+            'cons' => ['Evening wifi can be patchy.'],
+            'summary' => 'A strong fit if you value privacy over connectivity.',
+        ];
+
+        $this->mock(OpenAiClient::class, function (MockInterface $mock) use ($englishReport) {
+            $mock->shouldReceive('chat')->once()->with(\Mockery::on(function (array $messages) use ($englishReport) {
+                return str_contains($messages[0]['content'], 'German')
+                    && $messages[1]['content'] === json_encode($englishReport);
+            }))->andReturn(json_encode([
+                'pros' => ['Der Privatpool passt zur Ruhe-Präferenz.'],
+                'cons' => ['Abends kann das WLAN instabil sein.'],
+                'summary' => 'Eine starke Wahl, wenn dir Privatsphäre wichtiger ist als Konnektivität.',
+            ]));
+        });
+
+        $result = app(HonestReportGenerator::class)->translate($englishReport, 'de');
+
+        $this->assertSame(['Der Privatpool passt zur Ruhe-Präferenz.'], $result['pros']);
+        $this->assertStringContainsString('Privatsphäre', $result['summary']);
+    }
 }
