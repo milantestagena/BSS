@@ -1,6 +1,6 @@
 import { Component, ElementRef, OnInit, signal, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { WizardService } from '../../core/wizard.service';
 import { AuthService } from '../../core/auth.service';
 import { TaxonomyNode, WizardQuestion, WizardStep } from '../../core/wizard.types';
@@ -249,6 +249,7 @@ function computeHotelHighlight(hotel: MockHotel, all: MockHotel[], claimed: Set<
   standalone: true,
   imports: [
     CommonModule,
+    RouterLink,
     QuestionInputComponent,
     TravelersInputComponent,
     CitySearchComponent,
