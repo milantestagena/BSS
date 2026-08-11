@@ -26,7 +26,9 @@ import type { Instance as FlatpickrInstance } from 'flatpickr/dist/types/instanc
 export class DateFieldComponent implements AfterViewInit, OnDestroy {
   @ViewChild('inputEl') inputEl!: ElementRef<HTMLInputElement>;
 
-  placeholder = input('Izaberi datum');
+  // English default (canonical) — question-input.html always overrides this with the
+  // locale-aware i18n string. Was hardcoded Serbian until 2026-08-11 German-language work.
+  placeholder = input('Choose a date');
   /** ISO date string (YYYY-MM-DD), or '' when unset. */
   value = model<string>('');
 

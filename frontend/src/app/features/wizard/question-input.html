@@ -5,8 +5,8 @@
       <span class="font-medium text-emerald-600">({{ hint }})</span>
     }
     @if (question.mandatory) {
-      <span class="ml-1 align-middle text-lg font-bold text-amber-500" title="Required">*</span>
-      <span class="ml-1 align-middle text-xs font-normal normal-case text-amber-600">(required)</span>
+      <span class="ml-1 align-middle text-lg font-bold text-amber-500" [title]="i18n.t('required')">*</span>
+      <span class="ml-1 align-middle text-xs font-normal normal-case text-amber-600">{{ i18n.t('requiredParenthetical') }}</span>
     }
   </label>
 
@@ -24,7 +24,7 @@
 
     @case ('number_array') {
       <ui-text-field
-        placeholder="npr. 2, 7, 14"
+        [placeholder]="i18n.t('numberArrayExample')"
         [value]="childrenAgesText"
         (valueChange)="onChildrenAgesChange($event)"
       />
@@ -38,7 +38,7 @@
           [checked]="!!value"
           (change)="onBooleanChange($any($event.target).checked)"
         />
-        Yes
+        {{ i18n.t('yes') }}
       </label>
     }
 
@@ -53,9 +53,9 @@
 
     @case ('date_range') {
       <div class="flex max-w-md items-center gap-3">
-        <ui-date-field [value]="dateFromValue" (valueChange)="onDateFromChange($event)" />
+        <ui-date-field [placeholder]="i18n.t('chooseDate')" [value]="dateFromValue" (valueChange)="onDateFromChange($event)" />
         <span class="text-slate-400">—</span>
-        <ui-date-field [value]="dateToValue" (valueChange)="onDateToChange($event)" />
+        <ui-date-field [placeholder]="i18n.t('chooseDate')" [value]="dateToValue" (valueChange)="onDateToChange($event)" />
       </div>
     }
 

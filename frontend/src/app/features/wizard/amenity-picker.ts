@@ -1,6 +1,7 @@
 import { Component, OnInit, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { WizardService } from '../../core/wizard.service';
+import { I18nService } from '../../core/i18n.service';
 
 interface AmenityOption {
   slug: string;
@@ -60,7 +61,10 @@ export class AmenityPickerComponent implements OnInit {
   readonly customYes = signal<string[]>([]);
   readonly customNo = signal<string[]>([]);
 
-  constructor(private wizard: WizardService) {}
+  constructor(
+    private wizard: WizardService,
+    public i18n: I18nService
+  ) {}
 
   async ngOnInit(): Promise<void> {
     const results = await Promise.all(AMENITY_TYPES.map((type) => this.wizard.loadGeographyOptions(type)));

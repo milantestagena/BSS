@@ -1,4 +1,5 @@
 import { Component, input, output } from '@angular/core';
+import { I18nService } from '../../core/i18n.service';
 
 export interface TravelersValue {
   adultsCount: number | null;
@@ -31,6 +32,8 @@ export class TravelersInputComponent {
   needsCrib = input<boolean[]>([]);
 
   valueChange = output<TravelersValue>();
+
+  constructor(public i18n: I18nService) {}
 
   incrementAdults(): void {
     // null (unanswered) displays as 1 in the template's `?? 1` fallback — must increment FROM

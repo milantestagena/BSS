@@ -1,18 +1,45 @@
 import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
+import { I18nService } from '../../core/i18n.service';
+import { LocaleService } from '../../core/locale.service';
 
 /**
  * Persistent, always-visible account status — see AuthService docblock. Deliberately NOT a
  * gate on anything yet (CLAUDE.md section 3: login only gates step 8) — just lets a visitor
  * see/reach their account, and gives Google's OAuth consent screen a clear, discoverable entry
  * point rather than a bare URL only I know about. 2026-08-10.
+ *
+ * EN/DE language switch lives here too, 2026-08-11 — same "always visible, top corner" slot,
+ * no reason to mount a second fixed-position element just for it.
  */
 @Component({
   selector: 'app-account-badge',
   standalone: true,
   template: `
-    <div class="fixed right-4 top-4 z-30">
+    <div class="fixed right-4 top-4 z-30 flex items-center gap-2">
+      <div class="flex overflow-hidden rounded-full border border-white/50 bg-white/95 text-xs font-semibold shadow-lg backdrop-blur-sm">
+        <button
+          type="button"
+          class="px-2.5 py-1.5 transition"
+          [class.bg-slate-900]="locale.locale() === 'en'"
+          [class.text-white]="locale.locale() === 'en'"
+          [class.text-slate-500]="locale.locale() !== 'en'"
+          (click)="locale.setLocale('en')"
+        >
+          EN
+        </button>
+        <button
+          type="button"
+          class="px-2.5 py-1.5 transition"
+          [class.bg-slate-900]="locale.locale() === 'de'"
+          [class.text-white]="locale.locale() === 'de'"
+          [class.text-slate-500]="locale.locale() !== 'de'"
+          (click)="locale.setLocale('de')"
+        >
+          DE
+        </button>
+      </div>
       @if (auth.currentUser(); as user) {
         <a
           routerLink="/account"
@@ -25,14 +52,14 @@ import { AuthService } from '../../core/auth.service';
               {{ user.name.charAt(0) }}
             </span>
           }
-          <span class="font-medium text-slate-800">{{ user.wallet?.balance ?? 0 }} credits</span>
+          <span class="font-medium text-slate-800">{{ user.wallet?.balance ?? 0 }} {{ i18n.t('credits') }}</span>
         </a>
       } @else if (auth.loaded()) {
         <a
           [href]="auth.signInUrl"
           class="rounded-full border border-white/50 bg-white/95 px-3 py-1.5 text-sm font-medium text-slate-800 shadow-lg backdrop-blur-sm transition hover:bg-white"
         >
-          Sign in with Google
+          {{ i18n.t('signInWithGoogle') }}
         </a>
       }
     </div>
@@ -40,5 +67,9 @@ import { AuthService } from '../../core/auth.service';
   imports: [RouterLink],
 })
 export class AccountBadgeComponent {
-  constructor(public auth: AuthService) {}
+  constructor(
+    public auth: AuthService,
+    public i18n: I18nService,
+    public locale: LocaleService
+  ) {}
 }

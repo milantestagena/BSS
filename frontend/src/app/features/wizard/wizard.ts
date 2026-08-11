@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { WizardService } from '../../core/wizard.service';
 import { AuthService } from '../../core/auth.service';
+import { I18nService } from '../../core/i18n.service';
+import { AppLocale, LocaleService } from '../../core/locale.service';
 import { TaxonomyNode, WizardQuestion, WizardStep } from '../../core/wizard.types';
 import { QuestionInputComponent } from './question-input';
 import { TravelersInputComponent, TravelersValue } from './travelers-input';
@@ -44,12 +46,20 @@ const DESTINATION_CARD_KEYS = new Set(['country_region', 'city']);
  *  cards) — owner's own framing: "zarolamo neki loader koji kao nesto mnogo racuna :D".
  *  Real geography loading runs in parallel underneath (see runScreenTransition), this is
  *  purely a perceived-value device, not fake-for-the-sake-of-fake. */
-const CALCULATING_MESSAGES = [
-  'Checking the weather forecast...',
-  'Comparing accommodation prices...',
-  'Finding beaches that suit you...',
-  'Putting together your suggestions...',
-];
+const CALCULATING_MESSAGES: Record<AppLocale, string[]> = {
+  en: [
+    'Checking the weather forecast...',
+    'Comparing accommodation prices...',
+    'Finding beaches that suit you...',
+    'Putting together your suggestions...',
+  ],
+  de: [
+    'Wettervorhersage wird geprüft...',
+    'Unterkunftspreise werden verglichen...',
+    'Passende Strände werden gesucht...',
+    'Deine Vorschläge werden zusammengestellt...',
+  ],
+};
 const CALCULATING_MIN_DURATION_MS = 1800;
 
 /** Idiot-proof, plain-English "why are we asking this" blurb per wizard step, shown in the
@@ -58,23 +68,38 @@ const CALCULATING_MIN_DURATION_MS = 1800;
  *  follow along without guessing. Keyed by WizardStep.key, same keys used by both the generic
  *  flow and every campaign (campaigns only ever reorder/select from this same fixed step set,
  *  see WizardSeeder::seedWizardSteps()). */
-const STEP_DESCRIPTIONS: Record<string, string> = {
-  trip_type: 'What kind of trip is this? This one choice shapes every question that follows.',
-  broj_putnika: "Just headcount and a rough budget for now — how many of you, any kids, and what you're comfortable spending. We'll match destinations to this later.",
-  odakle_putujes: 'Your home city, so we can give you a realistic sense of how far each suggestion actually is.',
-  termin: "When you're planning to travel. We already suggest a window based on the campaign, but you can fine-tune the exact dates.",
-  persona: "A quick read on what kind of traveler(s) you are — this steers which destinations and vibes we suggest next.",
-  preferencije: "What matters most about the trip's atmosphere, plus your nightly budget — helps us narrow things down to a shortlist that actually fits.",
-  zemlja_regija: "Based on everything so far, here are the countries/regions that fit best. Pick one, or tell us if none of them feel right.",
-  grad: 'Now narrowing down to a specific city or resort town within that region.',
-  smestaj: "Last step — the specific things that would make (or break) your stay: amenities, must-haves, deal-breakers.",
+const STEP_DESCRIPTIONS: Record<AppLocale, Record<string, string>> = {
+  en: {
+    trip_type: 'What kind of trip is this? This one choice shapes every question that follows.',
+    broj_putnika: "Just headcount and a rough budget for now — how many of you, any kids, and what you're comfortable spending. We'll match destinations to this later.",
+    odakle_putujes: 'Your home city, so we can give you a realistic sense of how far each suggestion actually is.',
+    termin: "When you're planning to travel. We already suggest a window based on the campaign, but you can fine-tune the exact dates.",
+    persona: "A quick read on what kind of traveler(s) you are — this steers which destinations and vibes we suggest next.",
+    preferencije: "What matters most about the trip's atmosphere, plus your nightly budget — helps us narrow things down to a shortlist that actually fits.",
+    zemlja_regija: "Based on everything so far, here are the countries/regions that fit best. Pick one, or tell us if none of them feel right.",
+    grad: 'Now narrowing down to a specific city or resort town within that region.',
+    smestaj: "Last step — the specific things that would make (or break) your stay: amenities, must-haves, deal-breakers.",
+  },
+  de: {
+    trip_type: 'Was für eine Reise soll es werden? Diese eine Wahl bestimmt alle folgenden Fragen.',
+    broj_putnika: 'Erstmal nur die Kopfzahl und ein grobes Budget — wie viele seid ihr, gibt es Kinder, und was möchtet ihr ausgeben. Passende Ziele finden wir später.',
+    odakle_putujes: 'Deine Heimatstadt, damit wir dir realistisch zeigen können, wie weit jeder Vorschlag tatsächlich entfernt ist.',
+    termin: 'Wann du reisen möchtest. Wir schlagen bereits einen Zeitraum basierend auf der Kampagne vor, du kannst die genauen Daten aber anpassen.',
+    persona: 'Ein kurzer Eindruck davon, was für ein Reisetyp du bist — das steuert, welche Ziele und Stimmungen wir als Nächstes vorschlagen.',
+    preferencije: 'Was dir bei der Atmosphäre der Reise am wichtigsten ist, plus dein nächtliches Budget — hilft uns, eine wirklich passende Auswahl zu treffen.',
+    zemlja_regija: 'Basierend auf allem bisher Gesagten sind das die am besten passenden Länder/Regionen. Wähle eins, oder sag uns, wenn keins passt.',
+    grad: 'Jetzt grenzen wir es auf eine konkrete Stadt oder einen Ferienort innerhalb dieser Region ein.',
+    smestaj: 'Letzter Schritt — die konkreten Dinge, die deinen Aufenthalt ausmachen (oder ruinieren): Ausstattung, Must-haves, Ausschlusskriterien.',
+  },
 };
 
 /** Shown ABOVE the first step's description only, 2026-08-06 (owner's ask) — orients a
  *  first-time viewer to the fact that this whole flow is scoped to ONE campaign at a time
  *  before they've seen enough of it to infer that themselves. */
-const CAMPAIGN_INTRO_BLURB =
-  "This flow is built around one campaign at a time. Right now you're looking at \"Late Summer\" — squeezing in warm-weather travel before the season ends. More campaigns are planned down the line (city breaks, holiday trips, full summer/winter vacations), each with its own tailored flow like this one.";
+const CAMPAIGN_INTRO_BLURB: Record<AppLocale, string> = {
+  en: "This flow is built around one campaign at a time. Right now you're looking at \"Late Summer\" — squeezing in warm-weather travel before the season ends. More campaigns are planned down the line (city breaks, holiday trips, full summer/winter vacations), each with its own tailored flow like this one.",
+  de: 'Dieser Ablauf ist immer auf eine Kampagne zugeschnitten. Gerade siehst du "Spätsommer" — noch etwas warmes Reisewetter mitnehmen, bevor die Saison endet. Weitere Kampagnen sind geplant (Städtereisen, Feiertagsreisen, komplette Sommer-/Winterurlaube), jede mit ihrem eigenen, passenden Ablauf wie diesem.',
+};
 
 interface ThemeIntro {
   title: string;
@@ -213,7 +238,27 @@ function valueScore(hotel: MockHotel): number {
  * spacious/closest-to-beach), assigned in priority order so no single listing hoards every
  * claim; anything left over gets a value-for-money framing instead of nothing.
  */
-function computeHotelHighlight(hotel: MockHotel, all: MockHotel[], claimed: Set<string>): HotelHighlight {
+const HIGHLIGHT_TEXT: Record<AppLocale, Record<'cheapest' | 'rated' | 'spacious' | 'beach' | 'value' | 'fallback', string>> = {
+  en: {
+    cheapest: 'Of everything within budget, this is the cheapest per night.',
+    rated: 'Highest guest rating of all matching properties.',
+    spacious: 'The most spacious option among the matches.',
+    beach: 'Closest to the beach of everything we found.',
+    value: 'Best rating-for-price balance in this list.',
+    fallback: 'A solid all-around match for what you asked for.',
+  },
+  de: {
+    cheapest: 'Von allem innerhalb deines Budgets ist das die günstigste Option pro Nacht.',
+    rated: 'Höchste Gästebewertung aller passenden Unterkünfte.',
+    spacious: 'Die geräumigste Option unter den Treffern.',
+    beach: 'Am nächsten zum Strand von allem, was wir gefunden haben.',
+    value: 'Bestes Verhältnis von Bewertung zu Preis in dieser Liste.',
+    fallback: 'Eine solide Rundum-Option für das, was du gesucht hast.',
+  },
+};
+
+function computeHotelHighlight(hotel: MockHotel, all: MockHotel[], claimed: Set<string>, locale: AppLocale): HotelHighlight {
+  const text = HIGHLIGHT_TEXT[locale];
   const isCheapest = hotel === all.reduce((a, b) => (b.pricePerNightEur < a.pricePerNightEur ? b : a));
   const isTopRated = hotel === all.reduce((a, b) => (b.rating > a.rating ? b : a));
   const isMostSpacious = hotel === all.reduce((a, b) => (b.sqm > a.sqm ? b : a));
@@ -221,28 +266,28 @@ function computeHotelHighlight(hotel: MockHotel, all: MockHotel[], claimed: Set<
 
   if (isCheapest && !claimed.has('cheapest')) {
     claimed.add('cheapest');
-    return { text: 'Of everything within budget, this is the cheapest per night.', colorClass: 'bg-emerald-100 text-emerald-800' };
+    return { text: text.cheapest, colorClass: 'bg-emerald-100 text-emerald-800' };
   }
   if (isTopRated && !claimed.has('rated')) {
     claimed.add('rated');
-    return { text: 'Highest guest rating of all matching properties.', colorClass: 'bg-amber-100 text-amber-800' };
+    return { text: text.rated, colorClass: 'bg-amber-100 text-amber-800' };
   }
   if (isMostSpacious && !claimed.has('spacious')) {
     claimed.add('spacious');
-    return { text: 'The most spacious option among the matches.', colorClass: 'bg-sky-100 text-sky-800' };
+    return { text: text.spacious, colorClass: 'bg-sky-100 text-sky-800' };
   }
   if (isClosestToBeach && !claimed.has('beach')) {
     claimed.add('beach');
-    return { text: 'Closest to the beach of everything we found.', colorClass: 'bg-cyan-100 text-cyan-800' };
+    return { text: text.beach, colorClass: 'bg-cyan-100 text-cyan-800' };
   }
 
   const valueScore = hotel.rating / hotel.pricePerNightEur;
   const isBestValue = hotel === all.reduce((a, b) => (b.rating / b.pricePerNightEur > a.rating / a.pricePerNightEur ? b : a));
   if (isBestValue && valueScore > 0) {
-    return { text: 'Best rating-for-price balance in this list.', colorClass: 'bg-violet-100 text-violet-800' };
+    return { text: text.value, colorClass: 'bg-violet-100 text-violet-800' };
   }
 
-  return { text: 'A solid all-around match for what you asked for.', colorClass: 'bg-slate-100 text-slate-700' };
+  return { text: text.fallback, colorClass: 'bg-slate-100 text-slate-700' };
 }
 
 @Component({
@@ -282,7 +327,10 @@ export class WizardComponent implements OnInit {
   readonly hoveredNode = signal<TaxonomyNode | null>(null);
   readonly showCalculatingTransition = signal(false);
   readonly calculatingMessageIndex = signal(0);
-  readonly calculatingMessages = CALCULATING_MESSAGES;
+
+  get calculatingMessages(): string[] {
+    return CALCULATING_MESSAGES[this.locale.locale()];
+  }
 
   /** True while a geography sub-question (theme→country, country→city) is being (re)scoped. */
   readonly geographyLoading = signal<Record<string, boolean>>({});
@@ -294,13 +342,25 @@ export class WizardComponent implements OnInit {
    *  later without touching anything below this line). Null on the plain '' route, which
    *  behaves exactly as before. */
   private campaignKey: string | null = null;
-  themeIntro: ThemeIntro | null = null;
+  private themeIntroData: Record<AppLocale, ThemeIntro> | null = null;
+
+  /** Locale-reactive — see themeIntroData/ngOnInit. Switching EN/DE mid-intro-screen updates
+   *  this immediately, same as everything else translated in this component. */
+  get themeIntro(): ThemeIntro | null {
+    return this.themeIntroData?.[this.locale.locale()] ?? null;
+  }
   /** True while showing the themed landing, before the session has actually started — kept
    *  separate from wizard.loading() so we don't create a SearchSession for someone who never
    *  clicks past the intro. */
   readonly showIntro = signal(false);
 
-  constructor(public wizard: WizardService, public auth: AuthService, private route: ActivatedRoute) {}
+  constructor(
+    public wizard: WizardService,
+    public auth: AuthService,
+    public i18n: I18nService,
+    public locale: LocaleService,
+    private route: ActivatedRoute
+  ) {}
 
   /** Gates the AI-only free-text fields (smestaj_preference textarea + amenity picker's Big-NO
    *  side) — CLAUDE.md section 3/8, owner's ask 2026-08-11: these two are the only inputs that
@@ -316,9 +376,7 @@ export class WizardComponent implements OnInit {
     if (this.aiSearchEnabled) return null;
     if (!this.auth.loaded()) return null;
 
-    return this.auth.currentUser()
-      ? 'You’re out of AI credits.'
-      : 'Log in to use Big NO and AI precise search.';
+    return this.auth.currentUser() ? this.i18n.t('outOfCredits') : this.i18n.t('loginForAiSearch');
   }
 
   get aiSearchOutOfCredits(): boolean {
@@ -328,7 +386,7 @@ export class WizardComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     const data = this.route.snapshot.data;
     this.campaignKey = (data['campaignKey'] as string) ?? null;
-    this.themeIntro = (data['intro'] as ThemeIntro) ?? null;
+    this.themeIntroData = (data['intro'] as Record<AppLocale, ThemeIntro>) ?? null;
 
     if (this.campaignKey && this.themeIntro) {
       this.showIntro.set(true);
@@ -355,7 +413,7 @@ export class WizardComponent implements OnInit {
   }
 
   hotelHighlight(hotel: MockHotel): HotelHighlight {
-    return computeHotelHighlight(hotel, this.mockHotels, this.claimedHighlights);
+    return computeHotelHighlight(hotel, this.mockHotels, this.claimedHighlights, this.locale.locale());
   }
 
   /** Reset once per component instance so re-computing highlights on every change-detection
@@ -644,7 +702,7 @@ export class WizardComponent implements OnInit {
     this.showCalculatingTransition.set(true);
     this.calculatingMessageIndex.set(0);
     const cycle = setInterval(() => {
-      this.calculatingMessageIndex.update((i) => (i + 1) % CALCULATING_MESSAGES.length);
+      this.calculatingMessageIndex.update((i) => (i + 1) % this.calculatingMessages.length);
     }, 500);
 
     try {
@@ -690,10 +748,11 @@ export class WizardComponent implements OnInit {
    *  since that's the one place a first-time viewer hasn't yet seen enough of the flow to
    *  infer it's campaign-scoped. */
   stepDescription(step: WizardStep): string {
-    const own = STEP_DESCRIPTIONS[step.key] ?? '';
+    const locale = this.locale.locale();
+    const own = STEP_DESCRIPTIONS[locale][step.key] ?? '';
     const isFirstStep = this.wizard.visitedStepIndices().length === 1;
 
-    return isFirstStep ? `${CAMPAIGN_INTRO_BLURB}\n\n${own}` : own;
+    return isFirstStep ? `${CAMPAIGN_INTRO_BLURB[locale]}\n\n${own}` : own;
   }
 
   /**

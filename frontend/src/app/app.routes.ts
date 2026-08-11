@@ -32,11 +32,19 @@ export const routes: Routes = [
       campaignKey: 'kasno-letovanje',
       // English rewrite, 2026-08-06 — same playful "haven't caught any sun yet" wink as the
       // original Serbian "Nisi osolio dupe ove godine?" joke, kept for an English-speaking
-      // reviewer (Booking Affiliate application). See wizard_architecture memory.
+      // reviewer (Booking Affiliate application). See wizard_architecture memory. German added
+      // 2026-08-11 (DACH market) — see WizardComponent.themeIntro for the locale lookup.
       intro: {
-        title: 'Still pasty this year?',
-        subtitle: "Let's fix that. It's still beach weather on the Mediterranean while it's dark back home by 5pm.",
-        cta: 'Get me some sun',
+        en: {
+          title: 'Still pasty this year?',
+          subtitle: "Let's fix that. It's still beach weather on the Mediterranean while it's dark back home by 5pm.",
+          cta: 'Get me some sun',
+        },
+        de: {
+          title: 'Dieses Jahr noch keine Sonne gesehen?',
+          subtitle: 'Das ändern wir. Am Mittelmeer ist noch Strandwetter, während es zu Hause schon um 17 Uhr dunkel wird.',
+          cta: 'Zeig mir die Sonne',
+        },
       },
     },
   },

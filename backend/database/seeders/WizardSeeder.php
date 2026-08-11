@@ -43,6 +43,7 @@ class WizardSeeder extends Seeder
         $this->seedWizardSteps();
         $this->seedWizardCampaigns();
         $this->seedRelations();
+        $this->seedGermanTranslations();
     }
 
     /**
@@ -1306,5 +1307,242 @@ class WizardSeeder extends Seeder
             'relation_type' => $relationType,
             'meta' => $meta === null ? null : json_encode($meta),
         ]);
+    }
+
+    /**
+     * German translations — DACH market (Booking Affiliate region, see CLAUDE.md section 8),
+     * added 2026-08-11. Separate pass rather than threading a 4th 'de' param through every
+     * node()/step/question call site (100+ of them) — this reads the same canonical English
+     * `label` the app already has and writes one 'de' Translation row per entry, exactly the
+     * same mechanism node() already uses for 'sr'.
+     *
+     * City proper nouns are deliberately left untranslated (no row written = falls back to the
+     * canonical English label) EXCEPT the handful with an actual, well-known German exonym
+     * (Athen, Belgrad, Brügge, Prag, Rom, Korfu, Rhodos, Kreta) — inventing German place names
+     * for the rest risked being wrong, not just untranslated.
+     */
+    private function seedGermanTranslations(): void
+    {
+        $byType = [
+            'trip_type' => [
+                'city_break' => 'Städtereise',
+                'snow' => 'Schnee',
+                'summer_sea' => 'Sommer / Meer',
+            ],
+            'group_type' => [
+                'porodica' => 'Familie',
+                'skola' => 'Klassenfahrt',
+                'klub' => 'Verein / Sportteam',
+                'drustvo_penzionera' => 'Rentnergruppe',
+                'grupa_prijatelja' => 'Größere Freundesgruppe',
+            ],
+            'relationship_type' => [
+                'par' => 'Paar',
+                'drugari' => 'Freunde',
+                'rodbina' => 'Verwandte',
+            ],
+            'persona' => [
+                'istrazivac' => 'Entdecker',
+                'partijaner' => 'Partygänger',
+                'gurman' => 'Feinschmecker',
+                'flegma' => 'Genießer — einfach entspannen',
+            ],
+            'preference_tag' => [
+                'sunce' => 'Sonne ein Muss',
+                'jeftino' => 'Günstig',
+                'kvalitet' => 'Qualität vor Preis',
+                'pivo' => 'Gutes Bier',
+                'vino' => 'Guter Wein',
+                'dobra_hrana' => 'Gutes Essen',
+                'zivahna_nocna_zabava' => 'Lebhaftes Nachtleben',
+                'mirno_i_tiho' => 'Ruhig & friedlich',
+                'van_utabanih_staza' => 'Abseits ausgetretener Pfade',
+                'porodicna_atmosfera' => 'Familienfreundliche Atmosphäre',
+                'zeli_alkohol_slobodno' => 'Freier Zugang zu Alkohol gewünscht',
+                'zeli_halal' => 'Halal-Optionen gewünscht',
+                'zeli_vegan' => 'Vegane Optionen gewünscht',
+                'zeli_lgbt_friendly' => 'LGBT-freundliches Reiseziel gewünscht',
+            ],
+            'budget_tier' => [
+                'do_20e' => 'Bis 20€/Nacht',
+                '20_50e' => '20-50€/Nacht',
+                '50_100e' => '50-100€/Nacht',
+                '100e_plus' => '100€+/Nacht',
+            ],
+            'region_theme' => [
+                'istocna_evropa' => 'Osteuropa',
+                'zapadna_evropa' => 'Westeuropa',
+                'anticki_svet' => 'Antike Welt',
+                'mediteran' => 'Mittelmeerraum',
+            ],
+            'termin_category' => [
+                'letovanje' => 'Sommerurlaub',
+                'zimovanje' => 'Winterurlaub',
+                'praznici' => 'Zu den Feiertagen',
+                'vikend_break' => 'Wochenendtrip',
+                'sledeca_nedelja' => 'Nächste Woche',
+                'sledeci_mesec' => 'Nächster Monat',
+                'sledeca_sezona' => 'Nächste Saison',
+                'znam_tacno_datum' => 'Ich kenne das genaue Datum!',
+                'kasno_kupanje' => 'Noch eine Woche Sonne',
+            ],
+            'tip_smestaja' => [
+                'hotel' => 'Hotel',
+                'apartman' => 'Apartment',
+                'vila' => 'Villa',
+                'holiday_home' => 'Ferienhaus',
+                'guest_house' => 'Gästehaus',
+                'chalet' => 'Chalet',
+            ],
+            'accommodation_facility' => [
+                'bazen' => 'Schwimmbad',
+                'plaza' => 'Strandlage',
+                'parking' => 'Parkplatz',
+                'wifi' => 'Kostenloses WLAN',
+                'spa' => 'Spa & Wellnessbereich',
+            ],
+            'room_facility' => [
+                'klima' => 'Klimaanlage',
+                'privatno_kupatilo' => 'Eigenes Badezimmer',
+                'privatni_bazen' => 'Privatpool',
+                'pogled_na_more' => 'Meerblick',
+                'balkon' => 'Balkon',
+            ],
+            'meal_plan' => [
+                'dorucak' => 'Frühstück inklusive',
+                'dorucak_vecera' => 'Frühstück & Abendessen inklusive',
+            ],
+            'cost_category' => [
+                'hospitality' => 'Gastronomie (Essen/Trinken auswärts)',
+                'local_stores' => 'Lebensmittelgeschäfte (Selbstversorgung)',
+                'transport' => 'Örtlicher Transport',
+            ],
+            'country' => [
+                'hrvatska' => 'Kroatien',
+                'malta' => 'Malta',
+                'egipat' => 'Ägypten',
+                'portugalija' => 'Portugal',
+                'spanija' => 'Spanien',
+                'turska' => 'Türkei',
+                'ceska' => 'Tschechien',
+                'tunis' => 'Tunesien',
+                'kipar' => 'Zypern',
+                'belgija' => 'Belgien',
+                'italija' => 'Italien',
+                'grcka' => 'Griechenland',
+                'srbija' => 'Serbien',
+            ],
+            // Only the handful with a real, well-known German exonym — everything else falls
+            // back to its canonical English (== proper noun) label, see method docblock.
+            'city' => [
+                'atina' => 'Athen',
+                'beograd' => 'Belgrad',
+                'brugge' => 'Brügge',
+                'prag' => 'Prag',
+                'rim' => 'Rom',
+                'krf' => 'Korfu',
+                'rodos' => 'Rhodos',
+                'krit' => 'Heraklion (Kreta)',
+            ],
+        ];
+
+        foreach ($byType as $type => $labels) {
+            foreach ($labels as $slug => $labelDe) {
+                $node = TaxonomyNode::where('type', $type)->where('slug', $slug)->first();
+                if (! $node) {
+                    continue;
+                }
+
+                $node->translations()->updateOrCreate(
+                    ['translatable_type' => TaxonomyNode::class, 'translatable_id' => $node->id, 'field' => 'label', 'locale' => 'de'],
+                    ['value' => $labelDe, 'source_hash' => hash('crc32', $node->label), 'status' => 'human'],
+                );
+            }
+        }
+
+        $stepLabels = [
+            'trip_type' => 'Reiseart',
+            'broj_putnika' => 'Wie viele Erwachsene reisen?',
+            'odakle_putujes' => 'Von wo reist du?',
+            'termin' => 'Zeitraum',
+            'persona' => 'Reisetyp',
+            'preferencije' => 'Was ist dir wichtig',
+            'zemlja_regija' => 'Land / Region',
+            'grad' => 'Stadt',
+            'smestaj' => 'Konkrete Unterkunftswünsche',
+        ];
+
+        foreach ($stepLabels as $key => $labelDe) {
+            $step = WizardStep::where('key', $key)->first();
+            if (! $step) {
+                continue;
+            }
+
+            $step->translations()->updateOrCreate(
+                ['translatable_type' => WizardStep::class, 'translatable_id' => $step->id, 'field' => 'label', 'locale' => 'de'],
+                ['value' => $labelDe, 'source_hash' => hash('crc32', $step->label), 'status' => 'human'],
+            );
+        }
+
+        $questionLabels = [
+            'trip_type' => 'Was für eine Reise planst du?',
+            'adults_count' => 'Wie viele Erwachsene reisen?',
+            'children_ages' => 'Alter der Kinder (falls vorhanden)',
+            'needs_crib' => 'Brauchst du ein Babybett (pro Kind ≤2 Jahre)?',
+            'number_of_rooms' => 'Wie viele Zimmer brauchst du?',
+            'group_type' => 'Was für eine Gruppe seid ihr?',
+            'home_city' => 'Aus welcher Stadt reist du an?',
+            'termin_category' => 'Wann planst du zu reisen?',
+            'date_range' => 'Genaues Datum (optional)',
+            'persona' => 'Was für ein Reisetyp bist du?',
+            'persona_group' => 'Wofür interessiert sich diese Gruppe?',
+            'preference_tags' => 'Atmosphäre / Stimmung dieser Reise',
+            'budget_tier' => 'Was ist dein Budget pro Nacht?',
+            'region_theme' => 'Welcher Teil der Welt interessiert dich?',
+            'country_region' => 'Vorgeschlagenes Land/Region',
+            'city' => 'Wähle eine Stadt',
+            'amenities_yes' => 'Was würde diesen Ort perfekt machen?',
+            'amenities_no' => 'Gibt es etwas, das du lieber vermeiden möchtest?',
+            'smestaj_avoid' => 'Hinweise zum Vermeiden (intern)',
+            'relationship_type' => 'Nur Freunde, oder etwas mehr?',
+            'total_budget' => 'Wie viel möchtest du für Unterkunft & Verpflegung ausgeben? (€)',
+            'smestaj_preference' => 'Etwas Ungewöhnliches auf deiner Wunschliste? (Übliche Dinge wie Pool oder Parkplatz? Trag sie stattdessen oben ein)',
+        ];
+
+        foreach ($questionLabels as $key => $labelDe) {
+            $question = WizardQuestion::where('key', $key)->first();
+            if (! $question) {
+                continue;
+            }
+
+            $question->translations()->updateOrCreate(
+                ['translatable_type' => WizardQuestion::class, 'translatable_id' => $question->id, 'field' => 'label', 'locale' => 'de'],
+                ['value' => $labelDe, 'source_hash' => hash('crc32', $question->label), 'status' => 'human'],
+            );
+        }
+
+        // WizardCampaign's canonical label/landing_headline are Serbian, not English (a
+        // pre-existing gap, predates this German work — not fixing that here, out of scope).
+        // Also seed 'en' so English-locale visitors don't see Serbian text on the campaign
+        // landing screen either, since that's a strictly better default than leaving it broken.
+        $campaign = WizardCampaign::where('key', 'kasno-letovanje')->first();
+        if ($campaign) {
+            $campaign->translations()->updateOrCreate(
+                ['translatable_type' => WizardCampaign::class, 'translatable_id' => $campaign->id, 'field' => 'label', 'locale' => 'de'],
+                ['value' => 'Spätsommer-Urlaub', 'source_hash' => hash('crc32', $campaign->label), 'status' => 'human'],
+            );
+            $campaign->translations()->updateOrCreate(
+                ['translatable_type' => WizardCampaign::class, 'translatable_id' => $campaign->id, 'field' => 'landing_headline', 'locale' => 'de'],
+                ['value' => 'Noch eine Woche Sonne vor dem Winter', 'source_hash' => hash('crc32', (string) $campaign->landing_headline), 'status' => 'human'],
+            );
+            $campaign->translations()->updateOrCreate(
+                ['translatable_type' => WizardCampaign::class, 'translatable_id' => $campaign->id, 'field' => 'label', 'locale' => 'en'],
+                ['value' => 'Late Summer Getaway', 'source_hash' => hash('crc32', $campaign->label), 'status' => 'human'],
+            );
+            $campaign->translations()->updateOrCreate(
+                ['translatable_type' => WizardCampaign::class, 'translatable_id' => $campaign->id, 'field' => 'landing_headline', 'locale' => 'en'],
+                ['value' => 'One more week of sun before winter', 'source_hash' => hash('crc32', (string) $campaign->landing_headline), 'status' => 'human'],
+            );
+        }
     }
 }

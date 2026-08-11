@@ -21,12 +21,12 @@
   </div>
 
   <div>
-    <label class="mb-2 block text-sm font-semibold text-slate-800">Children</label>
+    <label class="mb-2 block text-sm font-semibold text-slate-800">{{ i18n.t('children') }}</label>
 
     <div class="space-y-2">
       @for (age of childrenAges(); track $index) {
         <div class="flex items-center gap-3">
-          <span class="text-sm text-slate-500">Age</span>
+          <span class="text-sm text-slate-500">{{ i18n.t('age') }}</span>
           <input
             type="number"
             min="0"
@@ -45,7 +45,7 @@
                 [checked]="needsCrib()[$index]"
                 (change)="onCribToggle($index, $any($event.target).checked)"
               />
-              Need crib
+              {{ i18n.t('needCrib') }}
             </label>
           }
 
@@ -54,7 +54,7 @@
             class="ml-auto text-sm text-slate-400 hover:text-red-500"
             (click)="removeChild($index)"
           >
-            Remove
+            {{ i18n.t('remove') }}
           </button>
         </div>
       }
@@ -65,7 +65,7 @@
       class="mt-3 text-sm font-medium text-slate-700 hover:text-slate-900"
       (click)="addChild()"
     >
-      + Add child
+      {{ i18n.t('addChild') }}
     </button>
   </div>
 </div>

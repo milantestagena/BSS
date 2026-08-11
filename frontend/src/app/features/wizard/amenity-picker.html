@@ -19,7 +19,7 @@
     <div class="relative">
       <input
         type="text"
-        placeholder="Type and hit Enter (e.g. pool, breakfast, AC)..."
+        [placeholder]="i18n.t('bigYesPlaceholder')"
         [ngModel]="yesQuery()"
         (ngModelChange)="yesQuery.set($event)"
         (keydown.enter)="onYesEnter()"
@@ -60,7 +60,7 @@
     <div class="relative">
       <input
         type="text"
-        [placeholder]="noDisabled() ? 'Log in to use Big NO' : 'Type and hit Enter (things you\'d rather avoid)...'"
+        [placeholder]="noDisabled() ? i18n.t('bigNoLogin') : i18n.t('bigNoPlaceholder')"
         [ngModel]="noQuery()"
         (ngModelChange)="noQuery.set($event)"
         (keydown.enter)="onNoEnter()"

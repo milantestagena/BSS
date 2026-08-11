@@ -30,7 +30,10 @@ const SEARCH_QUERY = `
 export class CitySearchComponent {
   @ViewChild('input') inputRef?: ElementRef<HTMLInputElement>;
 
-  placeholder = input('Počni da kucaš ime grada...');
+  // English default (canonical, matches the rest of the app) — wizard.html always overrides
+  // this explicitly with the locale-aware i18n string, this only matters if some future caller
+  // forgets to pass one. Was hardcoded Serbian until 2026-08-11 German-language work surfaced it.
+  placeholder = input('Start typing a city name...');
   citySelected = output<WorldCityResult>();
 
   query = signal('');

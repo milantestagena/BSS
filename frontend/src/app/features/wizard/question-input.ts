@@ -4,6 +4,7 @@ import { TaxonomyNode, WizardQuestion } from '../../core/wizard.types';
 import { ChoiceComponent } from '../../ui/choice';
 import { TextFieldComponent } from '../../ui/text-field';
 import { DateFieldComponent } from '../../ui/date-field';
+import { I18nService } from '../../core/i18n.service';
 
 @Component({
   selector: 'app-question-input',
@@ -19,6 +20,8 @@ export class QuestionInputComponent {
    *  aiSearchDisabled/aiSearchGateReason. Structured taxonomy questions are never gated. */
   @Input() disabled = false;
   @Output() valueChange = new EventEmitter<unknown>();
+
+  constructor(public i18n: I18nService) {}
 
   get resolvedOptions(): TaxonomyNode[] {
     return this.options ?? this.question.options ?? [];

@@ -1,5 +1,6 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { AuthService } from '../../core/auth.service';
+import { I18nService } from '../../core/i18n.service';
 
 /** MVP account page — name/email/credit balance + share-and-earn link. See
  *  AuthService/AccountBadgeComponent. */
@@ -26,18 +27,18 @@ import { AuthService } from '../../core/auth.service';
 
           <div class="rounded-xl bg-sky-50 p-4 text-center">
             <p class="text-3xl font-bold text-sky-900">{{ user.wallet?.balance ?? 0 }}</p>
-            <p class="text-sm text-sky-700">AI credits remaining</p>
+            <p class="text-sm text-sky-700">{{ i18n.t('aiCreditsRemaining') }}</p>
           </div>
 
           <a [href]="auth.signOutUrl" class="mt-6 block text-center text-sm text-slate-400 hover:text-slate-600 hover:underline">
-            Sign out
+            {{ i18n.t('signOut') }}
           </a>
         </div>
 
         <div class="mt-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p class="font-semibold text-slate-900">Share &amp; earn credits</p>
+          <p class="font-semibold text-slate-900">{{ i18n.t('shareAndEarn') }}</p>
           <p class="mt-1 text-sm text-slate-500">
-            Get +10 AI credits every time someone you invite completes a booking with us.
+            {{ i18n.t('shareAndEarnSubtitle') }}
           </p>
           <div class="mt-3 flex items-center gap-2">
             <input
@@ -51,18 +52,18 @@ import { AuthService } from '../../core/auth.service';
               (click)="share()"
               class="shrink-0 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
             >
-              {{ copied() ? 'Copied!' : canNativeShare ? 'Share' : 'Copy' }}
+              {{ copied() ? i18n.t('copied') : canNativeShare ? i18n.t('share') : i18n.t('copy') }}
             </button>
           </div>
         </div>
       } @else if (auth.loaded()) {
         <div class="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-          <p class="mb-4 text-sm text-slate-500">You're not signed in.</p>
+          <p class="mb-4 text-sm text-slate-500">{{ i18n.t('notSignedIn') }}</p>
           <a
             [href]="auth.signInUrl"
             class="inline-block rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
           >
-            Sign in with Google
+            {{ i18n.t('signInWithGoogle') }}
           </a>
         </div>
       }
@@ -72,7 +73,10 @@ import { AuthService } from '../../core/auth.service';
 export class AccountPageComponent implements OnInit {
   readonly copied = signal(false);
 
-  constructor(public auth: AuthService) {}
+  constructor(
+    public auth: AuthService,
+    public i18n: I18nService
+  ) {}
 
   ngOnInit(): void {
     if (!this.auth.loaded()) {

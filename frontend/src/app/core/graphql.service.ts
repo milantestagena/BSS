@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
+import { LocaleService } from './locale.service';
 
 // 127.0.0.1, not "localhost": WSL2's automatic port-forwarding only binds IPv4,
 // so "localhost" makes the browser try [::1] first, wait for it to time out, then
@@ -20,14 +21,23 @@ interface GraphQLResponse<T> {
 
 @Injectable({ providedIn: 'root' })
 export class GraphqlService {
-  constructor(private http: HttpClient) {}
+  constructor(
+    private http: HttpClient,
+    private locale: LocaleService
+  ) {}
 
   async request<T>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
     // withCredentials: needed for the Google OAuth session cookie to reach the backend —
     // matters most locally, where frontend (4837) and backend (8000) are different origins.
     // See config/cors.php (backend) for the matching allowed_origins/supports_credentials.
+    // X-Locale drives every translated label/step/question server-side (see TranslateDirective,
+    // backend) — one shared header, no per-query locale argument needed anywhere.
     const response = await firstValueFrom(
-      this.http.post<GraphQLResponse<T>>(GRAPHQL_ENDPOINT, { query, variables }, { withCredentials: true })
+      this.http.post<GraphQLResponse<T>>(
+        GRAPHQL_ENDPOINT,
+        { query, variables },
+        { withCredentials: true, headers: { 'X-Locale': this.locale.locale() } }
+      )
     );
 
     if (response.errors?.length) {

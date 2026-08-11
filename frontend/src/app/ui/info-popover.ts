@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { I18nService } from '../core/i18n.service';
 
 let nextId = 0;
 
@@ -20,7 +21,7 @@ let nextId = 0;
       type="button"
       [attr.popovertarget]="id"
       class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white text-xs font-semibold text-slate-500 hover:border-slate-400 hover:text-slate-700"
-      aria-label="More info"
+      [attr.aria-label]="i18n.t('moreInfo')"
     >
       i
     </button>
@@ -35,7 +36,7 @@ let nextId = 0;
         [attr.popovertarget]="id"
         [attr.popovertargetaction]="'hide'"
         class="float-right -mr-1 -mt-1 text-base leading-none text-slate-400 hover:text-slate-600"
-        aria-label="Close"
+        [attr.aria-label]="i18n.t('close')"
       >
         &times;
       </button>
@@ -45,4 +46,6 @@ let nextId = 0;
 })
 export class InfoPopoverComponent {
   readonly id = `info-popover-${nextId++}`;
+
+  constructor(public i18n: I18nService) {}
 }

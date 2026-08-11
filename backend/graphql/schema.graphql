@@ -94,7 +94,7 @@ type TaxonomyNode {
     children: [TaxonomyNode!]! @hasMany
     type: String!
     slug: String!
-    label: String!
+    label: String! @translate
     sortOrder: Int! @rename(attribute: "sort_order")
     meta: JSON
     "Populated only when returned from `suggestedGeography` — higher is a better match."
@@ -109,7 +109,7 @@ type TaxonomyNode {
 type WizardStep {
     id: ID!
     key: String!
-    label: String!
+    label: String! @translate
     sortOrder: Int! @rename(attribute: "sort_order")
     isActive: Boolean! @rename(attribute: "is_active")
     questions: [WizardQuestion!]! @hasMany
@@ -119,8 +119,8 @@ type WizardStep {
 type WizardCampaign {
     id: ID!
     key: String!
-    label: String!
-    landingHeadline: String @rename(attribute: "landing_headline")
+    label: String! @translate
+    landingHeadline: String @rename(attribute: "landing_headline") @translate(attribute: "landing_headline")
     "Values written directly onto the session at start — e.g. {termin_category: 'kasno_kupanje'}. Fields covered here are never asked as a question for this campaign."
     presetAnswers: JSON @rename(attribute: "preset_answers")
     "This campaign's questions, in campaign-specific order (independent of each question's global sort_order)."
@@ -131,7 +131,7 @@ type WizardCampaign {
 type WizardQuestion {
     id: ID!
     key: String!
-    label: String!
+    label: String! @translate
     "The global wizard_step this question normally belongs to — used by campaign mode (see WizardCampaign.questions) to group its curated question subset onto the same pages the generic flow already uses, instead of one page per question."
     step: WizardStep @belongsTo
     "taxonomy_choice | taxonomy_multi_choice | number | number_array | date_range | boolean | text"
