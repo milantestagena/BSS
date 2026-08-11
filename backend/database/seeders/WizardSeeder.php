@@ -1152,6 +1152,13 @@ class WizardSeeder extends Seeder
                 'preset_answers' => ['termin_category' => 'kasno_kupanje'],
                 'is_active' => true,
                 'sort_order' => 0,
+                // Owner's call, 2026-08-11 — the campaign's real bookable window, anchor for
+                // per-week destination pricing. Saturday-to-Saturday (typical charter/package
+                // check-in day) — see WizardCampaign::seasonWeeks(). 2026-08-30 was originally
+                // named as the start but is actually a Sunday (verified); owner confirmed
+                // 2026-08-29 (the real Saturday) instead.
+                'season_start_date' => '2026-08-29',
+                'season_end_date' => '2026-11-01',
             ],
         );
 

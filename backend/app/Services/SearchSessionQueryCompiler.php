@@ -266,7 +266,11 @@ class SearchSessionQueryCompiler
         }
 
         $totalTravelers = $this->session->adults_count + count($this->session->children_ages ?? []);
-        $accommodationTotal = $priceRow !== null ? $priceRow->price_per_person_eur * $totalTravelers * $days : 0.0;
+        // Splits nights across whichever campaign weeks they fall in, priced per-week — see
+        // WizardCampaignDestinationPrice::estimateAccommodationTotal(), 2026-08-11. Falls back
+        // to the old flat price_per_person_eur * days math internally if this destination has
+        // no weekly rows yet.
+        $accommodationTotal = $priceRow !== null ? $priceRow->estimateAccommodationTotal($checkin, $checkout, $totalTravelers) : 0.0;
 
         return [
             'country' => $country,

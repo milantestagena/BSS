@@ -5,6 +5,7 @@ namespace App\GraphQL\Resolvers;
 use App\Models\SearchSession;
 use App\Models\TaxonomyNode;
 use App\Services\BudgetEstimationEngine;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
 class GeographyResolver
@@ -165,6 +166,11 @@ class GeographyResolver
      * lean toward what could still work" philosophy (same spirit as the 2-closest-fallback in
      * narrowCandidates itself). 0.0 (no accommodation cost applied) if the session has no
      * campaign, or none of the country's cities have a price filled in yet.
+     *
+     * Weekly-price-aware, 2026-08-11 — each candidate city's CHEAPEST per-night rate across the
+     * actual stay dates (see WizardCampaignDestinationPrice::cheapestNightlyRateFor) is used
+     * instead of the flat price_per_person_eur scalar, so this stays correct once destinations
+     * move to per-week pricing instead of one flat number.
      */
     private function cheapestAccommodationTotal(TaxonomyNode $country, SearchSession $session, int $totalTravelers, int $days): float
     {
@@ -172,16 +178,21 @@ class GeographyResolver
             return 0.0;
         }
 
-        $cheapestPerPerson = $country->children()
-            ->with(['campaignDestinationPrices' => fn ($q) => $q->where('wizard_campaign_id', $session->wizard_campaign_id)])
+        [$checkin, $checkout] = $this->tripCheckinCheckout($session);
+        if (! $checkin) {
+            return 0.0;
+        }
+
+        $cheapestPerNight = $country->children()
+            ->with(['campaignDestinationPrices' => fn ($q) => $q->where('wizard_campaign_id', $session->wizard_campaign_id)->with(['campaign', 'weeklyPrices'])])
             ->get()
             ->pluck('campaignDestinationPrices')
             ->flatten()
-            ->pluck('price_per_person_eur')
+            ->map(fn ($priceRow) => $priceRow->cheapestNightlyRateFor($checkin, $checkout))
             ->filter(fn ($v) => $v !== null)
             ->min();
 
-        return $cheapestPerPerson !== null ? $cheapestPerPerson * $totalTravelers * $days : 0.0;
+        return $cheapestPerNight !== null ? $cheapestPerNight * $totalTravelers * $days : 0.0;
     }
 
     /**
@@ -203,5 +214,42 @@ class GeographyResolver
             ->first();
 
         return $termin?->meta['default_duration_days'] ?? null;
+    }
+
+    /**
+     * [checkin, checkout] Carbon pair — same source/fallback logic as
+     * SearchSessionQueryCompiler::resolveDates(), duplicated rather than shared (see that
+     * method's docblock; this class and that one already independently derive trip length the
+     * same two-source way, this just adds the actual calendar dates cheapestAccommodationTotal
+     * needs for per-week pricing). [null, null] if neither exact dates nor a termin_category
+     * window exist yet.
+     */
+    private function tripCheckinCheckout(SearchSession $session): array
+    {
+        if ($session->date_from && $session->date_to) {
+            return [Carbon::instance($session->date_from), Carbon::instance($session->date_to)];
+        }
+
+        if (! $session->termin_category) {
+            return [null, null];
+        }
+
+        $termin = TaxonomyNode::where('type', 'termin_category')
+            ->where('slug', $session->termin_category)
+            ->first();
+
+        $windowStart = $termin?->meta['window_start'] ?? null;
+        $durationDays = $termin?->meta['default_duration_days'] ?? null;
+        if (! $windowStart || ! $durationDays) {
+            return [null, null];
+        }
+
+        $today = Carbon::today();
+        $checkin = Carbon::createFromFormat('Y-m-d', $today->year.'-'.$windowStart)->startOfDay();
+        if ($checkin->lt($today)) {
+            $checkin->addYear();
+        }
+
+        return [$checkin, $checkin->copy()->addDays($durationDays)];
     }
 }

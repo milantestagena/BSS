@@ -3,10 +3,12 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasTranslations;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 
 class WizardCampaign extends Model
 {
@@ -19,11 +21,15 @@ class WizardCampaign extends Model
         'preset_answers',
         'is_active',
         'sort_order',
+        'season_start_date',
+        'season_end_date',
     ];
 
     protected $casts = [
         'preset_answers' => 'array',
         'is_active' => 'boolean',
+        'season_start_date' => 'date',
+        'season_end_date' => 'date',
     ];
 
     /**
@@ -52,5 +58,29 @@ class WizardCampaign extends Model
     public function destinationPrices(): HasMany
     {
         return $this->hasMany(WizardCampaignDestinationPrice::class);
+    }
+
+    /**
+     * Every Saturday-aligned week_start_date between season_start_date and season_end_date —
+     * owner's ask, 2026-08-11: "podelimo na nedelje... neko krene od subote i vrati se iduce
+     * nedelje". Drives both the weekly price seeder command and the Filament week filter.
+     * Empty if either date is unset (no season configured for this campaign yet).
+     */
+    public function seasonWeeks(): Collection
+    {
+        if (! $this->season_start_date || ! $this->season_end_date) {
+            return collect();
+        }
+
+        $weeks = collect();
+        $cursor = CarbonImmutable::instance($this->season_start_date);
+        $end = CarbonImmutable::instance($this->season_end_date);
+
+        while ($cursor->lt($end)) {
+            $weeks->push($cursor);
+            $cursor = $cursor->addDays(7);
+        }
+
+        return $weeks;
     }
 }
