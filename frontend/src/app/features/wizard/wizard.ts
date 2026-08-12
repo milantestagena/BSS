@@ -1005,12 +1005,21 @@ export class WizardComponent implements OnInit {
     this.scrollToActiveStep();
   }
 
-  /** Owner's ask, 2026-08-12: from the results screen, a way back to the chat that ISN'T "pick
-   *  a different city" — sometimes the tweak needed is small (a "Change" on some earlier step),
-   *  not a whole new destination. Just flips back to the chat view; no wizard state is touched,
-   *  so every already-collapsed step (with its own "Change" link) is exactly as it was. */
+  /**
+   * Owner's ask, 2026-08-12: from the results screen, a way back to the chat that ISN'T "pick a
+   * different city" — sometimes the tweak needed is small (a "Change" on some earlier step), not
+   * a whole new destination.
+   *
+   * Bug fixed same day: flipping `finished` alone left the City step rendering blank — reaching
+   * the results screen pushes an out-of-bounds index onto visitedStepIndices (see goNext's
+   * `currentStepIndex() >= steps().length` branch), so the wizard's OWN state still pointed past
+   * the last real step even though this component's `finished` flag said otherwise. Reuses
+   * goBack()'s existing "step back to the second-to-last visited index" logic instead of
+   * touching visitedStepIndices directly, so this stays correct if that mechanism ever changes.
+   */
   backToSession(): void {
     this.finished.set(false);
+    this.wizard.goBack();
     this.scrollToActiveStep();
   }
 
