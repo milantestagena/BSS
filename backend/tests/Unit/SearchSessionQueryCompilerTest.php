@@ -226,10 +226,11 @@ class SearchSessionQueryCompilerTest extends TestCase
 
         $this->assertSame(0.0, $signals['budget']['estimate']['eating_out_total_eur']);
         $this->assertSame(0.0, $signals['budget']['estimate']['self_catering_total_eur']);
-        // accommodation alone: 30 * 2 people * 6 nights (window_start 09-20 + 5 duration days,
-        // diffInDays+1 — same day-count convention as tripDurationDays() elsewhere) = 360,
-        // well within the 400 budget once food is correctly zeroed instead of added on top.
-        $this->assertSame(360.0, $signals['budget']['accommodation_total_eur']);
+        // accommodation alone: 30 * 2 people * 5 nights (window_start 09-20 + 5 duration days —
+        // checkin Sep 20, checkout Sep 25, 5 nights slept, no night charged for checkout day
+        // itself; owner's catch 2026-08-12, see WizardCampaignDestinationPrice) = 300, well
+        // within the 400 budget once food is correctly zeroed instead of added on top.
+        $this->assertSame(300.0, $signals['budget']['accommodation_total_eur']);
         $this->assertSame('eating_out', $signals['budget']['fit']);
 
         Carbon::setTestNow();

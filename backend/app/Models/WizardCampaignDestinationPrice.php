@@ -54,20 +54,19 @@ class WizardCampaignDestinationPrice extends Model
         $seasonStart = $this->campaign?->season_start_date;
         $weeklyPrices = $this->weeklyPrices;
 
-        // Matches the codebase-wide "diffInDays + 1" day-count convention (see
-        // SearchSessionQueryCompiler::resolveBudgetContext / BudgetEstimationEngine) — the
-        // checkout day itself is counted too, same as the food estimate this accommodation
-        // total is combined with. Not real hotel-night counting, but must stay consistent with
-        // everything else in the same budget estimate, not "fixed" quietly here.
+        // Owner's catch, 2026-08-12: checkin Sep 19 / checkout Sep 27 is 8 NIGHTS (19-26 slept,
+        // checkout morning of the 27th — no night charged for the 27th), not 9. Nights are
+        // `diffInDays` with no +1 — the +1 convention belongs to FOOD estimates only (you still
+        // eat on checkout day, but you don't sleep there), and had been wrongly copied over here.
         if (! $seasonStart || $weeklyPrices->isEmpty()) {
-            return ($this->price_per_person_eur ?? 0.0) * $totalTravelers * ($checkin->diffInDays($checkout) + 1);
+            return ($this->price_per_person_eur ?? 0.0) * $totalTravelers * $checkin->diffInDays($checkout);
         }
 
         $pricedWeeks = $weeklyPrices->filter(fn (WizardCampaignDestinationWeeklyPrice $w) => $w->price_per_person_eur !== null);
 
         $totalPerPerson = 0.0;
         $cursor = $checkin->copy();
-        while ($cursor->lte($checkout)) {
+        while ($cursor->lt($checkout)) {
             $weekStart = self::weekStartFor($cursor, $seasonStart);
             $totalPerPerson += self::nightlyPriceForWeek($weekStart, $pricedWeeks) ?? 0.0;
             $cursor = $cursor->addDay();
@@ -93,7 +92,7 @@ class WizardCampaignDestinationPrice extends Model
 
         $rates = collect();
         $cursor = $checkin->copy();
-        while ($cursor->lte($checkout)) {
+        while ($cursor->lt($checkout)) {
             $weekStart = self::weekStartFor($cursor, $seasonStart);
             $rate = self::nightlyPriceForWeek($weekStart, $pricedWeeks);
             if ($rate !== null) {

@@ -159,8 +159,10 @@ class GeographyResolver
             return $priceRow?->estimateAccommodationTotal($checkin, $checkout, $totalTravelers);
         }
 
-        $days = $checkin->diffInDays($checkout) + 1;
-        $total = $this->cheapestAccommodationTotal($node, $session, $totalTravelers, $days);
+        // Nights, not calendar days present — see WizardCampaignDestinationPrice's night-count
+        // fix, 2026-08-12. No +1: checkout day itself is never a paid night.
+        $nights = $checkin->diffInDays($checkout);
+        $total = $this->cheapestAccommodationTotal($node, $session, $totalTravelers, $nights);
 
         return $total > 0.0 ? $total : null;
     }
@@ -250,21 +252,24 @@ class GeographyResolver
      */
     private function filterByBudget(Collection $countries, SearchSession $session): array
     {
-        $days = $this->tripDurationDays($session);
+        $nights = $this->tripDurationNights($session);
 
-        if (! $session->total_budget || ! $session->adults_count || ! $days || $countries->isEmpty()) {
+        if (! $session->total_budget || ! $session->adults_count || ! $nights || $countries->isEmpty()) {
             return [$countries, collect()];
         }
 
         $totalTravelers = $session->adults_count + count($session->children_ages ?? []);
+        // BudgetEstimationEngine::estimate() prices FOOD, which is bought on both the checkin
+        // and checkout day (you still eat before flying home) — one more than nights slept.
+        $foodDays = $nights + 1;
 
         $result = (new BudgetEstimationEngine)->narrowCandidates(
             $countries,
             (float) $session->total_budget,
             $session->adults_count,
             count($session->children_ages ?? []),
-            $days,
-            fn (TaxonomyNode $country) => $this->cheapestAccommodationTotal($country, $session, $totalTravelers, $days)
+            $foodDays,
+            fn (TaxonomyNode $country) => $this->cheapestAccommodationTotal($country, $session, $totalTravelers, $nights)
         );
 
         $narrowed = $result->pluck('country')->values();
@@ -287,7 +292,7 @@ class GeographyResolver
      * instead of the flat price_per_person_eur scalar, so this stays correct once destinations
      * move to per-week pricing instead of one flat number.
      */
-    private function cheapestAccommodationTotal(TaxonomyNode $country, SearchSession $session, int $totalTravelers, int $days): float
+    private function cheapestAccommodationTotal(TaxonomyNode $country, SearchSession $session, int $totalTravelers, int $nights): float
     {
         if (! $session->wizard_campaign_id) {
             return 0.0;
@@ -307,17 +312,21 @@ class GeographyResolver
             ->filter(fn ($v) => $v !== null)
             ->min();
 
-        return $cheapestPerNight !== null ? $cheapestPerNight * $totalTravelers * $days : 0.0;
+        return $cheapestPerNight !== null ? $cheapestPerNight * $totalTravelers * $nights : 0.0;
     }
 
     /**
-     * Trip length in days: explicit date_from/date_to if both set, otherwise the session's
-     * termin_category default_duration_days, otherwise null (not enough to estimate from).
+     * Trip length in NIGHTS (not calendar days present) — explicit date_from/date_to if both
+     * set, otherwise the session's termin_category default_duration_days (already nights, see
+     * that field's "8 nights, not an arbitrary round number" seeding note), otherwise null (not
+     * enough to estimate from). Owner's catch, 2026-08-12: the explicit-dates branch used to add
+     * +1 (calendar days present, correct for FOOD but not nights slept) — callers that need food
+     * days instead add that +1 themselves at the call site (see filterByBudget).
      */
-    private function tripDurationDays(SearchSession $session): ?int
+    private function tripDurationNights(SearchSession $session): ?int
     {
         if ($session->date_from && $session->date_to) {
-            return $session->date_from->diffInDays($session->date_to) + 1;
+            return $session->date_from->diffInDays($session->date_to);
         }
 
         if (! $session->termin_category) {
