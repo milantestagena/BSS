@@ -343,7 +343,7 @@
                               class="rounded-xl border p-4 text-left text-sm font-medium transition hover:border-sky-400 hover:bg-sky-50"
                               [class.border-sky-500]="isDestinationSelected(question, node)"
                               [class.bg-sky-50]="isDestinationSelected(question, node)"
-                              [class.border-slate-200]="!isDestinationSelected(question, node)"
+                              [class.border-slate-400]="!isDestinationSelected(question, node)"
                               [ngClass]="priceRankClass(node)"
                               (mouseenter)="hoveredNode.set(node)"
                               (mouseleave)="hoveredNode.set(null)"
