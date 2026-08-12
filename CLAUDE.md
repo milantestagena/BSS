@@ -135,6 +135,9 @@ pomera sa 25. avgusta na **1. septembar** (i dalje solidno unutar "kasno letovan
      isti postupak kao ranije (owner šalje real cene, Claude ih unosi), samo brže od ručnog
      kucanja. Ako se ikad odluči za pravi Booking API pristup, prvi korak je pribaviti i pročitati
      tačan tekst caching/data-retention klauzule iz partner ugovora — ne nagađati.
+   - **Ekstrakcija sa screenshot-a:** NE uzimati apsolutno najjeftiniju stavku sa vrha Order by
+     Price ASC liste — česta anomalija (soba bez kupatila, pogrešan unos). Uzeti 3.-4. cenu sa
+     liste kao realniji "pod" za tu nedelju/destinaciju.
 3. **Automatsko skraćivanje liste gradova po temperaturi mora** — sezona ide od ~150 gradova ka
    ~15 do oktobra (kasno letovanje, NE party trip — to je posebna buduća kampanja). Real
    `sea_temp_c` podaci već postoje u `TaxonomyNodeClimate`; implementacija je nova narrowing faza
