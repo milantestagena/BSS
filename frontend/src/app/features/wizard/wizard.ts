@@ -498,6 +498,41 @@ export class WizardComponent implements OnInit {
     return wishlist.trim() !== '' || avoidNotes.trim() !== '' || avoidPicks.length > 0;
   }
 
+  /**
+   * Top-5 shortlisted cities from the wizard's own City step, re-surfaced on the results screen
+   * so the traveler can jump between them without walking back through the whole flow — owner's
+   * ask, 2026-08-12. Reuses whatever `geographyOptions['city']` already holds (already fetched
+   * during the wizard, ranked/priced) rather than re-querying suggestedGeography again.
+   */
+  get resultsCityChoices(): TaxonomyNode[] {
+    return (this.geographyOptions()['city'] ?? []).slice(0, 5);
+  }
+
+  /** Locally-selected chip on the results screen, defaulting to whatever city the session is
+   *  currently on — not yet committed until switchResultsCity() actually runs. */
+  readonly selectedResultsCityId = signal<string | null>(null);
+
+  isResultsCitySelected(node: TaxonomyNode): boolean {
+    return (this.selectedResultsCityId() ?? (this.wizard.getAnswer('city') as string | undefined)) === node.id;
+  }
+
+  /** Re-runs the results screen against a different shortlisted city — same session, no wizard
+   *  steps re-walked. Resets honestReports so stale text from the OLD city's context never
+   *  lingers under the new selection while the fresh ones load. */
+  async searchResultsCity(): Promise<void> {
+    const cityId = this.selectedResultsCityId();
+    if (!cityId) return;
+
+    this.wizard.loading.set(true);
+    try {
+      await this.wizard.switchResultsCity(cityId);
+      this.honestReports.set({});
+      await this.loadHonestReports();
+    } finally {
+      this.wizard.loading.set(false);
+    }
+  }
+
   private async startWizard(): Promise<void> {
     await this.wizard.init(this.campaignKey ?? undefined);
     // Fire-and-forget — geo-IP lookup latency must never delay the visible wizard, see
@@ -1082,6 +1117,15 @@ export class WizardComponent implements OnInit {
   }
 
   private async loadGeographyForStep(step: WizardStep): Promise<void> {
+    // Two questions on the same step can share a plain taxonomyType — e.g. the "Traveler type"
+    // step's single-choice `persona` and multi-choice `persona_group` both read taxonomyType
+    // 'persona' — which used to fire the identical suggestedGeography query twice in a row
+    // (owner's catch, 2026-08-12: "kao da ga 2 puta loaduje"). Reuse the first fetch instead of
+    // re-querying. Only applies to the plain branch below — country/city are keyed by a dynamic
+    // parentId (region_theme / country_region), so they're never actually redundant with each
+    // other the way two flat 'persona' questions are.
+    const fetchedByTaxonomyType = new Map<string, TaxonomyNode[]>();
+
     for (const question of step.questions) {
       if (!question.taxonomyType) continue;
 
@@ -1091,8 +1135,12 @@ export class WizardComponent implements OnInit {
       } else if (question.taxonomyType === 'city') {
         const chosenCountry = this.wizard.getAnswer('country_region') as string | undefined;
         await this.loadGeography(question.key, 'city', chosenCountry);
+      } else if (fetchedByTaxonomyType.has(question.taxonomyType)) {
+        this.geographyOptions.update((g) => ({ ...g, [question.key]: fetchedByTaxonomyType.get(question.taxonomyType!)! }));
       } else {
         await this.loadGeography(question.key, question.taxonomyType);
+        const options = this.geographyOptions()[question.key];
+        if (options) fetchedByTaxonomyType.set(question.taxonomyType, options);
       }
     }
   }

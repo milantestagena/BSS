@@ -311,6 +311,25 @@ export class WizardService {
     }
   }
 
+  /**
+   * Owner's ask, 2026-08-12: on the results screen, let the traveler quickly re-run the search
+   * against a DIFFERENT one of their shortlisted cities without walking back through the whole
+   * wizard. Same session (not a fork) — direct write via updateSearchSession, same pattern as
+   * detectHomeCity above, bypassing persistCurrentStep since there's no active step here.
+   */
+  async switchResultsCity(cityId: string): Promise<void> {
+    const sessionId = this.sessionId();
+    if (!sessionId) return;
+
+    this.setAnswer('city', cityId);
+    const result = await this.gql.request<{ updateSearchSession: SearchSession }>(UPDATE_SESSION_MUTATION, {
+      id: sessionId,
+      input: { cityId },
+    });
+    this.selectedTaxonomyNodeIds.set(new Set(result.updateSearchSession.selectedTaxonomyNodeIds ?? []));
+    await this.refreshCompiledQuery();
+  }
+
   /** Null if there's no active session yet (shouldn't happen once finished() is true, but
    *  matches this class's existing "best-effort, never throw into the caller" convention for
    *  anything that isn't core wizard flow — see detectHomeCity). */

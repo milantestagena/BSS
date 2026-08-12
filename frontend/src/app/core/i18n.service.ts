@@ -74,6 +74,8 @@ const STRINGS: Record<'en' | 'de', Record<string, string>> = {
     alsoGoodChoicesHeader: 'Also good choices',
     lessGoodChoicesHeader: 'Less good choices',
     priceLegend: 'Accommodation price (relative to these options): cheaper → pricier',
+    otherShortlistedCities: 'Not quite it? Try one of your other shortlisted cities:',
+    search: 'Search',
   },
   de: {
     back: 'Zurück',
@@ -140,6 +142,8 @@ const STRINGS: Record<'en' | 'de', Record<string, string>> = {
     alsoGoodChoicesHeader: 'Auch eine gute Wahl',
     lessGoodChoicesHeader: 'Weniger gute Wahl',
     priceLegend: 'Unterkunftspreis (relativ zu diesen Optionen): günstiger → teurer',
+    otherShortlistedCities: 'Nicht ganz das Richtige? Probier eine deiner anderen Wunsch-Städte:',
+    search: 'Suchen',
   },
 };
 
