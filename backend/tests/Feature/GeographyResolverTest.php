@@ -260,4 +260,35 @@ class GeographyResolverTest extends TestCase
 
         $this->assertNull($results->firstWhere('id', $onlyOne->id)->price_rank);
     }
+
+    public function test_falls_back_to_price_ascending_when_nothing_has_a_real_match_score(): void
+    {
+        // Owner's call, 2026-08-11: "cena je uvek parametar, jer svako oce da ustedi" — when
+        // every candidate ties at match_score 0 (no preference selected, or the zero-match
+        // fallback kept everything), sort by price instead of leaving order arbitrary.
+        $cheap = $this->node('country', 'cheap');
+        $pricey = $this->node('country', 'pricey');
+        $cheapCity = $this->node('city', 'cheap_city');
+        $cheapCity->update(['parent_id' => $cheap->id]);
+        $priceyCity = $this->node('city', 'pricey_city');
+        $priceyCity->update(['parent_id' => $pricey->id]);
+
+        $campaign = \App\Models\WizardCampaign::create(['key' => 'test-campaign-3', 'label' => 'Test 3']);
+        \App\Models\WizardCampaignDestinationPrice::create([
+            'wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $cheapCity->id, 'price_per_person_eur' => 20,
+        ]);
+        \App\Models\WizardCampaignDestinationPrice::create([
+            'wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $priceyCity->id, 'price_per_person_eur' => 200,
+        ]);
+
+        $session = SearchSession::create([
+            'status' => 'in_progress', 'adults_count' => 2, 'wizard_campaign_id' => $campaign->id,
+            'date_from' => '2026-09-01', 'date_to' => '2026-09-08',
+        ]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'country']);
+
+        $this->assertSame($cheap->id, $results->first()->id);
+        $this->assertSame($pricey->id, $results->last()->id);
+    }
 }

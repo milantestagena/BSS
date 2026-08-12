@@ -113,6 +113,17 @@ class GeographyResolver
             $this->assignPriceRanks($mapped, $priceTotals);
         }
 
+        // Owner's call, 2026-08-11: "cena je uvek parametar, jer svako oce da ustedi" — when
+        // nothing carries a real match_score (no preference stated yet, or the fallback above
+        // just kept everything because nothing matched at all), sorting by match_score is a
+        // no-op tie, so order by price ascending instead — a useful default is better than an
+        // arbitrary one. Untied (falls through to sort_order) when there's no price data either.
+        if ($isGeoType && $mapped->max('match_score') === 0) {
+            return $mapped
+                ->sortBy(fn (TaxonomyNode $node) => $priceTotals[$node->id] ?? PHP_FLOAT_MAX)
+                ->values();
+        }
+
         return $mapped->sortByDesc('match_score')->values();
     }
 
