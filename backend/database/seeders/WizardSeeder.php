@@ -981,6 +981,16 @@ class WizardSeeder extends Seeder
             'hvar' => ['atmosphere' => ['zivahna_nocna_zabava']],
             'kaljari' => ['food' => ['dobra_hrana']],
             'split' => ['food' => ['dobra_hrana']],
+            // City-level food/wine additions, 2026-08-12 — owner's ask, same tier>=2 standard as
+            // exploration/beach (seedExplorationAndBeachTags): a country-wide food reputation
+            // doesn't mean every city in it earns the tag, and conversely a city can have a real
+            // culinary reputation even where the country overall doesn't (e.g. Tenerife's actual
+            // volcanic wine appellation vs. Spain's food reputation being more Basque/Catalan
+            // than Canarian).
+            'krit' => ['food' => ['dobra_hrana']], // Cretan cuisine — distinct within Greek food
+            'kalamata' => ['food' => ['dobra_hrana']], // world-famous olives/olive oil
+            'taormina' => ['food' => ['dobra_hrana']], // Sicilian cuisine
+            'tenerife' => ['drinks' => ['vino']], // real DO volcanic wine region
         ];
 
         foreach ($cityAtmosphere as $slug => $tags) {
@@ -1004,6 +1014,11 @@ class WizardSeeder extends Seeder
             'grcka' => ['food' => ['dobra_hrana'], 'drinks' => ['vino']],
             'italija' => ['food' => ['dobra_hrana'], 'drinks' => ['vino']],
             'turska' => ['food' => ['dobra_hrana']],
+            // 2026-08-12 additions, same tier>=2 standard: Spain/Portugal's globally-recognized
+            // food reputations, Croatia's real (if smaller-scale) Dalmatian wine culture.
+            'spanija' => ['food' => ['dobra_hrana']],
+            'portugalija' => ['food' => ['dobra_hrana']],
+            'hrvatska' => ['drinks' => ['vino']],
         ];
 
         foreach ($countryAtmosphere as $slug => $tags) {
