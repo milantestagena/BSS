@@ -101,9 +101,19 @@ class SearchSessionResolver
 
     /**
      * For every taxonomy node newly selected in this request (single FKs like personaId, plus
-     * preference_tags slugs), auto-apply its `implies`/`suggests` targets — driven entirely by
-     * the taxonomy_node_relations table, not hardcoded per taxonomy type. First-touch-wins:
-     * never overwrite a field the user (or an earlier implication) already answered.
+     * any free_text_answers.* question backed by a real taxonomy_type), auto-apply its
+     * `implies`/`suggests` targets — driven entirely by the taxonomy_node_relations table, not
+     * hardcoded per taxonomy type. First-touch-wins: never overwrite a field the user (or an
+     * earlier implication) already answered.
+     *
+     * The free_text_answers side is read generically off `wizard_questions` (session_field +
+     * taxonomy_type) rather than a hardcoded field-name list — owner's live catch, 2026-08-12:
+     * `preference_tags` used to be special-cased here, and `persona_group`'s `persona_tags`
+     * (a second, MULTI-choice persona question — 'kasno-letovanje' campaign's "What is this
+     * crew into?", distinct from the single-choice `personaId` FK) was silently never wired up,
+     * so a Partygoer selected through it never got its implied "Lively nightlife" tag at all.
+     * Reading straight off wizard_questions means a NEW taxonomy-backed free-text question can't
+     * repeat that gap by omission.
      */
     private function applyImpliedAndSuggested(SearchSession $session, array $input): void
     {
@@ -115,11 +125,23 @@ class SearchSessionResolver
             }
         }
 
-        if (! empty($input['freeTextAnswers']['preference_tags'])) {
-            $tagSlugs = $input['freeTextAnswers']['preference_tags'];
-            $selectedNodes = $selectedNodes->merge(
-                TaxonomyNode::where('type', 'preference_tag')->whereIn('slug', $tagSlugs)->get()
-            );
+        if (! empty($input['freeTextAnswers'])) {
+            $taxonomyQuestions = WizardQuestion::whereNotNull('taxonomy_type')
+                ->where('session_field', 'like', 'free_text_answers.%')
+                ->get(['session_field', 'taxonomy_type']);
+
+            foreach ($taxonomyQuestions as $question) {
+                $subKey = substr($question->session_field, strlen('free_text_answers.'));
+                $value = $input['freeTextAnswers'][$subKey] ?? null;
+                if (empty($value)) {
+                    continue;
+                }
+
+                $slugs = is_array($value) ? $value : [$value];
+                $selectedNodes = $selectedNodes->merge(
+                    TaxonomyNode::where('type', $question->taxonomy_type)->whereIn('slug', $slugs)->get()
+                );
+            }
         }
 
         foreach ($selectedNodes->filter() as $node) {

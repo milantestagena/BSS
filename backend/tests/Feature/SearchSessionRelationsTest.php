@@ -71,6 +71,7 @@ class SearchSessionRelationsTest extends TestCase
         $jeftino = $this->node('preference_tag', 'jeftino');
         $budgetTier = $this->node('budget_tier', 'do_20e');
         $this->questionFor('budget_tier', 'budget_tier_id');
+        $this->questionFor('preference_tag', 'free_text_answers.preference_tags');
 
         $jeftino->suggests()->attach($budgetTier->id, ['relation_type' => 'suggests']);
 
@@ -115,6 +116,7 @@ class SearchSessionRelationsTest extends TestCase
         $hostel = $this->node('tip_smestaja', 'hostel');
         $this->questionFor('budget_tier', 'budget_tier_id');
         $this->questionFor('tip_smestaja', 'tip_smestaja_id');
+        $this->questionFor('preference_tag', 'free_text_answers.preference_tags');
 
         $budgetConscious->suggests()->attach($cheapTier->id, ['relation_type' => 'suggests']);
         $budgetConscious->suggests()->attach($hostel->id, ['relation_type' => 'suggests']);
@@ -158,5 +160,31 @@ class SearchSessionRelationsTest extends TestCase
 
         $this->assertSame(['dobra_hrana'], $session->free_text_answers['implied_preference_tags']);
         $this->assertNull($session->budget_tier_id);
+    }
+
+    public function test_a_multi_choice_free_text_taxonomy_question_also_triggers_implies(): void
+    {
+        // Regression test — owner's live catch, 2026-08-12: the 'kasno-letovanje' campaign's
+        // persona question ("What is this crew into?") is MULTI-choice and writes to
+        // free_text_answers.persona_tags, not the personaId FK. A Partygoer selected through it
+        // never got its implied "Lively nightlife" preference tag at all, because
+        // applyImpliedAndSuggested only ever special-cased personaId and preference_tags.
+        $partijaner = $this->node('persona', 'partijaner');
+        $zivahnaNocnaZabava = $this->node('preference_tag', 'zivahna_nocna_zabava');
+        $this->questionFor('persona', 'free_text_answers.persona_tags');
+        $this->questionFor('preference_tag', 'free_text_answers.preference_tags');
+
+        $partijaner->implies()->attach($zivahnaNocnaZabava->id, ['relation_type' => 'implies']);
+
+        $session = SearchSession::create(['status' => 'in_progress']);
+
+        (new SearchSessionResolver)->update(null, [
+            'id' => $session->id,
+            'input' => ['freeTextAnswers' => ['persona_tags' => [$partijaner->slug]]],
+        ]);
+
+        $session->refresh();
+
+        $this->assertSame(['zivahna_nocna_zabava'], $session->free_text_answers['implied_preference_tags']);
     }
 }
