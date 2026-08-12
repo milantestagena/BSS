@@ -707,14 +707,18 @@ export class WizardComponent implements OnInit {
   /**
    * Group headers used to spell out the UNION of tags matched across every card in the group —
    * with 3+ tags selected that union crept toward listing all of them for EVERY tier, reading as
-   * near-identical text between a 2-match and a 1-match group (owner's catch, 2026-08-12). The
-   * per-card caption (matchedTagLabelsFor) already carries the specific "why" per city, so the
-   * group header's only real job is relative standing: top-matching tier is "Best Choices",
-   * every other non-empty tier is "Also good choices" — scales cleanly regardless of how many
-   * tags are selected, never becomes redundant with itself.
+   * near-identical text between tiers (owner's catch, 2026-08-12). The per-card caption
+   * (matchedTagLabelsFor) already carries the specific "why" per city, so the group header's only
+   * real job is relative standing: top-matching tier is "Best choices", second is "Also good
+   * choices", and — owner's follow-up catch, same day: with 3+ distinct match-count tiers,
+   * "Also good choices" was repeating itself header-to-header with nothing to tell them apart —
+   * every tier from the THIRD down is collapsed into one final "Less good choices" group instead
+   * of getting its own repeated header. Caps at 3 distinct matched-tier headers, however many
+   * distinct match counts actually exist.
    */
   groupedDestinations(question: WizardQuestion): { headerLabel: string; nodes: TaxonomyNode[] }[] {
     const nodes = this.optionsFor(question) ?? [];
+    const byPrice = (a: TaxonomyNode, b: TaxonomyNode) => (a.priceRank ?? 99) - (b.priceRank ?? 99);
 
     const byCount = new Map<number, TaxonomyNode[]>();
     for (const node of nodes) {
@@ -725,27 +729,39 @@ export class WizardComponent implements OnInit {
     }
 
     const counts = Array.from(byCount.keys()).sort((a, b) => b - a);
+    const matchedCounts = counts.filter((c) => c > 0);
     // Owner's call, 2026-08-11: a single "Other options" group spanning EVERYTHING isn't
     // grouping anyone by anything — there's nothing to differentiate it from, so the header is
     // just noise. Only label the 0-match bucket when it's sitting alongside real matched groups.
     const onlyZeroMatchGroup = counts.length === 1 && counts[0] === 0;
-    let sawFirstMatchedTier = false;
 
-    return counts.map((count) => {
+    const groups: { headerLabel: string; nodes: TaxonomyNode[] }[] = [];
+
+    matchedCounts.forEach((count, tierIndex) => {
       // Cheapest-first within the group — owner's ask, 2026-08-12: color alone ("it IS ordered")
       // wasn't legible as an order when the cards themselves stayed in an unrelated position.
-      // Nodes with no priceRank (no price data yet) sort after priced ones.
-      const groupNodes = [...byCount.get(count)!].sort((a, b) => (a.priceRank ?? 99) - (b.priceRank ?? 99));
+      const tierNodes = [...byCount.get(count)!].sort(byPrice);
 
-      if (count === 0) {
-        return { headerLabel: onlyZeroMatchGroup ? '' : this.i18n.t('otherOptionsHeader'), nodes: groupNodes };
+      if (tierIndex === 0) {
+        groups.push({ headerLabel: this.i18n.t('bestChoicesHeader'), nodes: tierNodes });
+      } else if (tierIndex === 1) {
+        groups.push({ headerLabel: this.i18n.t('alsoGoodChoicesHeader'), nodes: tierNodes });
+      } else if (tierIndex === 2) {
+        groups.push({ headerLabel: this.i18n.t('lessGoodChoicesHeader'), nodes: tierNodes });
+      } else {
+        // 4th+ tier — merge straight into the "Less good choices" group already pushed above,
+        // re-sorting so the combined group stays cheapest-first as a whole, not tier-then-price.
+        const lessGood = groups[2];
+        lessGood.nodes = [...lessGood.nodes, ...tierNodes].sort(byPrice);
       }
-
-      const headerLabel = sawFirstMatchedTier ? this.i18n.t('alsoGoodChoicesHeader') : this.i18n.t('bestChoicesHeader');
-      sawFirstMatchedTier = true;
-
-      return { headerLabel, nodes: groupNodes };
     });
+
+    if (counts.includes(0)) {
+      const zeroNodes = [...byCount.get(0)!].sort(byPrice);
+      groups.push({ headerLabel: onlyZeroMatchGroup ? '' : this.i18n.t('otherOptionsHeader'), nodes: zeroNodes });
+    }
+
+    return groups;
   }
 
   /** True if ANY node within this specific group has a priceRank — the legend line renders per

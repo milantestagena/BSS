@@ -72,6 +72,7 @@ const STRINGS: Record<'en' | 'de', Record<string, string>> = {
     otherOptionsHeader: 'Other options',
     bestChoicesHeader: 'Best choices',
     alsoGoodChoicesHeader: 'Also good choices',
+    lessGoodChoicesHeader: 'Less good choices',
     priceLegend: 'Accommodation price (relative to these options): cheaper → pricier',
   },
   de: {
@@ -137,6 +138,7 @@ const STRINGS: Record<'en' | 'de', Record<string, string>> = {
     otherOptionsHeader: 'Weitere Optionen',
     bestChoicesHeader: 'Beste Wahl',
     alsoGoodChoicesHeader: 'Auch eine gute Wahl',
+    lessGoodChoicesHeader: 'Weniger gute Wahl',
     priceLegend: 'Unterkunftspreis (relativ zu diesen Optionen): günstiger → teurer',
   },
 };
