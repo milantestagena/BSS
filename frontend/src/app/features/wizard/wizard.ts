@@ -404,6 +404,14 @@ export class WizardComponent implements OnInit {
     return this.auth.loaded() && !!this.auth.currentUser() && !this.aiSearchEnabled;
   }
 
+  /** Owner's call, 2026-08-12: the "Data we collected so far" debug panel is a real testing
+   *  tool (caught several real bugs this way), but a raw JSON blob reads as unfinished to a
+   *  normal visitor or an affiliate reviewer. Hidden by default now, opt-in via `?debug=1` in
+   *  the URL rather than removed outright — still one request away when actually needed. */
+  get debugEnabled(): boolean {
+    return this.route.snapshot.queryParamMap.get('debug') === '1';
+  }
+
   async ngOnInit(): Promise<void> {
     const data = this.route.snapshot.data;
     this.campaignKey = (data['campaignKey'] as string) ?? null;

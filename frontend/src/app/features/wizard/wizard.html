@@ -423,10 +423,11 @@
     }
   </div>
 
-  <!-- Debug JSON, sticky on the side instead of below — clean enough to show a Booking
-       affiliate reviewer, and stays visible while the middle column scrolls. Owner's call,
-       2026-08-04; hidden below lg since it's a dev/review aid, not visitor-facing content. -->
-  @if (wizard.compiledQuery(); as compiled) {
+  <!-- Debug JSON, sticky on the side instead of below — stays visible while the middle column
+       scrolls. Owner's call, 2026-08-04; hidden below lg since it's a dev/review aid, not
+       visitor-facing content. Opt-in via ?debug=1, 2026-08-12 — hidden by default so it doesn't
+       read as unfinished to a normal visitor, still one query param away when testing. -->
+  @if (debugEnabled && wizard.compiledQuery(); as compiled) {
     <div class="hidden lg:sticky lg:top-10 lg:block">
       <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
         <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
