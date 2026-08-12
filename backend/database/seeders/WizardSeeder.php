@@ -38,6 +38,7 @@ class WizardSeeder extends Seeder
         $this->seedSwimCountryProfiles();
         $this->seedCityAndCountryVibeProfiles();
         $this->seedSwimAtmosphereTags();
+        $this->seedExplorationAndBeachTags();
         $this->seedAccommodationSeasons();
         $this->seedHolidayPricingWindows();
         $this->seedHolidays();
@@ -204,6 +205,10 @@ class WizardSeeder extends Seeder
             ['slug' => 'mirno_i_tiho', 'en' => 'Peaceful & quiet', 'sr' => 'Mirno i tiho'],
             ['slug' => 'van_utabanih_staza', 'en' => 'Off the beaten path', 'sr' => 'Van utabanih staza'],
             ['slug' => 'porodicna_atmosfera', 'en' => 'Family-friendly atmosphere', 'sr' => 'Porodična atmosfera'],
+            // Owner's ask, 2026-08-12: "nekima nije samo pesak i uso u vodu" — a distinct axis
+            // from van_utabanih_staza (that's about the DESTINATION overall; this is purely
+            // about the beach itself). See seedExplorationAndBeachTags().
+            ['slug' => 'lepe_plaze', 'en' => 'Great beaches', 'sr' => 'Lepe plaže'],
             // Cultural-availability preference tags (2026-07-30, see wizard_architecture
             // "cultural_availability engine"). `meta.cultural_category` + `meta.max_tier` is
             // the generic convention GeographyResolver reads — same shape as budget_tier's
@@ -1015,6 +1020,89 @@ class WizardSeeder extends Seeder
     }
 
     /**
+     * Two holistic 0-3 city ratings — owner's ask, 2026-08-12. Only tier >= 2 adds the matching
+     * preference_tag (meta.atmosphere), same "tag it or don't, no fractional score" convention
+     * as the Pub/Rave pass above — a 0/1 rating carries no real signal either way.
+     *
+     * `exploration`: "is it worth leaving the hotel to look around, regardless of why" — history
+     * OR standout natural scenery both count equally (owner's own example: Lefkada has no real
+     * history but is genuinely one of the most photographed coastlines in the world, and that's
+     * worth exactly as much as Corfu's old town). 0 = pure beach/resort, nothing to see. 1 = a
+     * real but modest point of interest (a small fort, an old-town core) — half a day, not the
+     * main reason to go. 2 = a genuinely well-known site or standout natural feature, worth the
+     * trip on its own. 3 = globally recognized, bucket-list-level (UNESCO-tier history or a
+     * true natural wonder). Maps to `van_utabanih_staza` at tier >= 2.
+     *
+     * `beach`: purely the beach itself, not the town — "nekima nije samo pesak i uso u vodu."
+     * 0 = functional, unremarkable. 1 = decent, pleasant, does the job. 2 = genuinely beautiful,
+     * a beach people specifically seek out. 3 = world-famous, routinely on "world's best
+     * beaches" lists (Skiathos's Koukounaries corrected in after the owner's live catch — pine
+     * forest to the sand, always near the top of those lists; the general-knowledge first pass
+     * had it wrong). Maps to `lepe_plaze` at tier >= 2.
+     *
+     * Both are the owner's own general-knowledge judgment calls, same "odokativno" spirit as
+     * the cultural_availability tiers — not derived from any dataset.
+     */
+    private function seedExplorationAndBeachTags(): void
+    {
+        // slug => [exploration_tier, beach_tier]
+        $ratings = [
+            // Greece
+            'rodos' => [3, 1], 'krit' => [3, 1], 'santorini' => [3, 1], 'krf' => [2, 1],
+            'naksos' => [2, 1], 'milos' => [2, 2], 'simi' => [2, 1], 'hanja' => [2, 3],
+            'retimno' => [2, 2], 'zakintos' => [2, 3], 'kefalonija' => [2, 3], 'lefkada' => [2, 3],
+            'mikonos' => [1, 1], 'kos' => [1, 1], 'karpatos' => [1, 1], 'kalimnos' => [1, 1],
+            'kalamata' => [1, 1], 'skopelos' => [1, 1], 'skijatos' => [1, 3], 'paros' => [1, 1],
+            // Turkey
+            'kusadasi' => [3, 1], 'bodrum' => [2, 1], 'alanija' => [2, 1], 'kas' => [2, 1],
+            'fethije' => [2, 1], 'oludeniz' => [2, 3], 'sajd' => [2, 1], 'antalija' => [2, 1],
+            'kalkan' => [1, 1], 'datca' => [1, 1], 'marmaris' => [1, 1], 'cesme' => [1, 1],
+            // Egypt
+            'sarm_el_seik' => [2, 1], 'marsa_alam' => [2, 1], 'dahab' => [2, 1],
+            'hurgada' => [1, 1], 'el_guna' => [1, 1], 'nuvejba' => [1, 1], 'taba' => [1, 1],
+            'safaga' => [1, 1], 'soma_bej' => [1, 1],
+            // Cyprus
+            'pafos' => [3, 1], 'ajia_napa' => [0, 2], 'larnaka' => [1, 1],
+            // Malta
+            'melieha' => [0, 2], 'sliema' => [1, 0], 'st_julians' => [0, 0],
+            // Tunisia
+            'susa' => [2, 1], 'djerba' => [2, 1], 'monastir' => [1, 1], 'mahdija' => [1, 1],
+            'tabarka' => [1, 0], 'bizerta' => [1, 0], 'hamamet' => [1, 1], 'nabel' => [1, 0],
+            'sfaks' => [1, 0], 'zarzis' => [0, 1],
+            // Spain (Canaries)
+            'tenerife' => [3, 1], 'lansarote' => [3, 1], 'gran_kanarija' => [2, 2], 'fuerteventura' => [1, 2],
+            // Croatia
+            'split' => [3, 1], 'dubrovnik' => [3, 1], 'hvar' => [1, 1],
+            // Portugal
+            'lagos' => [2, 2], 'albufeira' => [0, 1], 'faro' => [1, 1],
+            // Italy
+            'taormina' => [3, 2], 'kaljari' => [2, 1], 'lampedusa' => [1, 3], 'linosa' => [1, 1],
+        ];
+
+        foreach ($ratings as $slug => [$explorationTier, $beachTier]) {
+            $city = TaxonomyNode::where('type', 'city')->where('slug', $slug)->first();
+            if (! $city) {
+                continue;
+            }
+
+            $newTags = [];
+            if ($explorationTier >= 2) {
+                $newTags[] = 'van_utabanih_staza';
+            }
+            if ($beachTier >= 2) {
+                $newTags[] = 'lepe_plaze';
+            }
+            if (empty($newTags)) {
+                continue;
+            }
+
+            $meta = $city->meta ?? [];
+            $meta['atmosphere'] = array_unique([...($meta['atmosphere'] ?? []), ...$newTags]);
+            $city->update(['meta' => $meta]);
+        }
+    }
+
+    /**
      * Monthly season_tier per swim country — see AccommodationPriceEstimator /
      * wizard_architecture memory, 2026-08-03. No usable free dataset exists for this (checked:
      * Eurostat's accommodation HICP is a year-over-year inflation index, not a within-year
@@ -1485,6 +1573,7 @@ class WizardSeeder extends Seeder
                 'zivahna_nocna_zabava' => 'Lebhaftes Nachtleben',
                 'mirno_i_tiho' => 'Ruhig & friedlich',
                 'van_utabanih_staza' => 'Abseits ausgetretener Pfade',
+                'lepe_plaze' => 'Schöne Strände',
                 'porodicna_atmosfera' => 'Familienfreundliche Atmosphäre',
                 'zeli_alkohol_slobodno' => 'Freier Zugang zu Alkohol gewünscht',
                 'zeli_halal' => 'Halal-Optionen gewünscht',
