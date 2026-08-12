@@ -696,10 +696,17 @@ export class WizardComponent implements OnInit {
     return (node.matchedTags ?? []).map((slug) => tagLabels.get(slug)).filter(Boolean).join(', ');
   }
 
+  /**
+   * Group headers used to spell out the UNION of tags matched across every card in the group —
+   * with 3+ tags selected that union crept toward listing all of them for EVERY tier, reading as
+   * near-identical text between a 2-match and a 1-match group (owner's catch, 2026-08-12). The
+   * per-card caption (matchedTagLabelsFor) already carries the specific "why" per city, so the
+   * group header's only real job is relative standing: top-matching tier is "Best Choices",
+   * every other non-empty tier is "Also good choices" — scales cleanly regardless of how many
+   * tags are selected, never becomes redundant with itself.
+   */
   groupedDestinations(question: WizardQuestion): { headerLabel: string; nodes: TaxonomyNode[] }[] {
     const nodes = this.optionsFor(question) ?? [];
-
-    const tagLabels = this.preferenceTagLabels();
 
     const byCount = new Map<number, TaxonomyNode[]>();
     for (const node of nodes) {
@@ -714,6 +721,7 @@ export class WizardComponent implements OnInit {
     // grouping anyone by anything — there's nothing to differentiate it from, so the header is
     // just noise. Only label the 0-match bucket when it's sitting alongside real matched groups.
     const onlyZeroMatchGroup = counts.length === 1 && counts[0] === 0;
+    let sawFirstMatchedTier = false;
 
     return counts.map((count) => {
       // Cheapest-first within the group — owner's ask, 2026-08-12: color alone ("it IS ordered")
@@ -725,15 +733,10 @@ export class WizardComponent implements OnInit {
         return { headerLabel: onlyZeroMatchGroup ? '' : this.i18n.t('otherOptionsHeader'), nodes: groupNodes };
       }
 
-      const labels = new Set<string>();
-      for (const node of groupNodes) {
-        for (const slug of node.matchedTags ?? []) {
-          const label = tagLabels.get(slug);
-          if (label) labels.add(label);
-        }
-      }
+      const headerLabel = sawFirstMatchedTier ? this.i18n.t('alsoGoodChoicesHeader') : this.i18n.t('bestChoicesHeader');
+      sawFirstMatchedTier = true;
 
-      return { headerLabel: Array.from(labels).join(', '), nodes: groupNodes };
+      return { headerLabel, nodes: groupNodes };
     });
   }
 

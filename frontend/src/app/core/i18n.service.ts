@@ -70,6 +70,8 @@ const STRINGS: Record<'en' | 'de', Record<string, string>> = {
     noAnswer: '—',
     destinationsGroupedIntro: 'Grouped by what matters most to you:',
     otherOptionsHeader: 'Other options',
+    bestChoicesHeader: 'Best choices',
+    alsoGoodChoicesHeader: 'Also good choices',
     priceLegend: 'Accommodation price (relative to these options): cheaper → pricier',
   },
   de: {
@@ -133,6 +135,8 @@ const STRINGS: Record<'en' | 'de', Record<string, string>> = {
     noAnswer: '—',
     destinationsGroupedIntro: 'Gruppiert nach dem, was dir am wichtigsten ist:',
     otherOptionsHeader: 'Weitere Optionen',
+    bestChoicesHeader: 'Beste Wahl',
+    alsoGoodChoicesHeader: 'Auch eine gute Wahl',
     priceLegend: 'Unterkunftspreis (relativ zu diesen Optionen): günstiger → teurer',
   },
 };
