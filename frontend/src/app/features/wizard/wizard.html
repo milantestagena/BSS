@@ -126,6 +126,15 @@
               i18n.t('search')
             }}</ui-button>
           </div>
+          <!-- Owner's ask, 2026-08-12: not every tweak is "pick a different city" — sometimes
+               it's one small answer somewhere earlier. Back to the chat, not a new destination. -->
+          <button
+            type="button"
+            class="mt-2 text-xs font-medium text-slate-500 underline decoration-dotted hover:text-slate-700"
+            (click)="backToSession()"
+          >
+            {{ i18n.t('backToSession') }}
+          </button>
         </div>
       }
 

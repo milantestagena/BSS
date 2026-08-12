@@ -1005,6 +1005,15 @@ export class WizardComponent implements OnInit {
     this.scrollToActiveStep();
   }
 
+  /** Owner's ask, 2026-08-12: from the results screen, a way back to the chat that ISN'T "pick
+   *  a different city" — sometimes the tweak needed is small (a "Change" on some earlier step),
+   *  not a whole new destination. Just flips back to the chat view; no wizard state is touched,
+   *  so every already-collapsed step (with its own "Change" link) is exactly as it was. */
+  backToSession(): void {
+    this.finished.set(false);
+    this.scrollToActiveStep();
+  }
+
   /** Re-opens a completed (collapsed) step for editing — see WizardService.editStep for why
    *  truncating forward history is correct, not lossy. */
   editStep(index: number): void {

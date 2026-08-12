@@ -76,6 +76,7 @@ const STRINGS: Record<'en' | 'de', Record<string, string>> = {
     priceLegend: 'Accommodation price (relative to these options): cheaper → pricier',
     otherShortlistedCities: 'Not quite it? Try one of your other shortlisted cities:',
     search: 'Search',
+    backToSession: '← Back to your session (change a smaller detail instead)',
   },
   de: {
     back: 'Zurück',
@@ -144,6 +145,7 @@ const STRINGS: Record<'en' | 'de', Record<string, string>> = {
     priceLegend: 'Unterkunftspreis (relativ zu diesen Optionen): günstiger → teurer',
     otherShortlistedCities: 'Nicht ganz das Richtige? Probier eine deiner anderen Wunsch-Städte:',
     search: 'Suchen',
+    backToSession: '← Zurück zu deiner Sitzung (stattdessen eine Kleinigkeit ändern)',
   },
 };
 
