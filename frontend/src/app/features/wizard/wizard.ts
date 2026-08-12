@@ -673,13 +673,33 @@ export class WizardComponent implements OnInit {
    * in the deliberate fallback case (this region's atmosphere/drinks/food tags aren't seeded
    * yet) — labeled generically rather than left blank.
    */
-  groupedDestinations(question: WizardQuestion): { headerLabel: string; nodes: TaxonomyNode[] }[] {
-    const nodes = this.optionsFor(question) ?? [];
-
+  /** slug -> translated label lookup for preference_tags, shared by groupedDestinations()'s
+   *  group headers and matchedTagLabelsFor()'s per-card labels. */
+  private preferenceTagLabels(): Map<string, string> {
     const tagLabels = new Map<string, string>();
     for (const tag of this.geographyOptions()['preference_tags'] ?? []) {
       tagLabels.set(tag.slug, tag.label);
     }
+    return tagLabels;
+  }
+
+  /**
+   * Owner's catch, 2026-08-12: a group header shows the UNION of tags matched across every card
+   * in it (e.g. "Great beaches, Off the beaten path" when Ayia Napa matched only the first and
+   * Paphos only the second) — read as if EVERY card in the group satisfies EVERY listed tag,
+   * which isn't true once a group holds cards that tied on match COUNT but not on which tags.
+   * This is the per-card correction: exactly which tag(s) THIS card matched, shown as a small
+   * caption under its name.
+   */
+  matchedTagLabelsFor(node: TaxonomyNode): string {
+    const tagLabels = this.preferenceTagLabels();
+    return (node.matchedTags ?? []).map((slug) => tagLabels.get(slug)).filter(Boolean).join(', ');
+  }
+
+  groupedDestinations(question: WizardQuestion): { headerLabel: string; nodes: TaxonomyNode[] }[] {
+    const nodes = this.optionsFor(question) ?? [];
+
+    const tagLabels = this.preferenceTagLabels();
 
     const byCount = new Map<number, TaxonomyNode[]>();
     for (const node of nodes) {
@@ -696,7 +716,10 @@ export class WizardComponent implements OnInit {
     const onlyZeroMatchGroup = counts.length === 1 && counts[0] === 0;
 
     return counts.map((count) => {
-      const groupNodes = byCount.get(count)!;
+      // Cheapest-first within the group — owner's ask, 2026-08-12: color alone ("it IS ordered")
+      // wasn't legible as an order when the cards themselves stayed in an unrelated position.
+      // Nodes with no priceRank (no price data yet) sort after priced ones.
+      const groupNodes = [...byCount.get(count)!].sort((a, b) => (a.priceRank ?? 99) - (b.priceRank ?? 99));
 
       if (count === 0) {
         return { headerLabel: onlyZeroMatchGroup ? '' : this.i18n.t('otherOptionsHeader'), nodes: groupNodes };
@@ -714,6 +737,14 @@ export class WizardComponent implements OnInit {
     });
   }
 
+  /** True if ANY node within this specific group has a priceRank — the legend line renders per
+   *  group (owner's ask, 2026-08-12: "ispod opisa" — right under that group's header, since a
+   *  single legend way at the bottom of a long, undifferentiated group read as disconnected
+   *  from the actual cheaper->pricier order the cards are already in). */
+  groupHasPriceRanks(group: { nodes: TaxonomyNode[] }): boolean {
+    return group.nodes.some((n) => !!n.priceRank);
+  }
+
   /** Relative price coloring for a destination card — green (priceRank 1, cheapest of the
    *  currently-shown options) through red (5, priciest). Empty string (no coloring) when
    *  priceRank is null — not enough price data yet to rank. */
@@ -727,12 +758,6 @@ export class WizardComponent implements OnInit {
     };
 
     return node.priceRank ? classes[node.priceRank] : '';
-  }
-
-  /** True if ANY currently-shown destination card in this question has a priceRank — controls
-   *  whether the price legend line renders at all. */
-  hasPriceRanks(question: WizardQuestion): boolean {
-    return (this.optionsFor(question) ?? []).some((n) => !!n.priceRank);
   }
 
   /** False when groupedDestinations() collapsed to a single, unlabeled fallback group — in

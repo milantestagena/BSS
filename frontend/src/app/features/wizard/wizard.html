@@ -332,9 +332,12 @@
                     @for (group of groupedDestinations(question); track group.headerLabel) {
                       <div class="mb-4">
                         @if (group.headerLabel) {
-                          <h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          <h4 class="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                             {{ group.headerLabel }}
                           </h4>
+                        }
+                        @if (groupHasPriceRanks(group)) {
+                          <p class="mb-2 text-xs text-slate-400">{{ i18n.t('priceLegend') }}</p>
                         }
                         <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
                           @for (node of group.nodes; track node.id) {
@@ -350,14 +353,13 @@
                               (click)="onDestinationCardSelect(question, node)"
                             >
                               {{ node.label }}
+                              @if (matchedTagLabelsFor(node); as matched) {
+                                <span class="mt-0.5 block text-xs font-normal text-slate-500">{{ matched }}</span>
+                              }
                             </button>
                           }
                         </div>
                       </div>
-                    }
-
-                    @if (hasPriceRanks(question)) {
-                      <p class="mt-1 text-xs text-slate-400">{{ i18n.t('priceLegend') }}</p>
                     }
                   </div>
                 } @else {
