@@ -1328,7 +1328,12 @@ class WizardSeeder extends Seeder
             ]],
             ['key' => 'zemlja_regija', 'en' => 'Country / region', 'sr' => 'Zemlja / regija', 'questions' => [
                 ['key' => 'region_theme', 'en' => 'Which part of the world interests you?', 'sr' => 'Koji deo sveta te zanima?', 'input_type' => 'taxonomy_choice', 'taxonomy_type' => 'region_theme', 'session_field' => 'free_text_answers.region_theme', 'allow_free_text' => true],
-                ['key' => 'country_region', 'en' => 'Suggested country/region', 'sr' => 'Predložena zemlja/regija', 'input_type' => 'taxonomy_choice', 'taxonomy_type' => 'country', 'session_field' => 'country_region_id', 'allow_free_text' => true],
+                // Multi-select, 2026-08-12 (owner's ask) — was taxonomy_choice/country_region_id
+                // (single FK). Nothing downstream of city selection actually reads country_region_id
+                // directly (booking/budget/cultural-availability all derive country from the
+                // eventually-CHOSEN city's parent, see SearchSessionQueryCompiler::resolveBudgetContext),
+                // so this was safe to convert without touching the compilation pipeline.
+                ['key' => 'country_region', 'en' => 'Suggested country/region', 'sr' => 'Predložena zemlja/regija', 'input_type' => 'taxonomy_multi_choice', 'taxonomy_type' => 'country', 'session_field' => 'free_text_answers.country_region_ids', 'allow_free_text' => true],
             ]],
             ['key' => 'grad', 'en' => 'City', 'sr' => 'Grad', 'questions' => [
                 ['key' => 'city', 'en' => 'Pick a city', 'sr' => 'Izaberi grad', 'input_type' => 'taxonomy_choice', 'taxonomy_type' => 'city', 'session_field' => 'city_id', 'allow_free_text' => true],

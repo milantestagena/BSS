@@ -499,13 +499,19 @@ export class WizardComponent implements OnInit {
   }
 
   /**
-   * Top-5 shortlisted cities from the wizard's own City step, re-surfaced on the results screen
-   * so the traveler can jump between them without walking back through the whole flow — owner's
-   * ask, 2026-08-12. Reuses whatever `geographyOptions['city']` already holds (already fetched
-   * during the wizard, ranked/priced) rather than re-querying suggestedGeography again.
+   * Top-10 "Best choices" cities from the wizard's own City step (now possibly spanning several
+   * selected countries, see selectedCountryIds), re-surfaced on the results screen so the
+   * traveler can jump between them without walking back through the whole flow — owner's ask,
+   * 2026-08-12 ("nek prebaci Best Choices", cap bumped from 5 to 10 as "5 je malo za prenos").
+   * Only the TOP matched-tag tier carries over, not "also/less good" ones — reuses whatever
+   * `geographyOptions['city']` already holds rather than re-querying suggestedGeography.
    */
   get resultsCityChoices(): TaxonomyNode[] {
-    return (this.geographyOptions()['city'] ?? []).slice(0, 5);
+    const cities = this.geographyOptions()['city'] ?? [];
+    const bestCount = Math.max(0, ...cities.map((n) => n.matchedTags?.length ?? 0));
+    const best = bestCount > 0 ? cities.filter((n) => (n.matchedTags?.length ?? 0) === bestCount) : cities;
+
+    return [...best].sort((a, b) => (a.priceRank ?? 99) - (b.priceRank ?? 99)).slice(0, 10);
   }
 
   /** Locally-selected chip on the results screen, defaulting to whatever city the session is
@@ -842,7 +848,8 @@ export class WizardComponent implements OnInit {
       this.loadGeography('country_region', 'country', value as string);
     }
     if (question.key === 'country_region') {
-      this.loadGeography('city', 'city', value as string);
+      // Multi-select, 2026-08-12 — gathers cities from ANY of the selected countries.
+      void this.loadGeography('city', 'city', undefined, this.selectedCountryIds());
     }
   }
 
@@ -911,14 +918,29 @@ export class WizardComponent implements OnInit {
     return DESTINATION_CARD_KEYS.has(question.key);
   }
 
-  /** Both country_region and city store the node's `id` (session_field ends in `_id`) — same
-   *  value convention QuestionInputComponent's usesSlugValue already encodes generically, just
-   *  hardcoded here since this card grid only ever handles these two specific questions. */
+  /**
+   * `city` is still single-select (stores the node's `id` directly). `country_region` became
+   * multi-select, 2026-08-12 (owner's ask) — toggles the node's SLUG in an array instead
+   * (matching the persona_tags/preference_tags multi-choice convention, since its session_field
+   * no longer ends in `_id`), so onAnswerChange's implies/excludes pipeline resolves it exactly
+   * like any other free_text_answers.* multi-choice field.
+   */
   onDestinationCardSelect(question: WizardQuestion, node: TaxonomyNode): void {
+    if (question.key === 'country_region') {
+      const current = (this.wizard.getAnswer('country_region') as string[] | undefined) ?? [];
+      const next = current.includes(node.slug) ? current.filter((s) => s !== node.slug) : [...current, node.slug];
+      this.onAnswerChange(question, next);
+      return;
+    }
+
     this.onAnswerChange(question, node.id);
   }
 
   isDestinationSelected(question: WizardQuestion, node: TaxonomyNode): boolean {
+    if (question.key === 'country_region') {
+      return ((this.wizard.getAnswer('country_region') as string[] | undefined) ?? []).includes(node.slug);
+    }
+
     return this.wizard.getAnswer(question.key) === node.id;
   }
 
@@ -1133,8 +1155,7 @@ export class WizardComponent implements OnInit {
         const chosenTheme = this.wizard.getAnswer('region_theme') as string | undefined;
         await this.loadGeography(question.key, 'country', chosenTheme);
       } else if (question.taxonomyType === 'city') {
-        const chosenCountry = this.wizard.getAnswer('country_region') as string | undefined;
-        await this.loadGeography(question.key, 'city', chosenCountry);
+        await this.loadGeography(question.key, 'city', undefined, this.selectedCountryIds());
       } else if (fetchedByTaxonomyType.has(question.taxonomyType)) {
         this.geographyOptions.update((g) => ({ ...g, [question.key]: fetchedByTaxonomyType.get(question.taxonomyType!)! }));
       } else {
@@ -1145,13 +1166,33 @@ export class WizardComponent implements OnInit {
     }
   }
 
-  private async loadGeography(questionKey: string, taxonomyType: string, parentId?: string): Promise<void> {
+  private async loadGeography(
+    questionKey: string,
+    taxonomyType: string,
+    parentId?: string,
+    parentIds?: string[]
+  ): Promise<void> {
     this.geographyLoading.update((g) => ({ ...g, [questionKey]: true }));
     try {
-      const options = await this.wizard.loadGeographyOptions(taxonomyType, parentId);
+      const options = await this.wizard.loadGeographyOptions(taxonomyType, parentId, parentIds);
       this.geographyOptions.update((g) => ({ ...g, [questionKey]: options }));
     } finally {
       this.geographyLoading.update((g) => ({ ...g, [questionKey]: false }));
     }
+  }
+
+  /** country_region is multi-select (owner's ask, 2026-08-12) — the answer is an array of
+   *  country SLUGS (see onDestinationCardSelect), resolved here to IDs via whatever
+   *  geographyOptions['country_region'] already holds, for passing as suggestedGeography's
+   *  parentIds. Empty when nothing's selected (region_theme step was skipped, or every country
+   *  card was deselected) — the resolver already treats that as "every country". */
+  private selectedCountryIds(): string[] {
+    const selectedSlugs = (this.wizard.getAnswer('country_region') as string[] | undefined) ?? [];
+    if (selectedSlugs.length === 0) return [];
+
+    const countryOptions = this.geographyOptions()['country_region'] ?? [];
+    return selectedSlugs
+      .map((slug) => countryOptions.find((n) => n.slug === slug)?.id)
+      .filter((id): id is string => !!id);
   }
 }

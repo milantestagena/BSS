@@ -98,8 +98,8 @@ const UPDATE_SESSION_MUTATION = `
 `;
 
 const SUGGESTED_GEOGRAPHY_QUERY = `
-  query SuggestedGeography($sessionId: ID!, $type: String!, $parentId: ID) {
-    suggestedGeography(sessionId: $sessionId, type: $type, parentId: $parentId) {
+  query SuggestedGeography($sessionId: ID!, $type: String!, $parentId: ID, $parentIds: [ID!]) {
+    suggestedGeography(sessionId: $sessionId, type: $type, parentId: $parentId, parentIds: $parentIds) {
       id slug label matchScore meta implied matchedTags priceRank
     }
   }
@@ -418,13 +418,17 @@ export class WizardService {
     return step.questions.some((q) => this.isQuestionVisible(q));
   }
 
-  async loadGeographyOptions(type: string, parentId?: string | null): Promise<TaxonomyNode[]> {
+  /** parentIds (plural) narrows to ANY of several selected countries — owner's ask, 2026-08-12,
+   *  Country/region became multi-select. Takes priority over the singular parentId when both
+   *  are passed (callers should really only ever pass one or the other). */
+  async loadGeographyOptions(type: string, parentId?: string | null, parentIds?: string[] | null): Promise<TaxonomyNode[]> {
     const sessionId = this.sessionId();
     if (!sessionId) return [];
     const data = await this.gql.request<{ suggestedGeography: TaxonomyNode[] }>(SUGGESTED_GEOGRAPHY_QUERY, {
       sessionId,
       type,
-      parentId: parentId ?? null,
+      parentId: parentIds?.length ? null : parentId ?? null,
+      parentIds: parentIds?.length ? parentIds : null,
     });
     return data.suggestedGeography;
   }

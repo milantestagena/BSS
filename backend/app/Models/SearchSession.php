@@ -153,6 +153,14 @@ class SearchSession extends Model
 
         $ids = $ids->merge($personaTagIds);
 
+        // Multi-select country_region, 2026-08-12 (owner's ask) — same bare-slug shape as
+        // persona_tags/preference_tags above, replacing the old single country_region_id FK.
+        $countryRegionIds = TaxonomyNode::where('type', 'country')
+            ->whereIn('slug', collect($this->free_text_answers['country_region_ids'] ?? []))
+            ->pluck('id');
+
+        $ids = $ids->merge($countryRegionIds);
+
         // termin_category is the one taxonomy-linked field stored as a bare slug string, not an
         // `_id` FK (see the search_sessions migration) — was missing here entirely, which meant
         // any implies/excludes edge authored FROM a termin_category node (e.g. a themed entry

@@ -45,6 +45,31 @@ class GeographyResolverTest extends TestCase
         $this->assertTrue($results->pluck('id')->contains($vikend->id));
     }
 
+    public function test_parent_ids_narrows_to_any_of_several_selected_countries(): void
+    {
+        // Owner's ask, 2026-08-12: Country/region became multi-select — the City step must
+        // gather candidates from ANY of the selected countries, not just one.
+        $grcka = $this->node('country', 'grcka');
+        $italija = $this->node('country', 'italija');
+        $spanija = $this->node('country', 'spanija');
+        $rodos = $this->node('city', 'rodos');
+        $rodos->update(['parent_id' => $grcka->id]);
+        $taormina = $this->node('city', 'taormina');
+        $taormina->update(['parent_id' => $italija->id]);
+        $tenerife = $this->node('city', 'tenerife');
+        $tenerife->update(['parent_id' => $spanija->id]);
+
+        $session = SearchSession::create(['status' => 'in_progress']);
+
+        $results = (new GeographyResolver)->suggested(null, [
+            'sessionId' => $session->id, 'type' => 'city', 'parentIds' => [$grcka->id, $italija->id],
+        ]);
+
+        $this->assertTrue($results->pluck('id')->contains($rodos->id));
+        $this->assertTrue($results->pluck('id')->contains($taormina->id));
+        $this->assertFalse($results->pluck('id')->contains($tenerife->id));
+    }
+
     public function test_implies_keeps_the_implied_option_in_the_list_but_flags_it(): void
     {
         // Owner's call, 2026-08-04: an implied option ("obvious" consequence) stays visible,

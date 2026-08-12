@@ -50,7 +50,14 @@ class GeographyResolver
             ->orderBy('sort_order')
             ->whereNotIn('id', $excludedIds);
 
-        if (! empty($args['parentId'])) {
+        // Owner's ask, 2026-08-12: Country/region became multi-select, so the City step needs to
+        // gather candidates from ANY of the selected countries, not just one — parentIds (plural)
+        // for that, parentId (singular) kept for other single-parent callers. Neither set means
+        // "every country selected" (skipping the Country step entirely still shows every city) —
+        // same "never over-narrow" philosophy as the budget/cultural-availability fallbacks.
+        if (! empty($args['parentIds'])) {
+            $query->whereIn('parent_id', $args['parentIds']);
+        } elseif (! empty($args['parentId'])) {
             $query->where('parent_id', $args['parentId']);
         }
 

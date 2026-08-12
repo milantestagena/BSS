@@ -30,11 +30,12 @@ type Query {
     "A single search session by id."
     searchSession(id: ID @eq): SearchSession @find
 
-    "Suggested taxonomy nodes of any type, filtered by the session's implies/excludes relations and ranked by preference-tag overlap."
+    "Suggested taxonomy nodes of any type, filtered by the session's implies/excludes relations and ranked by preference-tag overlap. parentId narrows to a single parent (country->city); parentIds narrows to ANY of several (multi-selected countries) — 2026-08-12, see GeographyResolver::suggested. Both empty means unfiltered (every country selected)."
     suggestedGeography(
         sessionId: ID!
         type: String!
         parentId: ID
+        parentIds: [ID!]
     ): [TaxonomyNode!]! @field(resolver: "App\\GraphQL\\Resolvers\\GeographyResolver@suggested")
 
     "Compiles a session (which should already have a destination city chosen) into real Booking.com request parameters plus Honest Report signals for the AI layer. Shape: { bookingParams: JSON, honestReportSignals: JSON } — kept as JSON since both shapes are still evolving; see wizard_architecture memory."
