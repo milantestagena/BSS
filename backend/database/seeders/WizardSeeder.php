@@ -1119,20 +1119,21 @@ class WizardSeeder extends Seeder
     }
 
     /**
-     * Owner's catch, 2026-08-12: `van_utabanih_staza`/`lepe_plaze` only ever got written onto
-     * CITIES above (correctly — a beach or a historic old town is a per-place thing, not "the
-     * whole country"), which meant selecting "Great beaches" at the COUNTRY step could never
-     * match anything at all, silently. Fix: if a country has ANY child city carrying one of
-     * these two tags, the country itself also gets it — a derived signal ("this country HAS
-     * great beaches, somewhere in it"), not a manually-judged one. Deliberately scoped to just
-     * these two tags, not a blanket "any city tag becomes a country tag" rule — `pivo`/`vino`/
-     * `dobra_hrana`/`zivahna_nocna_zabava` are already seeded directly at country level with
-     * their own reasoning (see seedSwimAtmosphereTags) and must not be silently overwritten or
-     * duplicated by this pass.
+     * Owner's catch, 2026-08-12: `van_utabanih_staza`/`lepe_plaze`/`zivahna_nocna_zabava` only
+     * ever got written onto CITIES above (correctly — a beach, an old town, or a party strip is
+     * a per-place thing, not "the whole country"), which meant selecting e.g. "Great beaches" or
+     * "Lively nightlife" at the COUNTRY step could never match anything at all, silently — caught
+     * live: Malta showed under "Great beaches" but not "Lively nightlife" despite St. Julian's
+     * being a real, standout rave city. Fix: if a country has ANY child city carrying one of
+     * these tags, the country itself also gets it — a derived signal ("this country HAS a real
+     * nightlife scene, somewhere in it"), not a manually-judged one. Deliberately scoped to just
+     * these three tags, not a blanket "any city tag becomes a country tag" rule — `pivo`/`vino`/
+     * `dobra_hrana` are already seeded directly at country level with their own reasoning (see
+     * seedSwimAtmosphereTags) and must not be silently overwritten or duplicated by this pass.
      */
     private function propagateCityAtmosphereToCountry(): void
     {
-        $propagatedTags = ['van_utabanih_staza', 'lepe_plaze'];
+        $propagatedTags = ['van_utabanih_staza', 'lepe_plaze', 'zivahna_nocna_zabava'];
 
         $countries = TaxonomyNode::where('type', 'country')->with('children')->get();
 
