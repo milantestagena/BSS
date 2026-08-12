@@ -577,6 +577,15 @@ class WizardSeeder extends Seeder
             'hurgada' => ['Hurghada', 'Hurgada', 'egipat', 27.2579, 33.8116, [10 => [32, 27.4], 11 => [27, 26], 12 => [23, 24]]],
             'sarm_el_seik' => ['Sharm El Sheikh', 'Šarm el Šeik', 'egipat', 27.9158, 34.3299, [10 => [32, 27], 11 => [28, 26], 12 => [24, 24.5]]],
             'marsa_alam' => ['Marsa Alam', 'Marsa Alam', 'egipat', 25.0757, 34.8917, [10 => [33, 27.5], 11 => [28, 26.5], 12 => [25, 25]]],
+            // Expansion round, 2026-08-11 — placeholders below are same-latitude-neighbor
+            // estimates (El Gouna/Safaga/Soma Bay ~ Hurghada; Dahab/Nuweiba/Taba ~ Sharm,
+            // scaled down going north up the Gulf of Aqaba), overwritten by climate:import.
+            'el_guna' => ['El Gouna', 'El Guna', 'egipat', 27.3950, 33.6773, [10 => [32, 27.4], 11 => [27, 26], 12 => [23, 24]]],
+            'dahab' => ['Dahab', 'Dahab', 'egipat', 28.5091, 34.5136, [10 => [31, 26.5], 11 => [27, 25.5], 12 => [23, 24]]],
+            'nuvejba' => ['Nuweiba', 'Nuvejba', 'egipat', 29.0333, 34.6667, [10 => [30.5, 26.2], 11 => [26, 25.2], 12 => [22, 23.5]]],
+            'taba' => ['Taba', 'Taba', 'egipat', 29.4913, 34.8968, [10 => [30, 26], 11 => [25, 25], 12 => [21, 23]]],
+            'safaga' => ['Safaga', 'Safaga', 'egipat', 26.7333, 33.9333, [10 => [32, 27.5], 11 => [27, 26], 12 => [23, 24.5]]],
+            'soma_bej' => ['Soma Bay', 'Soma Bej', 'egipat', 26.8578, 33.9622, [10 => [32, 27.5], 11 => [27, 26], 12 => [23, 24.5]]],
 
             // Cyprus
             'larnaka' => ['Larnaca', 'Larnaka', 'kipar', 34.9167, 33.6333, [10 => [27, 25], 11 => [22, 22], 12 => [18, 19]]],
@@ -594,6 +603,15 @@ class WizardSeeder extends Seeder
             'djerba' => ['Djerba', 'Đerba', 'tunis', 33.8076, 10.8451, [10 => [27, 24.5], 11 => [22, 21.5], 12 => [18, 19]]],
             'susa' => ['Sousse', 'Susa', 'tunis', 35.8256, 10.6411, [10 => [26, 24], 11 => [20, 21], 12 => [16, 18]]],
             'monastir' => ['Monastir', 'Monastir', 'tunis', 35.7643, 10.8113, [10 => [26, 24], 11 => [20, 21], 12 => [16, 18]]],
+            // Expansion round, 2026-08-11 — placeholders scaled by latitude: Nabeul ~ Hammamet
+            // (right next door); Mahdia/Sfax between Monastir and Djerba; Zarzis ~ Djerba;
+            // Tabarka/Bizerte north of everything else, coolest in the country.
+            'nabel' => ['Nabeul', 'Nabel', 'tunis', 36.4561, 10.7376, [10 => [26, 24], 11 => [20, 21], 12 => [16, 18]]],
+            'mahdija' => ['Mahdia', 'Mahdija', 'tunis', 35.5047, 11.0622, [10 => [26.5, 24.2], 11 => [21, 21.2], 12 => [17, 18.5]]],
+            'sfaks' => ['Sfax', 'Sfaks', 'tunis', 34.7406, 10.7603, [10 => [26.5, 24.3], 11 => [21, 21.3], 12 => [17, 18.7]]],
+            'zarzis' => ['Zarzis', 'Zarzis', 'tunis', 33.5044, 11.1122, [10 => [27, 24.7], 11 => [22.5, 21.7], 12 => [18.5, 19.2]]],
+            'tabarka' => ['Tabarka', 'Tabarka', 'tunis', 36.9500, 8.7500, [10 => [24, 23], 11 => [18, 19.5], 12 => [14, 16.5]]],
+            'bizerta' => ['Bizerte', 'Bizerta', 'tunis', 37.2744, 9.8739, [10 => [23.5, 22.5], 11 => [17.5, 19], 12 => [13.5, 16]]],
 
             // Spain — Canary Islands, the one place warm nearly year-round, not just "late season".
             'tenerife' => ['Tenerife', 'Tenerife', 'spanija', 28.2916, -16.6291, [10 => [25, 23], 11 => [23, 22], 12 => [21, 21]]],
@@ -606,6 +624,18 @@ class WizardSeeder extends Seeder
             'bodrum' => ['Bodrum', 'Bodrum', 'turska', 37.0344, 27.4305, [10 => [25, 23.5], 11 => [19, 20], 12 => [15, 18]]],
             'marmaris' => ['Marmaris', 'Marmaris', 'turska', 36.8550, 28.2742, [10 => [26, 24], 11 => [20, 21], 12 => [15, 18.5]]],
             'alanija' => ['Alanya', 'Alanija', 'turska', 36.5438, 32.0006, [10 => [27, 25], 11 => [21, 22], 12 => [17, 19.5]]],
+            // Expansion round, 2026-08-11 — Kaş/Kalkan/Fethiye/Ölüdeniz on the Lycian coast
+            // (between Bodrum/Marmaris and Antalya, blended placeholder); Side ~ Antalya
+            // (right next door); Datça ~ Bodrum/Marmaris; Çeşme/Kuşadası near Izmir, north
+            // of Bodrum and noticeably cooler.
+            'kas' => ['Kaş', 'Kaš', 'turska', 36.2019, 29.6394, [10 => [26, 24.5], 11 => [20, 21.5], 12 => [16, 19]]],
+            'kalkan' => ['Kalkan', 'Kalkan', 'turska', 36.2667, 29.4167, [10 => [26, 24.5], 11 => [20, 21.5], 12 => [16, 19]]],
+            'fethije' => ['Fethiye', 'Fethije', 'turska', 36.6217, 29.1164, [10 => [25.5, 24], 11 => [19.5, 21], 12 => [15.5, 18.5]]],
+            'oludeniz' => ['Ölüdeniz', 'Öludeniz', 'turska', 36.5497, 29.1156, [10 => [25.5, 24], 11 => [19.5, 21], 12 => [15.5, 18.5]]],
+            'sajd' => ['Side', 'Sajd', 'turska', 36.7673, 31.3891, [10 => [27, 25], 11 => [21, 22], 12 => [16, 19]]],
+            'datca' => ['Datça', 'Datča', 'turska', 36.7306, 27.6858, [10 => [25.5, 23.5], 11 => [19.5, 20.5], 12 => [15, 18]]],
+            'cesme' => ['Çeşme', 'Češme', 'turska', 38.3236, 26.3061, [10 => [23.5, 22], 11 => [17.5, 19], 12 => [13.5, 17]]],
+            'kusadasi' => ['Kuşadası', 'Kušadasi', 'turska', 37.8583, 27.2597, [10 => [24, 22.5], 11 => [18, 19.5], 12 => [14, 17.5]]],
 
             // Greek islands — attach to the existing 'grcka' country node, distinct from Atina
             // (which stays a city-break destination, not a swim one).
