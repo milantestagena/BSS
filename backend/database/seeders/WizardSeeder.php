@@ -39,6 +39,7 @@ class WizardSeeder extends Seeder
         $this->seedCityAndCountryVibeProfiles();
         $this->seedSwimAtmosphereTags();
         $this->seedExplorationAndBeachTags();
+        $this->propagateCityAtmosphereToCountry();
         $this->seedAccommodationSeasons();
         $this->seedHolidayPricingWindows();
         $this->seedHolidays();
@@ -1114,6 +1115,41 @@ class WizardSeeder extends Seeder
             $meta = $city->meta ?? [];
             $meta['atmosphere'] = array_unique([...($meta['atmosphere'] ?? []), ...$newTags]);
             $city->update(['meta' => $meta]);
+        }
+    }
+
+    /**
+     * Owner's catch, 2026-08-12: `van_utabanih_staza`/`lepe_plaze` only ever got written onto
+     * CITIES above (correctly — a beach or a historic old town is a per-place thing, not "the
+     * whole country"), which meant selecting "Great beaches" at the COUNTRY step could never
+     * match anything at all, silently. Fix: if a country has ANY child city carrying one of
+     * these two tags, the country itself also gets it — a derived signal ("this country HAS
+     * great beaches, somewhere in it"), not a manually-judged one. Deliberately scoped to just
+     * these two tags, not a blanket "any city tag becomes a country tag" rule — `pivo`/`vino`/
+     * `dobra_hrana`/`zivahna_nocna_zabava` are already seeded directly at country level with
+     * their own reasoning (see seedSwimAtmosphereTags) and must not be silently overwritten or
+     * duplicated by this pass.
+     */
+    private function propagateCityAtmosphereToCountry(): void
+    {
+        $propagatedTags = ['van_utabanih_staza', 'lepe_plaze'];
+
+        $countries = TaxonomyNode::where('type', 'country')->with('children')->get();
+
+        foreach ($countries as $country) {
+            $tagsPresent = collect();
+            foreach ($country->children as $city) {
+                $tagsPresent = $tagsPresent->merge($city->meta['atmosphere'] ?? []);
+            }
+
+            $toAdd = $tagsPresent->intersect($propagatedTags)->unique();
+            if ($toAdd->isEmpty()) {
+                continue;
+            }
+
+            $meta = $country->meta ?? [];
+            $meta['atmosphere'] = array_unique([...($meta['atmosphere'] ?? []), ...$toAdd->values()->all()]);
+            $country->update(['meta' => $meta]);
         }
     }
 
