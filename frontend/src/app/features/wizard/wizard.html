@@ -325,13 +325,17 @@
                     <label class="mb-2 block text-sm font-semibold text-slate-800">{{
                       question.label
                     }}</label>
-                    <p class="mb-3 text-xs text-slate-500">{{ i18n.t('destinationsGroupedIntro') }}</p>
+                    @if (hasRealGrouping(question)) {
+                      <p class="mb-3 text-xs text-slate-500">{{ i18n.t('destinationsGroupedIntro') }}</p>
+                    }
 
                     @for (group of groupedDestinations(question); track group.headerLabel) {
                       <div class="mb-4">
-                        <h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                          {{ group.headerLabel }}
-                        </h4>
+                        @if (group.headerLabel) {
+                          <h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            {{ group.headerLabel }}
+                          </h4>
+                        }
                         <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
                           @for (node of group.nodes; track node.id) {
                             <button

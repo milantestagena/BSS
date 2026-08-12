@@ -689,25 +689,29 @@ export class WizardComponent implements OnInit {
       byCount.set(count, bucket);
     }
 
-    return Array.from(byCount.keys())
-      .sort((a, b) => b - a)
-      .map((count) => {
-        const groupNodes = byCount.get(count)!;
+    const counts = Array.from(byCount.keys()).sort((a, b) => b - a);
+    // Owner's call, 2026-08-11: a single "Other options" group spanning EVERYTHING isn't
+    // grouping anyone by anything — there's nothing to differentiate it from, so the header is
+    // just noise. Only label the 0-match bucket when it's sitting alongside real matched groups.
+    const onlyZeroMatchGroup = counts.length === 1 && counts[0] === 0;
 
-        if (count === 0) {
-          return { headerLabel: this.i18n.t('otherOptionsHeader'), nodes: groupNodes };
+    return counts.map((count) => {
+      const groupNodes = byCount.get(count)!;
+
+      if (count === 0) {
+        return { headerLabel: onlyZeroMatchGroup ? '' : this.i18n.t('otherOptionsHeader'), nodes: groupNodes };
+      }
+
+      const labels = new Set<string>();
+      for (const node of groupNodes) {
+        for (const slug of node.matchedTags ?? []) {
+          const label = tagLabels.get(slug);
+          if (label) labels.add(label);
         }
+      }
 
-        const labels = new Set<string>();
-        for (const node of groupNodes) {
-          for (const slug of node.matchedTags ?? []) {
-            const label = tagLabels.get(slug);
-            if (label) labels.add(label);
-          }
-        }
-
-        return { headerLabel: Array.from(labels).join(', '), nodes: groupNodes };
-      });
+      return { headerLabel: Array.from(labels).join(', '), nodes: groupNodes };
+    });
   }
 
   /** Relative price coloring for a destination card — green (priceRank 1, cheapest of the
@@ -729,6 +733,14 @@ export class WizardComponent implements OnInit {
    *  whether the price legend line renders at all. */
   hasPriceRanks(question: WizardQuestion): boolean {
     return (this.optionsFor(question) ?? []).some((n) => !!n.priceRank);
+  }
+
+  /** False when groupedDestinations() collapsed to a single, unlabeled fallback group — in
+   *  that case nothing is actually grouped, so the "grouped by..." intro line would be
+   *  misleading too (same reasoning as the suppressed "Other options" header). */
+  hasRealGrouping(question: WizardQuestion): boolean {
+    const groups = this.groupedDestinations(question);
+    return !(groups.length === 1 && groups[0].headerLabel === '');
   }
 
   isGeographyLoading(question: WizardQuestion): boolean {
