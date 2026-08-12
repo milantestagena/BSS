@@ -111,22 +111,44 @@ pomera sa 25. avgusta na **1. septembar** (i dalje solidno unutar "kasno letovan
 
 **Pre-launch punch lista (dogovoreno 2026-08-11, ažurirano isto veče):**
 
-1. **Proširiti listu gradova** — više grčkih ostrva, možda još jedna zemlja. Čisto data/seed rad.
-   Čeka owner-ov spisak imena (i idealno cene) — Claude ne izmišlja realne brojke.
+1. ~~Proširiti listu gradova~~ — **gotovo 2026-08-11.** 14 grčkih ostrva (Jonska, Dodekanez,
+   Sporadi — Skopelos/Skijatos obavezno po owner-ovom zahtevu) + 20 novih za Egipat/Tunis/Tursku.
+   Svaka lokacija potvrđena stvarnim `climate:import` (Open-Meteo) podacima za sep-nov pre
+   uključivanja — nijedna nije pala ispod "cold" praga (`sea_temp_c` < 18°C). Italija/Španija/
+   Portugal namerno OSTAJU kako jesu — kontinentalna mediteranska obala (npr. Lloret/Valensija)
+   hladi prebrzo do novembra za ovu kampanju; ono što već imamo (Kanari za Španiju, Sardinija/
+   Sicilija za Italiju, Algarve za Portugal) su već najjužnije/najtoplije tačke tih zemalja.
 2. **Nedeljno ažuriranje cena** — owner šalje real cene sa terena, ubacuje se preko idempotentnog
    `WizardSeeder`-a (`db:seed --class=WizardSeeder`, bezbedno na živoj bazi). Kontinuirano, ne
    jednokratno.
+   - **Odluka 2026-08-11, o automatizaciji preko Booking API-ja:** razmotreno i ODBAČENO da se
+     cene automatski povlače pozivanjem Booking Partner/Demand API-ja (čak i kao agregatni
+     "cena ne ide ispod X€" raspon, ne cena po konkretnom prodavcu) — rizik je što skoro svaki
+     affiliate API ugovor zabranjuje "automated means"/caching Content-a izvan žive korisničke
+     sesije, nezavisno od preciznosti ili namere rezultata; posledica kršenja je gašenje celog
+     affiliate naloga na kom stoji ceo biznis. Nije rešeno poređenjem sa Open-Meteo (otvoren
+     data API, potpuno druga svrha/ugovor) niti argumentom "isti rezultat kao ručni rad" (ugovori
+     tipično zabranjuju NAČIN pristupa, ne rezultat). **Umesto toga: owner ručno pretražuje sajt
+     kao gost (filter 3 osobe/1 apartman/date range, Order by Price ASC — to nije "automated
+     means", to je normalna upotreba sajta) i šalje SCREENSHOT; Claude čita cenu sa slike (OCR/
+     vision, ne API poziv) i ubacuje u `WizardCampaignDestinationWeeklyPrice`.** Ovo je suštinski
+     isti postupak kao ranije (owner šalje real cene, Claude ih unosi), samo brže od ručnog
+     kucanja. Ako se ikad odluči za pravi Booking API pristup, prvi korak je pribaviti i pročitati
+     tačan tekst caching/data-retention klauzule iz partner ugovora — ne nagađati.
 3. **Automatsko skraćivanje liste gradova po temperaturi mora** — sezona ide od ~150 gradova ka
    ~15 do oktobra (kasno letovanje, NE party trip — to je posebna buduća kampanja). Real
    `sea_temp_c` podaci već postoje u `TaxonomyNodeClimate`; implementacija je nova narrowing faza
    u `GeographyResolver` (isti pattern kao `filterByBudget`/`filterByCulturalAvailability`),
    računa se live protiv ciljanog meseca — ne treba scheduled job.
 4. ~~Persona↔preference_tag implies/excludes veze~~ — **gotovo 2026-08-11.**
-5. **Popuniti country-level taxonomy meta tagove** (hrana/pivo/vino/party vs pub atmosfera) —
-   `GeographyResolver::suggested()`'s `match_score` čita `meta.drinks/atmosphere/food/budget` po
-   zemlji, ali ti tagovi skoro nigde nisu popunjeni, pa match_score trenutno ne razlikuje ništa.
-   Ovo je razlog zašto se preference_tag izbor još ne oseti u rezultatima. "Party" i "pub"
-   atmosfera tretirani kao razdvojena meta-vrednost po zemlji (ne novi wizard-facing tag).
+5. ~~Popuniti country-level taxonomy meta tagove~~ — **gotovo 2026-08-11.** Novi
+   `seedSwimAtmosphereTags()` popunjava `meta.atmosphere`/`meta.drinks`/`meta.food` (jedina 3+1
+   ključa koje `GeographyResolver::suggested()`'s `match_score` stvarno čita — `vibe_profile` je
+   samo hover-tekst, ne utiče na skor). Rave namerno strog/kratak spisak — samo destinacije čiji
+   je PRIMARNI karakter zabava (Ajia Napa, St. Julian's, Bodrum, Marmaris, Mikonos, Albufeira,
+   Hvar), ne mesta koja SADRŽE poznatu party četvrt (Krf/Kavos, Rodos/Faliraki, Krit/Malia —
+   namerno izostavljeni, mešoviti karakter). Pub/pivo → Malta+Kipar (country-level). Hrana/vino →
+   Grčka/Italija/Turska. Verifikovano tinker-om da match_score sad stvarno razlikuje rezultate.
 6. ~~Nemački jezik~~ — **gotovo 2026-08-11.** `TranslateDirective` (@translate na FIELD_DEFINITION,
    čita `X-Locale` header), `LocaleService`/`I18nService` na frontu, EN/DE switch pored account
    badge-a. Poznat preostali gap: `TaxonomyNode.meta.vibe_profile.description` (hover-preview na
