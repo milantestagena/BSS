@@ -317,27 +317,44 @@
                   </div>
                 } @else if (isDestinationCard(question)) {
                   <!-- "Screen 2" destination cards — hover reveals the vibe_profile writeup in
-                     the left column (see hoveredNode). Owner's call, 2026-08-04. -->
+                     the left column (see hoveredNode). Owner's call, 2026-08-04. Grouped by
+                     matched preference tags + relative price coloring — owner's call, 2026-08-11
+                     ("narrow down the list, don't disappoint him"), see
+                     WizardComponent.groupedDestinations()/priceRankClass(). -->
                   <div class="mb-6">
                     <label class="mb-2 block text-sm font-semibold text-slate-800">{{
                       question.label
                     }}</label>
-                    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                      @for (node of optionsFor(question) ?? []; track node.id) {
-                        <button
-                          type="button"
-                          class="rounded-xl border p-4 text-left text-sm font-medium transition hover:border-sky-400 hover:bg-sky-50"
-                          [class.border-sky-500]="isDestinationSelected(question, node)"
-                          [class.bg-sky-50]="isDestinationSelected(question, node)"
-                          [class.border-slate-200]="!isDestinationSelected(question, node)"
-                          (mouseenter)="hoveredNode.set(node)"
-                          (mouseleave)="hoveredNode.set(null)"
-                          (click)="onDestinationCardSelect(question, node)"
-                        >
-                          {{ node.label }}
-                        </button>
-                      }
-                    </div>
+                    <p class="mb-3 text-xs text-slate-500">{{ i18n.t('destinationsGroupedIntro') }}</p>
+
+                    @for (group of groupedDestinations(question); track group.headerLabel) {
+                      <div class="mb-4">
+                        <h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          {{ group.headerLabel }}
+                        </h4>
+                        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                          @for (node of group.nodes; track node.id) {
+                            <button
+                              type="button"
+                              class="rounded-xl border p-4 text-left text-sm font-medium transition hover:border-sky-400 hover:bg-sky-50"
+                              [class.border-sky-500]="isDestinationSelected(question, node)"
+                              [class.bg-sky-50]="isDestinationSelected(question, node)"
+                              [class.border-slate-200]="!isDestinationSelected(question, node)"
+                              [ngClass]="priceRankClass(node)"
+                              (mouseenter)="hoveredNode.set(node)"
+                              (mouseleave)="hoveredNode.set(null)"
+                              (click)="onDestinationCardSelect(question, node)"
+                            >
+                              {{ node.label }}
+                            </button>
+                          }
+                        </div>
+                      </div>
+                    }
+
+                    @if (hasPriceRanks(question)) {
+                      <p class="mt-1 text-xs text-slate-400">{{ i18n.t('priceLegend') }}</p>
+                    }
                   </div>
                 } @else {
                   <app-question-input

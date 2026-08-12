@@ -65,23 +65,127 @@ class GeographyResolver
         $preferenceTags = collect($session->free_text_answers['preference_tags'] ?? [])
             ->merge($session->free_text_answers['implied_preference_tags'] ?? []);
 
-        return $nodes
-            ->map(function (TaxonomyNode $node) use ($preferenceTags, $budgetCaveatIds, $impliedIds) {
-                $meta = $node->meta ?? [];
+        $isGeoType = in_array($args['type'], ['country', 'city'], true);
 
-                $nodeTags = collect($meta['drinks'] ?? [])
-                    ->merge($meta['atmosphere'] ?? [])
-                    ->merge($meta['food'] ?? [])
-                    ->merge($meta['budget'] ?? []);
+        $priceTotals = [];
+        if ($isGeoType) {
+            foreach ($nodes as $node) {
+                $priceTotals[$node->id] = $this->accommodationTotalFor($node, $args['type'], $session);
+            }
+        }
 
-                $node->setAttribute('implied', $impliedIds->contains($node->id));
-                $node->setAttribute('match_score', $preferenceTags->intersect($nodeTags)->count() * 5);
-                $node->setAttribute('budget_caveat', $budgetCaveatIds->contains($node->id));
+        $mapped = $nodes->map(function (TaxonomyNode $node) use ($preferenceTags, $budgetCaveatIds, $impliedIds) {
+            $meta = $node->meta ?? [];
 
-                return $node;
-            })
-            ->sortByDesc('match_score')
-            ->values();
+            $nodeTags = collect($meta['drinks'] ?? [])
+                ->merge($meta['atmosphere'] ?? [])
+                ->merge($meta['food'] ?? [])
+                ->merge($meta['budget'] ?? []);
+
+            $matchedTags = $preferenceTags->intersect($nodeTags)->values();
+
+            $node->setAttribute('implied', $impliedIds->contains($node->id));
+            $node->setAttribute('matched_tags', $matchedTags->all());
+            $node->setAttribute('match_score', $matchedTags->count() * 5);
+            $node->setAttribute('budget_caveat', $budgetCaveatIds->contains($node->id));
+
+            return $node;
+        });
+
+        // Owner's call, 2026-08-11: a country/city with zero matched preference tags shouldn't
+        // be shown at all once the traveler has stated what matters to them — the goal is
+        // "we found YOUR perfect spot," not an exhaustive/transparent list of near-misses.
+        // Guarded so this never produces a blank screen: skipped entirely when no preference
+        // tags are selected yet, and reverted to the unfiltered list if literally nothing
+        // matched (e.g. this region's atmosphere/drinks/food tags aren't seeded yet) — same
+        // "never show zero results" philosophy as BudgetEstimationEngine::narrowCandidates.
+        // `implied` nodes are always kept regardless of match_score — they're forced on by an
+        // already-selected answer, not a preference-tag match, so hiding one would silently
+        // contradict the 2026-08-04 "implied stays visible, shown locked" decision.
+        if ($isGeoType && $preferenceTags->isNotEmpty()) {
+            $narrowed = $mapped->filter(fn (TaxonomyNode $node) => $node->implied || $node->match_score > 0);
+            if ($narrowed->isNotEmpty()) {
+                $mapped = $narrowed->values();
+            }
+        }
+
+        if ($isGeoType) {
+            $this->assignPriceRanks($mapped, $priceTotals);
+        }
+
+        return $mapped->sortByDesc('match_score')->values();
+    }
+
+    /**
+     * Real accommodation cost signal for price_rank (see assignPriceRanks) — reuses the same
+     * per-week pricing machinery as the budget-fit narrowing above, just for country AND city
+     * types instead of country only. Null (no price signal, price_rank stays null) whenever
+     * the session doesn't have enough answered yet (no campaign, no resolvable trip dates/
+     * traveler count) or the destination has no price data at all.
+     */
+    private function accommodationTotalFor(TaxonomyNode $node, string $type, SearchSession $session): ?float
+    {
+        if (! $session->wizard_campaign_id) {
+            return null;
+        }
+
+        [$checkin, $checkout] = $this->tripCheckinCheckout($session);
+        if (! $checkin) {
+            return null;
+        }
+
+        $totalTravelers = ($session->adults_count ?? 0) + count($session->children_ages ?? []);
+        if ($totalTravelers === 0) {
+            return null;
+        }
+
+        if ($type === 'city') {
+            $priceRow = $node->campaignDestinationPrices()
+                ->where('wizard_campaign_id', $session->wizard_campaign_id)
+                ->with(['campaign', 'weeklyPrices'])
+                ->first();
+
+            return $priceRow?->estimateAccommodationTotal($checkin, $checkout, $totalTravelers);
+        }
+
+        $days = $checkin->diffInDays($checkout) + 1;
+        $total = $this->cheapestAccommodationTotal($node, $session, $totalTravelers, $days);
+
+        return $total > 0.0 ? $total : null;
+    }
+
+    /**
+     * Relative price_rank (1 = cheapest of the CURRENT candidate set, 5 = priciest) — deliberately
+     * relative rather than an absolute price bracket, since "expensive" only means something in
+     * comparison to the other options actually being shown. Left null (no price coloring shown)
+     * when fewer than 2 candidates have real price data — not enough spread to rank meaningfully.
+     */
+    private function assignPriceRanks(Collection $nodes, array $totals): void
+    {
+        $values = collect($totals)->filter(fn (?float $v) => $v !== null && $v > 0);
+
+        if ($values->count() < 2 || $values->max() === $values->min()) {
+            foreach ($nodes as $node) {
+                $node->setAttribute('price_rank', null);
+            }
+
+            return;
+        }
+
+        $min = $values->min();
+        $max = $values->max();
+
+        foreach ($nodes as $node) {
+            $total = $totals[$node->id] ?? null;
+
+            if ($total === null || $total <= 0) {
+                $node->setAttribute('price_rank', null);
+                continue;
+            }
+
+            $normalized = ($total - $min) / ($max - $min);
+            $node->setAttribute('price_rank', (int) round(1 + $normalized * 4));
+        }
     }
 
     /**

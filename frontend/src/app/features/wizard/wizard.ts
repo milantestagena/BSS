@@ -664,6 +664,73 @@ export class WizardComponent implements OnInit {
     return options;
   }
 
+  /**
+   * "Screen 2" destination cards grouped by shared matched preference tags (see
+   * GeographyResolver::assignPriceRanks/matchedTags docblocks), highest match count first —
+   * owner's call, 2026-08-11: "cilj je da misli da mu tražimo savršeni smeštaj... zato treba da
+   * narrow down listu", not present an exhaustive ranked list. Backend already hides zero-match
+   * nodes when the traveler stated a preference, so a "0 matches" group here only ever appears
+   * in the deliberate fallback case (this region's atmosphere/drinks/food tags aren't seeded
+   * yet) — labeled generically rather than left blank.
+   */
+  groupedDestinations(question: WizardQuestion): { headerLabel: string; nodes: TaxonomyNode[] }[] {
+    const nodes = this.optionsFor(question) ?? [];
+
+    const tagLabels = new Map<string, string>();
+    for (const tag of this.geographyOptions()['preference_tags'] ?? []) {
+      tagLabels.set(tag.slug, tag.label);
+    }
+
+    const byCount = new Map<number, TaxonomyNode[]>();
+    for (const node of nodes) {
+      const count = node.matchedTags?.length ?? 0;
+      const bucket = byCount.get(count) ?? [];
+      bucket.push(node);
+      byCount.set(count, bucket);
+    }
+
+    return Array.from(byCount.keys())
+      .sort((a, b) => b - a)
+      .map((count) => {
+        const groupNodes = byCount.get(count)!;
+
+        if (count === 0) {
+          return { headerLabel: this.i18n.t('otherOptionsHeader'), nodes: groupNodes };
+        }
+
+        const labels = new Set<string>();
+        for (const node of groupNodes) {
+          for (const slug of node.matchedTags ?? []) {
+            const label = tagLabels.get(slug);
+            if (label) labels.add(label);
+          }
+        }
+
+        return { headerLabel: Array.from(labels).join(', '), nodes: groupNodes };
+      });
+  }
+
+  /** Relative price coloring for a destination card — green (priceRank 1, cheapest of the
+   *  currently-shown options) through red (5, priciest). Empty string (no coloring) when
+   *  priceRank is null — not enough price data yet to rank. */
+  priceRankClass(node: TaxonomyNode): string {
+    const classes: Record<number, string> = {
+      1: 'border-l-[10px] border-l-emerald-500',
+      2: 'border-l-[10px] border-l-lime-500',
+      3: 'border-l-[10px] border-l-amber-500',
+      4: 'border-l-[10px] border-l-orange-500',
+      5: 'border-l-[10px] border-l-red-500',
+    };
+
+    return node.priceRank ? classes[node.priceRank] : '';
+  }
+
+  /** True if ANY currently-shown destination card in this question has a priceRank — controls
+   *  whether the price legend line renders at all. */
+  hasPriceRanks(question: WizardQuestion): boolean {
+    return (this.optionsFor(question) ?? []).some((n) => !!n.priceRank);
+  }
+
   isGeographyLoading(question: WizardQuestion): boolean {
     return !!this.geographyLoading()[question.key];
   }
@@ -900,6 +967,9 @@ export class WizardComponent implements OnInit {
       return value.map((v) => this.optionLabel(question.key, v)).join(', ');
     }
     if (Array.isArray(value)) return value.join(', ');
+    // Owner's ask, 2026-08-11: the chat-bubble summary showed a bare number ("800") for the
+    // budget question — needs the currency unit, all amounts in this app are EUR.
+    if (question.key === 'total_budget') return `${value} EUR`;
     return String(value);
   }
 

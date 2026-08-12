@@ -964,6 +964,11 @@ class WizardSeeder extends Seeder
         $cityAtmosphere = [
             'ajia_napa' => ['atmosphere' => ['zivahna_nocna_zabava']],
             'st_julians' => ['atmosphere' => ['zivahna_nocna_zabava'], 'drinks' => ['pivo']],
+            // Sliema, 2026-08-11 (owner's ground-truth) — no Paceville-level rave scene, but has
+            // a real, smaller pub presence and sits ~10min walk from St. Julian's/Paceville. Not
+            // full rave, but a legitimate second-tier option for a nightlife-seeking traveler —
+            // modeled as real data (pivo tag) rather than a geo-distance/proximity algorithm.
+            'sliema' => ['drinks' => ['pivo']],
             'bodrum' => ['atmosphere' => ['zivahna_nocna_zabava']],
             'marmaris' => ['atmosphere' => ['zivahna_nocna_zabava']],
             'mikonos' => ['atmosphere' => ['zivahna_nocna_zabava']],

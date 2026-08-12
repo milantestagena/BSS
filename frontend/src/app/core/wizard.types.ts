@@ -7,6 +7,14 @@ export interface TaxonomyNode {
   /** Populated only when returned from suggestedGeography — true if forced on by an `implies`
    *  relation from an already-selected answer. See ChoiceComponent's `disabled` state. */
   implied?: boolean | null;
+  /** Populated only when returned from suggestedGeography for type=country/city — preference_tag
+   *  slugs this node matched. Used to group destination cards by shared match reason instead of
+   *  a flat ranked list — see WizardComponent.groupedDestinations(). */
+  matchedTags?: string[] | null;
+  /** Populated only when returned from suggestedGeography for type=country/city, when there's
+   *  enough price data to rank: 1 (cheapest of the currently-shown candidates) to 5 (priciest).
+   *  Null when there isn't enough data yet — see WizardComponent.priceRankClass(). */
+  priceRank?: number | null;
 }
 
 export type WizardInputType =

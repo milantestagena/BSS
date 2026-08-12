@@ -103,6 +103,10 @@ type TaxonomyNode {
     budgetCaveat: Boolean @rename(attribute: "budget_caveat")
     "Populated only when returned from `suggestedGeography` — true if forced on by an `implies` relation from an already-selected answer (e.g. Foodie -> Great food). Shown selected-and-locked in the UI rather than hidden, so the reason is visible instead of the option silently vanishing."
     implied: Boolean
+    "Populated only when returned from `suggestedGeography` for type=country/city — preference_tag slugs this node matched against the session's selected preferences. Frontend groups results by shared matched_tags rather than showing a flat ranked list."
+    matchedTags: [String!] @rename(attribute: "matched_tags")
+    "Populated only when returned from `suggestedGeography` for type=country/city, when accommodation price data exists for the session's dates: 1 (cheapest of the currently-shown candidates) to 5 (priciest), for relative price display. Null when there isn't enough price data yet to rank."
+    priceRank: Int @rename(attribute: "price_rank")
 }
 
 "One page of the wizard, admin-orderable and toggleable."

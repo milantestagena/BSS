@@ -68,6 +68,9 @@ const STRINGS: Record<'en' | 'de', Record<string, string>> = {
     roomSingular: 'room',
     togetherOneUnit: 'Together in 1 unit',
     noAnswer: '—',
+    destinationsGroupedIntro: 'Grouped by what matters most to you:',
+    otherOptionsHeader: 'Other options',
+    priceLegend: 'Accommodation price (relative to these options): cheaper → pricier',
   },
   de: {
     back: 'Zurück',
@@ -128,6 +131,9 @@ const STRINGS: Record<'en' | 'de', Record<string, string>> = {
     roomSingular: 'Zimmer',
     togetherOneUnit: 'Zusammen in einer Unterkunft',
     noAnswer: '—',
+    destinationsGroupedIntro: 'Gruppiert nach dem, was dir am wichtigsten ist:',
+    otherOptionsHeader: 'Weitere Optionen',
+    priceLegend: 'Unterkunftspreis (relativ zu diesen Optionen): günstiger → teurer',
   },
 };
 

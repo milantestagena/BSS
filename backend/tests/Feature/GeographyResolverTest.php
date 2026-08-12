@@ -72,7 +72,34 @@ class GeographyResolverTest extends TestCase
     public function test_preference_tag_overlap_ranks_matching_nodes_higher(): void
     {
         $italija = $this->node('country', 'italija', ['food' => ['dobra_hrana'], 'drinks' => ['vino']]);
+        $spanija = $this->node('country', 'spanija', ['food' => ['dobra_hrana']]);
         $belgija = $this->node('country', 'belgija', ['drinks' => ['pivo']]);
+
+        $session = SearchSession::create([
+            'status' => 'in_progress',
+            'free_text_answers' => ['preference_tags' => ['dobra_hrana', 'vino']],
+        ]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'country']);
+
+        $this->assertSame($italija->id, $results->first()->id);
+        $this->assertEqualsCanonicalizing(['dobra_hrana', 'vino'], $results->first()->matched_tags);
+        $this->assertGreaterThan(
+            $results->firstWhere('id', $spanija->id)->match_score,
+            $results->firstWhere('id', $italija->id)->match_score
+        );
+
+        // Owner's call, 2026-08-11: zero-match candidates are hidden entirely once a preference
+        // has been stated, not just ranked lower — see GeographyResolver::suggested docblock.
+        $this->assertNull($results->firstWhere('id', $belgija->id));
+    }
+
+    public function test_zero_match_filter_falls_back_to_full_list_when_nothing_matches_at_all(): void
+    {
+        // If a region's atmosphere/drinks/food tags simply aren't seeded yet, hiding every
+        // candidate would produce a blank screen — must fall back to showing everything.
+        $italija = $this->node('country', 'italija');
+        $spanija = $this->node('country', 'spanija');
 
         $session = SearchSession::create([
             'status' => 'in_progress',
@@ -81,11 +108,7 @@ class GeographyResolverTest extends TestCase
 
         $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'country']);
 
-        $this->assertSame($italija->id, $results->first()->id);
-        $this->assertGreaterThan(
-            $results->firstWhere('id', $belgija->id)->match_score,
-            $results->firstWhere('id', $italija->id)->match_score
-        );
+        $this->assertCount(2, $results);
     }
 
     public function test_implied_preference_tags_count_toward_match_score_too(): void
@@ -187,5 +210,54 @@ class GeographyResolverTest extends TestCase
         $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'country']);
 
         $this->assertTrue($results->pluck('id')->contains($anyCountry->id));
+    }
+
+    public function test_price_rank_is_relative_to_the_current_candidate_set(): void
+    {
+        $cheap = $this->node('country', 'cheap');
+        $pricey = $this->node('country', 'pricey');
+        $cheapCity = $this->node('city', 'cheap_city');
+        $cheapCity->update(['parent_id' => $cheap->id]);
+        $priceyCity = $this->node('city', 'pricey_city');
+        $priceyCity->update(['parent_id' => $pricey->id]);
+
+        $campaign = \App\Models\WizardCampaign::create(['key' => 'test-campaign', 'label' => 'Test']);
+        \App\Models\WizardCampaignDestinationPrice::create([
+            'wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $cheapCity->id, 'price_per_person_eur' => 20,
+        ]);
+        \App\Models\WizardCampaignDestinationPrice::create([
+            'wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $priceyCity->id, 'price_per_person_eur' => 200,
+        ]);
+
+        $session = SearchSession::create([
+            'status' => 'in_progress', 'adults_count' => 2, 'wizard_campaign_id' => $campaign->id,
+            'date_from' => '2026-09-01', 'date_to' => '2026-09-08',
+        ]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'country']);
+
+        $this->assertSame(1, $results->firstWhere('id', $cheap->id)->price_rank);
+        $this->assertSame(5, $results->firstWhere('id', $pricey->id)->price_rank);
+    }
+
+    public function test_price_rank_is_null_with_fewer_than_two_priced_candidates(): void
+    {
+        $onlyOne = $this->node('country', 'onlyone');
+        $city = $this->node('city', 'onlyone_city');
+        $city->update(['parent_id' => $onlyOne->id]);
+
+        $campaign = \App\Models\WizardCampaign::create(['key' => 'test-campaign-2', 'label' => 'Test 2']);
+        \App\Models\WizardCampaignDestinationPrice::create([
+            'wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $city->id, 'price_per_person_eur' => 20,
+        ]);
+
+        $session = SearchSession::create([
+            'status' => 'in_progress', 'adults_count' => 2, 'wizard_campaign_id' => $campaign->id,
+            'date_from' => '2026-09-01', 'date_to' => '2026-09-08',
+        ]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'country']);
+
+        $this->assertNull($results->firstWhere('id', $onlyOne->id)->price_rank);
     }
 }
