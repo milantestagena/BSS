@@ -16,9 +16,10 @@ export interface TaxonomyNode {
    *  Null when there isn't enough data yet — see WizardComponent.priceRankClass(). */
   priceRank?: number | null;
   /** Populated only when returned from suggestedGeography for type=city — the parent country's
-   *  label, so a mixed-country city grid (multi-select Country/region, 2026-08-13) can show
-   *  which country each card belongs to. */
-  parent?: { label: string } | null;
+   *  label (+ meta, for the iso_code badge — see wizard.ts's countryCodeFor), so a mixed-country
+   *  city grid (multi-select Country/region, 2026-08-13) can show which country each card
+   *  belongs to. */
+  parent?: { label: string; meta?: Record<string, unknown> | null } | null;
 }
 
 export type WizardInputType =

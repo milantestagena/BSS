@@ -5,9 +5,9 @@ namespace App\Services;
 use App\Models\SearchSession;
 
 /**
- * Derives suggested (pre-filled, editable — NOT silently forced) property type / meal plan /
- * amenities from signals the session already has: budget "comfort ratio" and group size —
- * see wizard_architecture memory, 2026-08-03. Owner's own examples, verified against this
+ * Derives suggested (pre-filled, editable — NOT silently forced) property type / amenities from
+ * signals the session already has: budget "comfort ratio" and group size — see
+ * wizard_architecture memory, 2026-08-03. Owner's own examples, verified against this
  * implementation: "ako nema budzet, nemoj markiras private pool... mnogo para, ponudi mu fuul
  * dozivljaj" and "kratak period, 6 clana porodice... veliki budzet, ne nudi apartmane."
  *
@@ -15,6 +15,12 @@ use App\Models\SearchSession;
  * destination fit the budget") — this one answers "given that it fits, what should we suggest
  * checking." All thresholds are plain constants, tunable after real testing — v1 judgment
  * calls, not measured values, same as every other heuristic built tonight.
+ *
+ * meal_plan suggestion REMOVED 2026-08-13 (owner's call: "all inclusive i pun pansion ne moze
+ * da se sa sigurnoscu izvuce iz ostalih izbora... sta god da stavimo - moze da bude ili cu sam
+ * da placam kafanama il necu da se cimam da idem do kafane") — board-type preference is an
+ * independent personal habit, not something budget/persona reliably predicts. Now a direct
+ * question instead (see WizardSeeder's meal_plan question on the broj_putnika step).
  */
 class AmenitySuggestionEngine
 {
@@ -33,7 +39,7 @@ class AmenitySuggestionEngine
      *         FULL total_budget against food cost only — a big total budget always read as
      *         "luxury" regardless of how much of it lodging consumed. Defaults to 0.0 for
      *         callers with no real accommodation price yet (old behavior, unchanged).
-     * @return array{tip_smestaja: string[], meal_plan: string[], accommodation_facility: string[], room_facility: string[]}
+     * @return array{tip_smestaja: string[], accommodation_facility: string[], room_facility: string[]}
      */
     public function suggest(SearchSession $session, array $budgetEstimate, float $accommodationTotal = 0.0): array
     {
@@ -57,7 +63,6 @@ class AmenitySuggestionEngine
 
         return [
             'tip_smestaja' => $this->suggestPropertyType($ratio, $isLargeGroup),
-            'meal_plan' => $this->suggestMealPlan($ratio, $this->prefersExploringLocalFood($session)),
             'accommodation_facility' => $this->suggestAccommodationFacilities($ratio),
             'room_facility' => $this->suggestRoomFacilities($ratio),
         ];
@@ -86,49 +91,6 @@ class AmenitySuggestionEngine
         }
 
         return ['apartman', 'guest_house'];
-    }
-
-    /**
-     * Self-catering-budget sessions get no meal plan suggestion at all — they're already being
-     * pointed at apartments with kitchens, suggesting a meal plan on top would contradict that.
-     *
-     * `$prefersLocalFood` overrides budget entirely — owner's own example, 2026-08-03: "ako
-     * imamo kintu, mozda volimo da probamo lokalne pekare... fali podpitanje". A Gurman/Foodie
-     * traveler wants to explore local food regardless of budget, so a hotel meal plan would be
-     * the WRONG default even at the luxury tier — this is a preference axis independent of
-     * money, not something the budget ratio alone can capture.
-     */
-    private function suggestMealPlan(float $ratio, bool $prefersLocalFood): array
-    {
-        if ($prefersLocalFood) {
-            return [];
-        }
-
-        if ($ratio >= self::LUXURY_RATIO) {
-            return ['dorucak_vecera'];
-        }
-
-        if ($ratio >= self::COMFORTABLE_RATIO) {
-            return ['dorucak'];
-        }
-
-        return [];
-    }
-
-    /**
-     * True when "gurman" (Foodie) is among the session's selected personas — either the solo
-     * `persona` FK or the group `persona_tags` array (see wizard_architecture's group-size
-     * persona/persona_group split, 2026-07-30).
-     */
-    private function prefersExploringLocalFood(SearchSession $session): bool
-    {
-        if ($session->persona?->slug === 'gurman') {
-            return true;
-        }
-
-        $personaTags = $session->free_text_answers['persona_tags'] ?? [];
-
-        return in_array('gurman', $personaTags, true);
     }
 
     /**

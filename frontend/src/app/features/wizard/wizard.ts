@@ -762,6 +762,13 @@ export class WizardComponent implements OnInit {
     return (node.matchedTags ?? []).map((slug) => tagLabels.get(slug)).filter(Boolean).join(', ');
   }
 
+  /** 2-letter code for the City-step country badge (see wizard.html) — falls back to the full
+   *  label for any country missing WizardSeeder's iso_code meta, so a gap here degrades to the
+   *  old (verbose but correct) behavior rather than showing blank. */
+  countryCodeFor(parent: { label: string; meta?: Record<string, unknown> | null }): string {
+    return (parent.meta?.['iso_code'] as string | undefined) ?? parent.label;
+  }
+
   /**
    * Group headers used to spell out the UNION of tags matched across every card in the group —
    * with 3+ tags selected that union crept toward listing all of them for EVERY tier, reading as

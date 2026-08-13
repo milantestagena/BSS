@@ -74,8 +74,53 @@ class SearchSessionQueryCompiler
         }
 
         $this->applyAmenityYesFilters($params);
+        $this->applyFamilyFriendlyFilter($params);
+        $this->applyMealPlanPreferenceFilter($params);
 
         return $params;
+    }
+
+    /**
+     * The direct meal_plan_preference question (WizardSeeder's broj_putnika step, 2026-08-13,
+     * replacing AmenitySuggestionEngine's old budget-ratio guess) -> real Booking mealplan
+     * filter. Deliberately a SEPARATE field from amenities_yes (not routed through
+     * applyAmenityYesFilters) — two questions writing to the same free_text_answers key would
+     * have whichever step persists last silently overwrite the other's picks, see
+     * SearchSessionResolver's array_merge docblock.
+     */
+    private function applyMealPlanPreferenceFilter(array &$params): void
+    {
+        $slugs = $this->session->free_text_answers['meal_plan_preference'] ?? [];
+        if (empty($slugs)) {
+            return;
+        }
+
+        $ids = TaxonomyNode::where('type', 'meal_plan')
+            ->whereIn('slug', $slugs)
+            ->pluck('meta')
+            ->map(fn (?array $meta) => $meta['booking_meal_plan_id'] ?? null)
+            ->filter()
+            ->values()
+            ->all();
+
+        if (! empty($ids)) {
+            $params['filters']['meal_plan'] = array_values(array_unique([...($params['filters']['meal_plan'] ?? []), ...$ids]));
+        }
+    }
+
+    /**
+     * `porodicna_atmosfera` ("Family-friendly atmosphere") -> Booking's real `family_friendly_
+     * property=1` filter — owner's find, 2026-08-13, from a manual filter-sidebar export of a
+     * live Booking search. Deliberately NOT city/country meta matching (that's what
+     * seedFamilyAndQuietTags() covers, for narrowing WHICH destination) — this is the sharper,
+     * property-level signal for the actual search once a destination is picked, straight from
+     * Booking's own inventory rather than our own editorial judgment about a whole city.
+     */
+    private function applyFamilyFriendlyFilter(array &$params): void
+    {
+        if ($this->allPreferenceTagSlugs()->contains('porodicna_atmosfera')) {
+            $params['filters']['family_friendly_property'] = 1;
+        }
     }
 
     /**
@@ -182,6 +227,13 @@ class SearchSessionQueryCompiler
         $wantedAmenities = $this->session->free_text_answers['amenities_yes'] ?? [];
         if (! empty($wantedAmenities)) {
             $signals['wanted_amenities'] = $this->labelsForSlugs(self::AMENITY_TYPES, $wantedAmenities);
+        }
+
+        // The direct meal_plan_preference question (2026-08-13) — same "everything picked must
+        // show up here" rule as wanted_amenities, on its own key since it's a separate field.
+        $mealPlanPreference = $this->session->free_text_answers['meal_plan_preference'] ?? [];
+        if (! empty($mealPlanPreference)) {
+            $signals['meal_plan_preference'] = $this->labelsForSlugs(['meal_plan'], $mealPlanPreference);
         }
 
         // Big-NO picks (free_text_answers.amenities_no) — no real Booking "exclude this
@@ -310,9 +362,9 @@ class SearchSessionQueryCompiler
 
     /**
      * AmenitySuggestionEngine's pre-filled (editable, never silently forced) property type /
-     * meal plan / amenity suggestions — see wizard_architecture memory, 2026-08-03. Same
-     * "absent until we have enough to compute" convention as budgetSignal(), since it needs the
-     * exact same inputs (budget context).
+     * amenity suggestions — see wizard_architecture memory, 2026-08-03. Same "absent until we
+     * have enough to compute" convention as budgetSignal(), since it needs the exact same
+     * inputs (budget context).
      */
     private function suggestedAmenitiesSignal(): ?array
     {

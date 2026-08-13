@@ -399,13 +399,16 @@
                             >
                               <!-- Owner's ask, 2026-08-13: country/region became multi-select, so
                                    a City grid can now mix cities from several countries — this is
-                                   the "which one is this" hint, only shown at the City step. -->
+                                   the "which one is this" hint, only shown at the City step.
+                                   2-letter code (not the full name) so it never collides with a
+                                   long city label — node.label below gets a matching right-padding
+                                   reservation as a second guard. -->
                               @if (question.key === 'city' && node.parent; as parent) {
-                                <span class="absolute right-3 top-3 text-[10px] font-normal uppercase tracking-wide text-slate-400">{{
-                                  parent.label
+                                <span class="absolute right-3 top-3 text-[10px] font-semibold uppercase text-slate-400">{{
+                                  countryCodeFor(parent)
                                 }}</span>
                               }
-                              {{ node.label }}
+                              <span class="block pr-8">{{ node.label }}</span>
                               @if (matchedTagLabelsFor(node); as matched) {
                                 <span class="mt-0.5 block text-xs font-normal text-slate-500">{{ matched }}</span>
                               }

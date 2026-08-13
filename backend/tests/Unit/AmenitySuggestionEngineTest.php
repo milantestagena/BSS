@@ -34,7 +34,6 @@ class AmenitySuggestionEngineTest extends TestCase
         $this->assertNotContains('privatni_bazen', $result['room_facility']);
         $this->assertNotContains('spa', $result['accommodation_facility']);
         $this->assertNotContains('bazen', $result['accommodation_facility']);
-        $this->assertEmpty($result['meal_plan']);
     }
 
     public function test_generous_budget_suggests_full_experience(): void
@@ -47,7 +46,6 @@ class AmenitySuggestionEngineTest extends TestCase
 
         $this->assertContains('privatni_bazen', $result['room_facility']);
         $this->assertContains('bazen', $result['accommodation_facility']);
-        $this->assertSame(['dorucak_vecera'], $result['meal_plan']);
     }
 
     public function test_large_family_with_big_budget_gets_villa_not_apartment(): void
@@ -85,20 +83,6 @@ class AmenitySuggestionEngineTest extends TestCase
         $this->assertNotContains('guest_house', $result['tip_smestaja']);
     }
 
-    public function test_gurman_persona_gets_no_meal_plan_suggestion_even_at_luxury_budget(): void
-    {
-        // owner's example: "ako imamo kintu, mozda volimo da probamo lokalne pekare" — a
-        // Foodie should never get a hotel meal plan pre-suggested, budget notwithstanding.
-        $gurman = \App\Models\TaxonomyNode::create(['type' => 'persona', 'slug' => 'gurman', 'label' => 'test', 'sort_order' => 0]);
-        $session = $this->makeSession(2, [], 5000);
-        $session->update(['persona_id' => $gurman->id]);
-        $estimate = ['eating_out_total_eur' => 500, 'self_catering_total_eur' => 143];
-
-        $result = (new AmenitySuggestionEngine)->suggest($session->fresh(), $estimate);
-
-        $this->assertEmpty($result['meal_plan']);
-    }
-
     public function test_accommodation_total_is_subtracted_before_the_luxury_ratio(): void
     {
         // Owner's own live example, 2026-08-05: without subtracting accommodation, ratio =
@@ -124,17 +108,5 @@ class AmenitySuggestionEngineTest extends TestCase
         $result = (new AmenitySuggestionEngine)->suggest($session, $estimate, 900.0);
 
         $this->assertNotContains('privatni_bazen', $result['room_facility']);
-        $this->assertEmpty($result['meal_plan']);
-    }
-
-    public function test_gurman_in_persona_group_tags_also_suppresses_meal_plan(): void
-    {
-        $session = $this->makeSession(2, [], 5000);
-        $session->update(['free_text_answers' => ['persona_tags' => ['gurman']]]);
-        $estimate = ['eating_out_total_eur' => 500, 'self_catering_total_eur' => 143];
-
-        $result = (new AmenitySuggestionEngine)->suggest($session->fresh(), $estimate);
-
-        $this->assertEmpty($result['meal_plan']);
     }
 }

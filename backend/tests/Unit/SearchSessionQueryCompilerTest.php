@@ -92,6 +92,30 @@ class SearchSessionQueryCompilerTest extends TestCase
         $this->assertSame('test_123', $params['location']);
     }
 
+    public function test_booking_params_apply_family_friendly_filter_when_porodicna_atmosfera_selected(): void
+    {
+        $session = SearchSession::create([
+            'status' => 'in_progress',
+            'free_text_answers' => ['preference_tags' => ['porodicna_atmosfera']],
+        ]);
+
+        $params = (new SearchSessionQueryCompiler($session))->toBookingParams();
+
+        $this->assertSame(1, $params['filters']['family_friendly_property']);
+    }
+
+    public function test_booking_params_omit_family_friendly_filter_when_not_selected(): void
+    {
+        $session = SearchSession::create([
+            'status' => 'in_progress',
+            'free_text_answers' => ['preference_tags' => ['dobra_hrana']],
+        ]);
+
+        $params = (new SearchSessionQueryCompiler($session))->toBookingParams();
+
+        $this->assertArrayNotHasKey('family_friendly_property', $params['filters'] ?? []);
+    }
+
     public function test_honest_report_signals_surface_climate_caveat_below_threshold(): void
     {
         Carbon::setTestNow('2026-07-30');

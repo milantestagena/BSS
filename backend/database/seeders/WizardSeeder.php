@@ -40,6 +40,7 @@ class WizardSeeder extends Seeder
         $this->seedSwimAtmosphereTags();
         $this->seedExplorationAndBeachTags();
         $this->seedRomanticTags();
+        $this->seedFamilyAndQuietTags();
         $this->propagateCityAtmosphereToCountry();
         $this->seedAccommodationSeasons();
         $this->seedHolidayPricingWindows();
@@ -830,6 +831,11 @@ class WizardSeeder extends Seeder
 
             $ls = $localStores[$slug];
             $meta = $country->meta ?? [];
+            // Owner's ask, 2026-08-13: city badge on the City step ("Heraklion (Crete) GREECE")
+            // overlapped the city name — a 2-letter code fits without collision. Reuses the same
+            // $isoCodes map already used for Location.country_code just below, now also written
+            // onto the node itself so the frontend can read it directly off `parent.meta`.
+            $meta['iso_code'] = $isoCodes[$slug] ?? strtoupper(substr($slug, 0, 2));
             $meta['hospitality'] = [
                 'avg_restaurant_meal_eur' => $h['meal'], 'avg_cafe_coffee_eur' => $h['coffee'], 'avg_bar_beer_eur' => $h['beer'],
                 'priced_at' => '2026-07-30', 'source' => 'manual_estimate',
@@ -1171,6 +1177,67 @@ class WizardSeeder extends Seeder
     }
 
     /**
+     * Closes a real data gap caught 2026-08-13: `mirno_i_tiho` (implied by the Chillseeker
+     * persona) and `porodicna_atmosfera` (a directly pickable preference_tag, also suggested by
+     * group_type=porodica) both had correct persona/group_type -> preference_tag relations, but
+     * zero destinations anywhere carried either slug in their meta.atmosphere — so neither could
+     * ever match anything, silently.
+     *
+     * Deliberately NOT a fresh research pass — `seedCityAndCountryVibeProfiles()`'s good_for/
+     * avoid_for fields (hover-text only today, per that method's own docblock) already encode
+     * exactly this judgment call per city, written earlier this project with real per-place
+     * reasoning. Cross-checked against a live WebSearch ("best family-friendly Mediterranean
+     * countries/cities for kids", Malta specifically) before trusting it — matched: Hurghada/
+     * Sharm El Sheikh, Hammamet, and the Lara/Belek half of Antalya all independently confirmed
+     * as real family draws, and Malta confirmed genuinely MIXED (limited sandy beaches island-
+     * wide) rather than uniformly family-friendly — which is exactly why this is a CITY-level
+     * pass, not a country-level one: owner's explicit catch, "Malta za Kids je samo Melieha" —
+     * only Mellieħa, not St. Julian's or Sliema, actually earns it. Same hard exclusion as
+     * romanticno: nothing already `zivahna_nocna_zabava` qualifies for either tag (a rave strip
+     * isn't quiet, and none of these vibe_profiles market themselves as family-safe either).
+     *
+     * mirno_i_tiho: every city whose vibe_profile good_for includes 'flegma' (Chillseeker),
+     * plus pafos/krf — both explicitly say "quiet evenings"/"most of Corfu is quiet" in prose
+     * despite not using the flegma tag mechanically.
+     * porodicna_atmosfera: every city whose vibe_profile prose explicitly says "family" (not a
+     * guess from budget/persona — the actual words are there: "built for families", "family
+     * package-holiday territory", "deeply family-oriented", etc).
+     */
+    private function seedFamilyAndQuietTags(): void
+    {
+        $quietSlugs = ['marsa_alam', 'larnaka', 'melieha', 'lansarote', 'fuerteventura', 'lampedusa', 'linosa', 'pafos', 'krf'];
+        $familySlugs = ['hurgada', 'sarm_el_seik', 'hamamet', 'monastir', 'antalija', 'kos', 'melieha', 'alanija', 'pafos'];
+
+        $raveSlugs = TaxonomyNode::whereIn('type', ['city', 'country'])
+            ->get()
+            ->filter(fn (TaxonomyNode $n) => in_array('zivahna_nocna_zabava', $n->meta['atmosphere'] ?? [], true))
+            ->pluck('slug');
+
+        $tagsBySlug = [];
+        foreach ($quietSlugs as $slug) {
+            $tagsBySlug[$slug][] = 'mirno_i_tiho';
+        }
+        foreach ($familySlugs as $slug) {
+            $tagsBySlug[$slug][] = 'porodicna_atmosfera';
+        }
+
+        foreach ($tagsBySlug as $slug => $tags) {
+            if ($raveSlugs->contains($slug)) {
+                continue;
+            }
+
+            $city = TaxonomyNode::where('type', 'city')->where('slug', $slug)->first();
+            if (! $city) {
+                continue;
+            }
+
+            $meta = $city->meta ?? [];
+            $meta['atmosphere'] = array_unique([...($meta['atmosphere'] ?? []), ...$tags]);
+            $city->update(['meta' => $meta]);
+        }
+    }
+
+    /**
      * Owner's catch, 2026-08-12: `van_utabanih_staza`/`lepe_plaze`/`zivahna_nocna_zabava`/
      * `romanticno` only ever got written onto CITIES above (correctly — a beach, an old town, a
      * party strip, or a romantic setting is a per-place thing, not "the whole country"), which
@@ -1186,7 +1253,15 @@ class WizardSeeder extends Seeder
      */
     private function propagateCityAtmosphereToCountry(): void
     {
-        $propagatedTags = ['van_utabanih_staza', 'lepe_plaze', 'zivahna_nocna_zabava', 'romanticno'];
+        $propagatedTags = [
+            'van_utabanih_staza', 'lepe_plaze', 'zivahna_nocna_zabava', 'romanticno',
+            // Added 2026-08-13 alongside seedFamilyAndQuietTags() — same "country HAS a spot
+            // with this character, somewhere in it" derived signal, not a blanket claim. This is
+            // also why Malta getting `porodicna_atmosfera` here is correct, not an over-broad
+            // regression of "Malta za Kids je samo Melieha": the country tag only ever means
+            // "at least one real city in it qualifies," and Mellieħa does.
+            'mirno_i_tiho', 'porodicna_atmosfera',
+        ];
 
         $countries = TaxonomyNode::where('type', 'country')->with('children')->get();
 
@@ -1355,6 +1430,18 @@ class WizardSeeder extends Seeder
                 // flag (see its migration's docblock); WizardComponent.canProceed() blocks
                 // Proceed/the rooms-together Yes-No on this step until it's answered.
                 ['key' => 'total_budget', 'en' => 'How much do you plan to spend on accommodation & food? (€)', 'sr' => 'Koliko planirate da potrošite na smeštaj i hranu? (€)', 'input_type' => 'number', 'session_field' => 'total_budget', 'mandatory' => true],
+                // Owner's call, 2026-08-13: replaces AmenitySuggestionEngine's old budget-ratio
+                // meal_plan guess ("all inclusive i pun pansion ne moze da se sa sigurnoscu
+                // izvuce iz ostalih izbora... sta god da stavimo - moze da bude ili cu sam da
+                // placam kafanama il necu da se cimam da idem do kafane") — board type is an
+                // independent personal habit, not something budget/persona predicts, so just
+                // ask directly instead of guessing. Own dedicated field (NOT amenities_yes,
+                // which the Big-YES picker further down the flow also writes to — see
+                // SearchSessionResolver's array_merge docblock: two questions sharing one
+                // free_text_answers key would have the later one silently wipe out the
+                // earlier one's picks, not merge). Optional — no pick just means "no meal plan
+                // filter," which already covers self-catering.
+                ['key' => 'meal_plan_preference', 'en' => 'Want meals included?', 'sr' => 'Želiš li obroke uključene?', 'input_type' => 'taxonomy_multi_choice', 'taxonomy_type' => 'meal_plan', 'session_field' => 'free_text_answers.meal_plan_preference'],
             ]],
             ['key' => 'odakle_putujes', 'en' => 'Where you\'re traveling from', 'sr' => 'Odakle putuješ', 'questions' => [
                 ['key' => 'home_city', 'en' => 'Which city are you traveling from?', 'sr' => 'Iz kog grada putuješ?', 'input_type' => 'taxonomy_choice', 'taxonomy_type' => 'city', 'session_field' => 'home_city_id', 'allow_free_text' => true],
@@ -1496,6 +1583,10 @@ class WizardSeeder extends Seeder
             // orphaned second "Number of travelers" bubble here, out of order, since this
             // campaign's flow is driven by THIS array, not that grouping.
             'adults_count', 'children_ages', 'needs_crib', 'number_of_rooms', 'group_type', 'relationship_type', 'total_budget',
+            // Added 2026-08-13 — same "this campaign's order is its own pivot, not the generic
+            // wizard_step_id grouping" gotcha noted above: had to be added here explicitly too,
+            // or it silently never renders in the live kasno-letovanje flow at all.
+            'meal_plan_preference',
             'home_city',
             'date_range',
             'persona', 'persona_group',
@@ -1857,6 +1948,7 @@ class WizardSeeder extends Seeder
             'smestaj_avoid' => 'Hinweise zum Vermeiden (intern)',
             'relationship_type' => 'Nur Freunde, oder etwas mehr?',
             'total_budget' => 'Wie viel möchtest du für Unterkunft & Verpflegung ausgeben? (€)',
+            'meal_plan_preference' => 'Möchtest du Mahlzeiten inklusive?',
             'smestaj_preference' => 'Etwas Ungewöhnliches auf deiner Wunschliste? (Übliche Dinge wie Pool oder Parkplatz? Trag sie stattdessen oben ein)',
         ];
 

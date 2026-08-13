@@ -10,11 +10,14 @@ interface AmenityOption {
   type: string;
 }
 
-/** The four taxonomy types Big YES/NO searches across — see WizardSeeder::seedAmenities()
- *  and wizard_architecture, 2026-08-04. Deliberately NOT routed through the generic
+/** The taxonomy types Big YES/NO searches across — see WizardSeeder::seedAmenities() and
+ *  wizard_architecture, 2026-08-04. Deliberately NOT routed through the generic
  *  loadGeographyForCurrentStep() (single taxonomyType per question) — this widget owns its
- *  own combined fetch instead. */
-const AMENITY_TYPES = ['tip_smestaja', 'accommodation_facility', 'room_facility', 'meal_plan'];
+ *  own combined fetch instead.
+ *  `meal_plan` moved OUT 2026-08-13 — it's now its own direct question on the broj_putnika
+ *  step (see WizardSeeder's meal_plan_preference) instead of a budget-ratio guess pre-filled
+ *  in here; picking it in two different places in the flow would just be confusing. */
+const AMENITY_TYPES = ['tip_smestaja', 'accommodation_facility', 'room_facility'];
 
 const MAX_SUGGESTIONS = 6;
 
