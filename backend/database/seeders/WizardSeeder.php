@@ -1035,7 +1035,12 @@ class WizardSeeder extends Seeder
             'turska' => ['food' => ['dobra_hrana']],
             // 2026-08-12 additions, same tier>=2 standard: Spain/Portugal's globally-recognized
             // food reputations, Croatia's real (if smaller-scale) Dalmatian wine culture.
-            'spanija' => ['food' => ['dobra_hrana']],
+            // Owner's catch, 2026-08-13: Spain's own real wine reputation (Rioja, Ribera del
+            // Duero, Cava, Sherry) was missing here despite Tenerife already carrying `vino` at
+            // city level — city tags don't propagate to country for pivo/vino/dobra_hrana (see
+            // propagateCityAtmosphereToCountry's scoped exclusion list), so this needed its own
+            // explicit entry, same as every other country here.
+            'spanija' => ['food' => ['dobra_hrana'], 'drinks' => ['vino']],
             'portugalija' => ['food' => ['dobra_hrana']],
             'hrvatska' => ['drinks' => ['vino']],
         ];
