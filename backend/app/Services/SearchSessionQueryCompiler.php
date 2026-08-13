@@ -76,8 +76,29 @@ class SearchSessionQueryCompiler
         $this->applyAmenityYesFilters($params);
         $this->applyFamilyFriendlyFilter($params);
         $this->applyMealPlanPreferenceFilter($params);
+        $this->applyMealStyleFilter($params);
 
         return $params;
+    }
+
+    /**
+     * meal_style=kuva_sam ("I'll cook for myself") -> Booking's real `mealplan=999` (Self
+     * catering) filter. Split off from applyMealPlanPreferenceFilter, 2026-08-13, alongside
+     * meal_style becoming its own mandatory question — the `kuva_sam` taxonomy node itself
+     * carries the real booking_meal_plan_id (999), same value the old `samostalno_kuvanje`
+     * meal_plan-type node used to carry before it was removed.
+     */
+    private function applyMealStyleFilter(array &$params): void
+    {
+        if (($this->session->free_text_answers['meal_style'] ?? null) !== 'kuva_sam') {
+            return;
+        }
+
+        $meta = TaxonomyNode::where('type', 'meal_style')->where('slug', 'kuva_sam')->value('meta');
+        $bookingId = $meta['booking_meal_plan_id'] ?? null;
+        if ($bookingId) {
+            $params['filters']['meal_plan'] = array_values(array_unique([...($params['filters']['meal_plan'] ?? []), $bookingId]));
+        }
     }
 
     /**
@@ -354,12 +375,13 @@ class SearchSessionQueryCompiler
         // have a real bundled price for it.
         $mealPlanSlugs = $this->session->free_text_answers['meal_plan_preference'] ?? [];
         $mealPlanSlug = BudgetEstimationEngine::strongestMealPlanSlug($mealPlanSlugs);
+        $selfCatering = ($this->session->free_text_answers['meal_style'] ?? null) === 'kuva_sam';
 
         return [
             'total_budget_eur' => (float) $this->session->total_budget,
             'fit' => (new BudgetEstimationEngine)->fitFor(
                 $context['country'], (float) $this->session->total_budget, $this->session->adults_count, $children, $days,
-                $context['accommodation_total_eur'], $context['meals_included'], $mealPlanSlug
+                $context['accommodation_total_eur'], $context['meals_included'], $mealPlanSlug, $selfCatering
             ),
             'estimate' => $context['estimate'],
             'accommodation_total_eur' => $context['accommodation_total_eur'],

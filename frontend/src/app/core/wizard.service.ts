@@ -418,6 +418,12 @@ export class WizardService {
     if (question.key === 'relationship_type') {
       return !this.hasChildren() && (this.answers()['adults_count'] as number) === 2;
     }
+    // Owner's call, 2026-08-13 ("vecina korisnika su idioti") — self-catering is its own
+    // separate, mandatory meal_style question now; someone who already said "I'll cook myself"
+    // has no use for "want meals included?" (the hotel meal-plan tiers).
+    if (question.key === 'meal_plan_preference') {
+      return this.answers()['meal_style'] !== 'kuva_sam';
+    }
     // needs_crib no longer has a visibility gate here — it's now a per-child array fully
     // owned by <app-travelers-input> (each row shows its own crib toggle only for that child's
     // age ≤2). This used to gate the OLD single blanket checkbox, but since needs_crib is

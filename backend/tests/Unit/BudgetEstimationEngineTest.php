@@ -196,20 +196,23 @@ class BudgetEstimationEngineTest extends TestCase
         $this->assertSame('insufficient', $engine->fitFor($country, 660, 2, 2, 7, mealPlanSlug: 'dorucak'));
     }
 
-    public function test_samostalno_kuvanje_meal_plan_slug_uses_the_existing_self_catering_path(): void
+    public function test_self_catering_flag_uses_the_existing_self_catering_path_regardless_of_meal_plan_slug(): void
     {
-        $country = $this->countryWithPrices(meal: 10, coffee: 2); // eating_out 728, self_catering ~208
+        // Owner's call, 2026-08-13: self-catering split into its own mandatory meal_style
+        // question — $selfCatering now takes priority over any meal_plan_preference slug.
+        $country = $this->countryWithPrices(meal: 10, coffee: 2); // eating_out 623, self_catering ~178
         $engine = new BudgetEstimationEngine;
 
-        $this->assertSame('self_catering', $engine->fitFor($country, 300, 2, 2, 7, mealPlanSlug: 'samostalno_kuvanje'));
-        $this->assertSame('insufficient', $engine->fitFor($country, 50, 2, 2, 7, mealPlanSlug: 'samostalno_kuvanje'));
+        $this->assertSame('self_catering', $engine->fitFor($country, 200, 2, 2, 7, selfCatering: true));
+        $this->assertSame('insufficient', $engine->fitFor($country, 50, 2, 2, 7, selfCatering: true));
+        // Even with a meal_plan_preference also set, selfCatering wins.
+        $this->assertSame('self_catering', $engine->fitFor($country, 200, 2, 2, 7, mealPlanSlug: 'sve_ukljuceno', selfCatering: true));
     }
 
     public function test_strongest_meal_plan_slug_picks_the_most_demanding_pick(): void
     {
         $this->assertSame('sve_ukljuceno', BudgetEstimationEngine::strongestMealPlanSlug(['dorucak', 'sve_ukljuceno']));
         $this->assertSame('dorucak_rucak', BudgetEstimationEngine::strongestMealPlanSlug(['dorucak_rucak', 'dorucak_vecera']));
-        $this->assertSame('samostalno_kuvanje', BudgetEstimationEngine::strongestMealPlanSlug(['samostalno_kuvanje']));
         $this->assertNull(BudgetEstimationEngine::strongestMealPlanSlug([]));
     }
 }

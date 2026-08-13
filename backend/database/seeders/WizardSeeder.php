@@ -26,6 +26,7 @@ class WizardSeeder extends Seeder
         $this->seedGroupTypes();
         $this->seedPersonas();
         $this->seedRelationshipType();
+        $this->seedMealStyles();
         $this->seedTerminCategories();
         $this->seedPreferenceTags();
         $this->seedBudgetTiers();
@@ -140,6 +141,32 @@ class WizardSeeder extends Seeder
 
         foreach ($items as $i => $item) {
             $this->node('relationship_type', $item['slug'], $item['en'], $item['sr'], $i);
+        }
+    }
+
+    /**
+     * Owner's call, 2026-08-13 ("vecina korisnika su idioti") — split out from
+     * meal_plan_preference specifically so "I'll cook myself" is its own clear, mandatory
+     * question rather than one pill buried in a "want meals included?" checklist someone
+     * self-catering might not think to check. Drives BudgetEstimationEngine's
+     * eating_out/self_catering split (a 1:3.5 swing in disposable accommodation budget) — see
+     * GeographyResolver::filterByBudget / SearchSessionQueryCompiler::budgetSignal. No real
+     * Booking filter behind either slug — pure wizard-side budget logic, same category as
+     * group_type/relationship_type.
+     */
+    private function seedMealStyles(): void
+    {
+        $items = [
+            ['slug' => 'jede_napolju', 'en' => 'Eating out / at restaurants', 'sr' => 'Jedem napolju / u restoranima'],
+            // Carries the real Booking `mealplan=999` (Self catering) filter ID — previously
+            // lived on a separate 'samostalno_kuvanje' meal_plan-type node offered inside the
+            // meal_plan_preference pill list, now redundant since meal_style is mandatory and
+            // asked first; see applyMealPlanPreferenceFilter's meal_style branch.
+            ['slug' => 'kuva_sam', 'en' => "I'll cook for myself", 'sr' => 'Sam ću da spremam', 'meta' => ['booking_meal_plan_id' => 999]],
+        ];
+
+        foreach ($items as $i => $item) {
+            $this->node('meal_style', $item['slug'], $item['en'], $item['sr'], $i, $item['meta'] ?? []);
         }
     }
 
@@ -352,14 +379,15 @@ class WizardSeeder extends Seeder
         // mealplan — filters.meal_plan (verified real 2026-07-30; expanded 2026-08-13 with the
         // rest of Booking's real "Meals" filter group, owner's own export — all_inclusive/
         // pun_pansion/self-catering IDs were previously left out rather than guessed, now
-        // confirmed real).
+        // confirmed real). 'Self catering' (id 999) moved OUT of this list, 2026-08-13 — it's
+        // now the `kuva_sam` meal_style node instead (see seedMealStyles), since meal_style is
+        // its own dedicated mandatory question, not a pill in the meal_plan_preference list.
         $mealPlans = [
             ['slug' => 'dorucak', 'en' => 'Breakfast included', 'sr' => 'Doručak uključen', 'id' => 1],
             ['slug' => 'dorucak_rucak', 'en' => 'Breakfast & lunch included', 'sr' => 'Doručak i ručak uključeni', 'id' => 8],
             ['slug' => 'dorucak_vecera', 'en' => 'Breakfast & dinner included', 'sr' => 'Doručak i večera uključeni', 'id' => 9],
             ['slug' => 'pun_pansion', 'en' => 'All meals included', 'sr' => 'Svi obroci uključeni', 'id' => 3],
             ['slug' => 'sve_ukljuceno', 'en' => 'All-inclusive', 'sr' => 'Sve uključeno', 'id' => 4],
-            ['slug' => 'samostalno_kuvanje', 'en' => 'Self catering', 'sr' => 'Samostalno kuvanje', 'id' => 999],
         ];
         foreach ($mealPlans as $i => $item) {
             $this->node('meal_plan', $item['slug'], $item['en'], $item['sr'], $i, [
@@ -1460,6 +1488,15 @@ class WizardSeeder extends Seeder
                 // adults, 0 children — now evaluated live within the SAME step as adults_count,
                 // which is fine since it's all reactive client-side signals pre-submission.
                 ['key' => 'relationship_type', 'en' => 'Just friends, or something more?', 'sr' => 'Par ili drugari?', 'input_type' => 'taxonomy_choice', 'taxonomy_type' => 'relationship_type', 'session_field' => 'free_text_answers.relationship_type'],
+                // Owner's call, 2026-08-13: split out from meal_plan_preference — this ONE
+                // answer swings the accommodation budget by the eating_out/self_catering ratio
+                // (1:3.5), a much bigger effect than which hotel meal tier someone picks, and
+                // "vecina korisnika su idioti" (won't naturally think to look for "self
+                // catering" under a question titled "want meals included?"). Mandatory, same
+                // reasoning as total_budget below — this is a real input to that number, not a
+                // nice-to-have. Own taxonomy_type (no real Booking filter behind it — this is
+                // pure wizard-side budget logic, same category as group_type/relationship_type).
+                ['key' => 'meal_style', 'en' => 'Will you cook for yourself, or eat out?', 'sr' => 'Planiraš da spremaš sam, ili da jedeš napolju?', 'input_type' => 'taxonomy_choice', 'taxonomy_type' => 'meal_style', 'session_field' => 'free_text_answers.meal_style', 'mandatory' => true],
                 // Total trip spending budget (2026-07-30) — deliberately in the same "warm-up"
                 // group as the other always-asked questions, not tied to any destination. See
                 // BudgetEstimationEngine / GeographyResolver filterByBudget.
@@ -1477,8 +1514,9 @@ class WizardSeeder extends Seeder
                 // which the Big-YES picker further down the flow also writes to — see
                 // SearchSessionResolver's array_merge docblock: two questions sharing one
                 // free_text_answers key would have the later one silently wipe out the
-                // earlier one's picks, not merge). Optional — no pick just means "no meal plan
-                // filter," which already covers self-catering.
+                // earlier one's picks, not merge). Optional — no pick just means "no hotel meal
+                // plan," and only asked at all if meal_style says "eating out" (see
+                // WizardService.isQuestionVisible) — someone self-catering has no use for it.
                 ['key' => 'meal_plan_preference', 'en' => 'Want meals included?', 'sr' => 'Želiš li obroke uključene?', 'input_type' => 'taxonomy_multi_choice', 'taxonomy_type' => 'meal_plan', 'session_field' => 'free_text_answers.meal_plan_preference'],
             ]],
             ['key' => 'odakle_putujes', 'en' => 'Where you\'re traveling from', 'sr' => 'Odakle putuješ', 'questions' => [
@@ -1620,11 +1658,11 @@ class WizardSeeder extends Seeder
             // owner: moving the question in seedWizardSteps alone left it still rendering as an
             // orphaned second "Number of travelers" bubble here, out of order, since this
             // campaign's flow is driven by THIS array, not that grouping.
-            'adults_count', 'children_ages', 'needs_crib', 'number_of_rooms', 'group_type', 'relationship_type', 'total_budget',
+            'adults_count', 'children_ages', 'needs_crib', 'number_of_rooms', 'group_type', 'relationship_type',
             // Added 2026-08-13 — same "this campaign's order is its own pivot, not the generic
             // wizard_step_id grouping" gotcha noted above: had to be added here explicitly too,
             // or it silently never renders in the live kasno-letovanje flow at all.
-            'meal_plan_preference',
+            'meal_style', 'total_budget', 'meal_plan_preference',
             'home_city',
             'date_range',
             'persona', 'persona_group',
@@ -1905,7 +1943,10 @@ class WizardSeeder extends Seeder
                 'dorucak_vecera' => 'Frühstück & Abendessen inklusive',
                 'pun_pansion' => 'Alle Mahlzeiten inklusive',
                 'sve_ukljuceno' => 'All-inclusive',
-                'samostalno_kuvanje' => 'Selbstverpflegung',
+            ],
+            'meal_style' => [
+                'jede_napolju' => 'Auswärts essen / im Restaurant',
+                'kuva_sam' => 'Ich koche selbst',
             ],
             'cost_category' => [
                 'hospitality' => 'Gastronomie (Essen/Trinken auswärts)',
@@ -2000,6 +2041,7 @@ class WizardSeeder extends Seeder
             'amenities_no' => 'Gibt es etwas, das du lieber vermeiden möchtest?',
             'smestaj_avoid' => 'Hinweise zum Vermeiden (intern)',
             'relationship_type' => 'Nur Freunde, oder etwas mehr?',
+            'meal_style' => 'Kochst du selbst, oder isst du auswärts?',
             'total_budget' => 'Wie viel möchtest du für Unterkunft & Verpflegung ausgeben? (€)',
             'meal_plan_preference' => 'Möchtest du Mahlzeiten inklusive?',
             'smestaj_preference' => 'Etwas Ungewöhnliches auf deiner Wunschliste? (Übliche Dinge wie Pool oder Parkplatz? Trag sie stattdessen oben ein)',

@@ -331,6 +331,9 @@ class GeographyResolver
         // reaching the budget check at all. See BudgetEstimationEngine::mealPlanTotalFor.
         $mealPlanSlugs = $session->free_text_answers['meal_plan_preference'] ?? [];
         $mealPlanSlug = BudgetEstimationEngine::strongestMealPlanSlug($mealPlanSlugs);
+        // meal_style split into its own mandatory question, 2026-08-13 — the single biggest
+        // lever on disposable accommodation budget (eating_out vs self_catering, ~1:3.5).
+        $selfCatering = ($session->free_text_answers['meal_style'] ?? null) === 'kuva_sam';
 
         $result = (new BudgetEstimationEngine)->narrowCandidates(
             $countries,
@@ -339,7 +342,8 @@ class GeographyResolver
             count($session->children_ages ?? []),
             $foodDays,
             fn (TaxonomyNode $country) => $this->cheapestAccommodationTotal($country, $session, $totalTravelers, $nights),
-            $mealPlanSlug
+            $mealPlanSlug,
+            $selfCatering
         );
 
         $narrowed = $result->pluck('country')->values();
