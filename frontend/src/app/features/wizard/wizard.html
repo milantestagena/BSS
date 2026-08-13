@@ -426,6 +426,10 @@
                 }
               }
 
+              @if (hasMandatoryQuestionOnStep) {
+                <p class="mb-4 text-xs text-amber-600">{{ i18n.t('requiredLegend') }}</p>
+              }
+
               @if (showRoomsTogetherQuestion) {
                 <div class="mb-6">
                   <label class="mb-2 block text-sm font-semibold text-slate-800"

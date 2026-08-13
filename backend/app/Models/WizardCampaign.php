@@ -23,6 +23,7 @@ class WizardCampaign extends Model
         'sort_order',
         'season_start_date',
         'season_end_date',
+        'meta',
     ];
 
     protected $casts = [
@@ -30,6 +31,7 @@ class WizardCampaign extends Model
         'is_active' => 'boolean',
         'season_start_date' => 'date',
         'season_end_date' => 'date',
+        'meta' => 'array',
     ];
 
     /**

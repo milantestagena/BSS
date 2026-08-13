@@ -6,19 +6,32 @@
     }
     @if (question.mandatory) {
       <span class="ml-1 align-middle text-lg font-bold text-amber-500" [title]="i18n.t('required')">*</span>
-      <span class="ml-1 align-middle text-xs font-normal normal-case text-amber-600">{{ i18n.t('requiredParenthetical') }}</span>
     }
   </label>
 
   @switch (question.inputType) {
     @case ('number') {
-      <div class="max-w-[10rem]">
+      <div class="inline-flex max-w-[16rem] items-center gap-3">
+        <button
+          type="button"
+          class="h-9 w-9 shrink-0 rounded-lg border border-slate-300 text-lg font-medium text-slate-700 hover:bg-slate-50"
+          (click)="decrementNumber()"
+        >
+          −
+        </button>
         <ui-text-field
           type="number"
           [step]="numberStep"
           [value]="numberAsString"
           (valueChange)="onNumberChange($event)"
         />
+        <button
+          type="button"
+          class="h-9 w-9 shrink-0 rounded-lg border border-slate-300 text-lg font-medium text-slate-700 hover:bg-slate-50"
+          (click)="incrementNumber()"
+        >
+          +
+        </button>
       </div>
     }
 

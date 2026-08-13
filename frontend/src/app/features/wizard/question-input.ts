@@ -77,6 +77,18 @@ export class QuestionInputComponent {
     this.valueChange.emit(raw === '' ? null : Number(raw));
   }
 
+  /** Visible +/- buttons alongside the number field — owner's ask, 2026-08-13: the native
+   *  spinner arrows are CSS-hidden project-wide (see ui-text-field's [&::-webkit-*-spin-button]
+   *  reset), so total_budget's step=100 had no visible way to use it. Step size matches
+   *  numberStep (100 for total_budget, 1 for everything else). */
+  incrementNumber(): void {
+    this.valueChange.emit((Number(this.value) || 0) + Number(this.numberStep));
+  }
+
+  decrementNumber(): void {
+    this.valueChange.emit(Math.max(0, (Number(this.value) || 0) - Number(this.numberStep)));
+  }
+
   onChildrenAgesChange(raw: string): void {
     const ages = raw
       .split(',')

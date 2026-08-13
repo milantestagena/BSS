@@ -134,6 +134,8 @@ type WizardCampaign {
     presetAnswers: JSON @rename(attribute: "preset_answers")
     "This campaign's questions, in campaign-specific order (independent of each question's global sort_order)."
     questions: [WizardQuestion!]! @belongsToMany
+    "Admin-editable per-campaign tunables (e.g. defaultBudgetPerAdultEur/defaultBudgetPerChildEur) — see WizardSeeder's kasno-letovanje entry. Not hardcoded in frontend/backend logic so a future campaign can set its own values."
+    meta: JSON
 }
 
 "A single question within a wizard step."

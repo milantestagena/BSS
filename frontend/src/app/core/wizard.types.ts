@@ -62,6 +62,9 @@ export interface WizardCampaign {
   key: string;
   label: string;
   landingHeadline?: string | null;
+  /** Admin-editable per-campaign tunables — e.g. defaultBudgetPerAdultEur/defaultBudgetPerChildEur.
+   *  See WizardSeeder's kasno-letovanje entry, deliberately not hardcoded in frontend logic. */
+  meta?: Record<string, unknown> | null;
   questions: WizardQuestion[];
 }
 

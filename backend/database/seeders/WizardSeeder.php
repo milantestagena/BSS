@@ -1478,6 +1478,11 @@ class WizardSeeder extends Seeder
                 // 2026-08-29 (the real Saturday) instead.
                 'season_start_date' => '2026-08-29',
                 'season_end_date' => '2026-11-01',
+                // Owner's ask, 2026-08-13: default the budget field instead of forcing everyone
+                // to type — "ljudi ne vole da kucaju... vise da tipkaju". 400€/adult, 300€/child,
+                // per-campaign so a future campaign (different season, different typical spend)
+                // isn't stuck with these same numbers.
+                'meta' => ['default_budget_per_adult_eur' => 400, 'default_budget_per_child_eur' => 300],
             ],
         );
 

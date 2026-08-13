@@ -549,6 +549,7 @@ export class WizardComponent implements OnInit {
     await this.loadGeographyForCurrentStep();
     this.prefillRecommendedDates();
     this.prefillDefaultAdultsCount();
+    this.prefillDefaultBudget();
   }
 
   get visibleQuestions(): WizardQuestion[] {
@@ -580,6 +581,13 @@ export class WizardComponent implements OnInit {
     return step.questions
       .filter((q) => q.mandatory && this.wizard.isQuestionVisible(q))
       .every((q) => this.isAnswered(this.wizard.getAnswer(q.key)));
+  }
+
+  /** Drives the single "* Required" legend at the bottom of the step — owner's ask, 2026-08-13:
+   *  a "(required)" aside next to every mandatory field's own label was redundant with the *
+   *  and took up width; one legend line covers all of them at once. */
+  get hasMandatoryQuestionOnStep(): boolean {
+    return this.visibleQuestions.some((q) => q.mandatory);
   }
 
   private isAnswered(value: unknown): boolean {
@@ -884,6 +892,7 @@ export class WizardComponent implements OnInit {
         await this.loadGeographyForCurrentStep();
         this.prefillRecommendedDates();
         this.prefillDefaultAdultsCount();
+        this.prefillDefaultBudget();
         this.scrollToActiveStep();
       }
     } finally {
@@ -1002,6 +1011,32 @@ export class WizardComponent implements OnInit {
     if (this.showTravelersWidget && this.wizard.getAnswer('adults_count') == null) {
       this.wizard.setAnswer('adults_count', 1);
     }
+  }
+
+  /** Owner's ask, 2026-08-13: "kad izabere tip ljudi... u potrosnju stavimo nesto tipa 400 po
+   *  odraslom - 300 po detetu" — pre-fills total_budget once headcount is known, using rates
+   *  from WizardCampaign.meta (never hardcoded, so a future campaign can set its own numbers —
+   *  "da mozemo da podesimo po kampanji"). By the time the budget question's step is reached,
+   *  adults_count/children_ages are already answered (an earlier step), so this only needs to
+   *  run on step load, same as prefillRecommendedDates/prefillDefaultAdultsCount. No-ops if the
+   *  campaign hasn't configured a per-adult rate, or if total_budget is already answered
+   *  (never overwrites a real pick). */
+  private prefillDefaultBudget(): void {
+    const step = this.wizard.currentStep();
+    if (!step?.questions.some((q) => q.key === 'total_budget') || this.wizard.getAnswer('total_budget') != null) {
+      return;
+    }
+
+    const meta = this.wizard.campaignMeta();
+    const perAdult = meta?.['default_budget_per_adult_eur'] as number | undefined;
+    if (typeof perAdult !== 'number') return;
+    const perChild = (meta?.['default_budget_per_child_eur'] as number | undefined) ?? 0;
+
+    const adults = (this.wizard.getAnswer('adults_count') as number) ?? 0;
+    const children = ((this.wizard.getAnswer('children_ages') as number[]) ?? []).length;
+    if (adults === 0 && children === 0) return;
+
+    this.wizard.setAnswer('total_budget', adults * perAdult + children * perChild);
   }
 
   goBack(): void {

@@ -28,7 +28,7 @@ const START_SESSION_MUTATION = `
 const WIZARD_CAMPAIGN_QUERY = `
   query WizardCampaign($key: String!) {
     wizardCampaign(key: $key) {
-      id key label landingHeadline
+      id key label landingHeadline meta
       questions {
         id key label inputType taxonomyType sessionField allowFreeText mandatory
         step { id key label }
@@ -144,6 +144,10 @@ export class WizardService {
   readonly answers = signal<WizardAnswers>({});
   readonly loading = signal(false);
 
+  /** Admin-editable per-campaign tunables (default budget etc.) — see WizardCampaign.meta.
+   *  Null for the non-campaign generic flow, or before a campaign has loaded. */
+  readonly campaignMeta = signal<Record<string, unknown> | null>(null);
+
   /** Mirrors backend SearchSession::selectedTaxonomyNodeIds() — the source of truth for
    *  evaluating WizardQuestion.dependsOn, kept in sync from every mutation response rather
    *  than re-derived from raw answers client-side (slug vs id shapes differ per field). */
@@ -192,6 +196,7 @@ export class WizardService {
           this.gql.request<{ startCampaignSession: SearchSession }>(START_CAMPAIGN_SESSION_MUTATION, { campaignKey }),
         ]);
         this.steps.set(this.groupCampaignQuestionsIntoSteps(campaignData.wizardCampaign.questions));
+        this.campaignMeta.set(campaignData.wizardCampaign.meta ?? null);
         this.sessionId.set(sessionData.startCampaignSession.id);
         this.selectedTaxonomyNodeIds.set(new Set(sessionData.startCampaignSession.selectedTaxonomyNodeIds ?? []));
         this.seedVisitedHistory();
