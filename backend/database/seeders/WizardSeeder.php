@@ -201,7 +201,15 @@ class WizardSeeder extends Seeder
             // whole system today, so a plain removal is simpler than building per-campaign tag
             // filtering for a node nothing else references yet — trivial to re-add if a future
             // (e.g. city-break) campaign genuinely wants it back.
-            ['slug' => 'sunce', 'en' => 'Must have sun', 'sr' => 'Mora sunce'],
+            //
+            // 'sunce' ("Must have sun") removed same way, 2026-08-13 (owner's call) — it was a
+            // genuine orphan (zero geography data anywhere, unlike every other tag here) AND
+            // redundant for a swim campaign specifically ("idu na more" — sun is already the
+            // whole premise). Real idea for later, NOT this campaign: a future city-break
+            // campaign (e.g. November city trips) could pull real % sunny-days per city from
+            // Open-Meteo for that period and use it to differentiate "cloudy but full of
+            // pubs/history" cities from "still sunny" ones (Athens/Lisbon/Rome) — parked, see
+            // project memory.
             ['slug' => 'jeftino', 'en' => 'Cheap', 'sr' => 'Jeftino'],
             ['slug' => 'kvalitet', 'en' => 'Quality over price', 'sr' => 'Kvalitet pre cene'],
             ['slug' => 'pivo', 'en' => 'Good beer', 'sr' => 'Dobro pivo'],
@@ -1818,7 +1826,6 @@ class WizardSeeder extends Seeder
                 'flegma' => 'Genießer — einfach entspannen',
             ],
             'preference_tag' => [
-                'sunce' => 'Sonne ein Muss',
                 'jeftino' => 'Günstig',
                 'kvalitet' => 'Qualität vor Preis',
                 'pivo' => 'Gutes Bier',
