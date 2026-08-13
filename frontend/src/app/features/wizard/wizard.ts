@@ -358,6 +358,11 @@ export class WizardComponent implements OnInit {
    *  right value for ngOnInit's own initial fetch, a second fetch right away would be wasted. */
   private isFirstLocaleEffect = true;
 
+  /** Set the moment the user touches total_budget themselves (typed, or +/- stepper) — once
+   *  true, syncDefaultBudget() stops overwriting it, no matter what else changes on the step
+   *  afterward. Reset per session in startWizard(). */
+  private budgetManuallyEdited = false;
+
   constructor(
     public wizard: WizardService,
     public auth: AuthService,
@@ -540,6 +545,7 @@ export class WizardComponent implements OnInit {
   }
 
   private async startWizard(): Promise<void> {
+    this.budgetManuallyEdited = false;
     await this.wizard.init(this.campaignKey ?? undefined);
     // Fire-and-forget — geo-IP lookup latency must never delay the visible wizard, see
     // WizardService.detectHomeCity docblock.
@@ -549,7 +555,7 @@ export class WizardComponent implements OnInit {
     await this.loadGeographyForCurrentStep();
     this.prefillRecommendedDates();
     this.prefillDefaultAdultsCount();
-    this.prefillDefaultBudget();
+    this.syncDefaultBudget();
   }
 
   get visibleQuestions(): WizardQuestion[] {
@@ -650,6 +656,7 @@ export class WizardComponent implements OnInit {
     this.wizard.setAnswer('needs_crib', value.needsCrib);
 
     this.autoSelectFamilyGroupType(value.childrenAges);
+    this.syncDefaultBudget();
   }
 
   /** Adults + children mixed is a family, essentially always — owner's explicit ask,
@@ -851,6 +858,13 @@ export class WizardComponent implements OnInit {
   }
 
   onAnswerChange(question: WizardQuestion, value: unknown): void {
+    // Owner's ask, 2026-08-13: once they've touched total_budget themselves (typed a value or
+    // clicked the +/- stepper), the auto-computed default must stop overwriting it — even if
+    // adults_count/group_type/etc. change again afterward on the same step.
+    if (question.key === 'total_budget') {
+      this.budgetManuallyEdited = true;
+    }
+
     this.wizard.setAnswer(question.key, value);
 
     // Selecting a region theme or country immediately scopes the next geography question.
@@ -861,6 +875,11 @@ export class WizardComponent implements OnInit {
       // Multi-select, 2026-08-12 — gathers cities from ANY of the selected countries.
       void this.loadGeography('city', 'city', undefined, this.selectedCountryIds());
     }
+
+    // Recompute the default budget as the group is picked, etc. — no-ops once
+    // budgetManuallyEdited is set, or if total_budget isn't on this step. Harmless to call for
+    // every answer on every step (syncDefaultBudget checks both internally).
+    this.syncDefaultBudget();
   }
 
   async goNext(): Promise<void> {
@@ -892,7 +911,7 @@ export class WizardComponent implements OnInit {
         await this.loadGeographyForCurrentStep();
         this.prefillRecommendedDates();
         this.prefillDefaultAdultsCount();
-        this.prefillDefaultBudget();
+        this.syncDefaultBudget();
         this.scrollToActiveStep();
       }
     } finally {
@@ -1014,18 +1033,20 @@ export class WizardComponent implements OnInit {
   }
 
   /** Owner's ask, 2026-08-13: "kad izabere tip ljudi... u potrosnju stavimo nesto tipa 400 po
-   *  odraslom - 300 po detetu" — pre-fills total_budget once headcount is known, using rates
-   *  from WizardCampaign.meta (never hardcoded, so a future campaign can set its own numbers —
-   *  "da mozemo da podesimo po kampanji"). By the time the budget question's step is reached,
-   *  adults_count/children_ages are already answered (an earlier step), so this only needs to
-   *  run on step load, same as prefillRecommendedDates/prefillDefaultAdultsCount. No-ops if the
-   *  campaign hasn't configured a per-adult rate, or if total_budget is already answered
-   *  (never overwrites a real pick). */
-  private prefillDefaultBudget(): void {
+   *  odraslom - 300 po detetu" — keeps total_budget synced to headcount, using rates from
+   *  WizardCampaign.meta (never hardcoded, so a future campaign can set its own numbers — "da
+   *  mozemo da podesimo po kampanji"). adults_count/group_type/total_budget all live on the
+   *  SAME step (broj_putnika), so this re-runs live off onTravelersChange/onAnswerChange as the
+   *  user answers each one in turn, not just once on step load — "update sumu nakon sto izabere
+   *  koja grupa pripada" (2026-08-13 follow-up). Stops touching the field entirely once
+   *  budgetManuallyEdited is set (the user typed a value or used the +/- stepper themselves) —
+   *  "ako je rucno nesto menjao, vise ne prihvataj promene". No-ops if the campaign hasn't
+   *  configured a per-adult rate, or total_budget isn't a question on the current step. */
+  private syncDefaultBudget(): void {
+    if (this.budgetManuallyEdited) return;
+
     const step = this.wizard.currentStep();
-    if (!step?.questions.some((q) => q.key === 'total_budget') || this.wizard.getAnswer('total_budget') != null) {
-      return;
-    }
+    if (!step?.questions.some((q) => q.key === 'total_budget')) return;
 
     const meta = this.wizard.campaignMeta();
     const perAdult = meta?.['default_budget_per_adult_eur'] as number | undefined;
