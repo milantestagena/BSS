@@ -88,14 +88,15 @@ class WizardSeeder extends Seeder
         $items = [
             ['slug' => 'porodica', 'en' => 'Family', 'sr' => 'Porodica'],
             ['slug' => 'skola', 'en' => 'School trip', 'sr' => 'Školski put'],
+            ['slug' => 'drustvo_penzionera', 'en' => 'Retirees group', 'sr' => 'Društvo penzionera'],
+            ['slug' => 'grupa_prijatelja', 'en' => 'Larger group of friends', 'sr' => 'Veća grupa prijatelja'],
             // Relabeled to a plain "Other" catch-all, 2026-08-13 (owner's call, from the
             // Club/sports-team-needs-real-research discussion) — "Club / sports team" implied
             // we had something specific figured out for it, which we deliberately don't yet
             // (parked for a v2 idea file: Spa? Team building? Corporate tourism?). Honest label
-            // beats a specific-sounding one with no real handling behind it.
+            // beats a specific-sounding one with no real handling behind it. Ordered last
+            // (owner's call, 2026-08-13): a generic catch-all belongs at the end of the list.
             ['slug' => 'klub', 'en' => 'Other', 'sr' => 'Ostalo'],
-            ['slug' => 'drustvo_penzionera', 'en' => 'Retirees group', 'sr' => 'Društvo penzionera'],
-            ['slug' => 'grupa_prijatelja', 'en' => 'Larger group of friends', 'sr' => 'Veća grupa prijatelja'],
         ];
 
         foreach ($items as $i => $item) {
