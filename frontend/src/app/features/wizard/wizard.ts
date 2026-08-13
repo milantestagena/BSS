@@ -28,10 +28,20 @@ const HOME_CITY_QUESTION_KEY = 'home_city';
 const ROOMS_QUESTION_KEY = 'number_of_rooms';
 
 /** amenities_yes/amenities_no render via <app-amenity-picker> (combined typeahead over
- *  tip_smestaja/accommodation_facility/room_facility/meal_plan) instead of two separate
- *  generic pill grids — see amenity-picker.ts. Owner's design, 2026-08-04. */
+ *  tip_smestaja/accommodation_facility/room_facility) instead of two separate generic pill
+ *  grids — see amenity-picker.ts. Owner's design, 2026-08-04. */
 const AMENITY_YES_KEY = 'amenities_yes';
 const AMENITY_NO_KEY = 'amenities_no';
+
+/** Same 3 types as amenity-picker.ts's own AMENITY_TYPES — duplicated here (not read from
+ *  that component) because this class needs them in the SHARED geographyOptions map for
+ *  optionLabel()/stepSummary(), not just inside the picker widget's own local state. Bug
+ *  fixed 2026-08-13: amenities_yes/no questions have no `taxonomyType` of their own (they span
+ *  3 types), so the generic per-step loader below always skipped them — the collapsed
+ *  chat-bubble summary fell back to raw slugs ("klima" instead of the localized "Air
+ *  conditioning"/"Klimaanlage"), which happened to look like real Serbian text so it read as
+ *  "stuck in Serbian" even under the EN/DE toggle. */
+const AMENITY_SUMMARY_TAXONOMY_TYPES = ['tip_smestaja', 'accommodation_facility', 'room_facility'];
 
 /** No UI of its own — see onAmenityUnmatchedText. Exists purely so its session_field flows
  *  through persistCurrentStep like every other free_text_answers field. */
@@ -1224,6 +1234,10 @@ export class WizardComponent implements OnInit {
   }
 
   private async loadGeographyForStep(step: WizardStep): Promise<void> {
+    if (step.questions.some((q) => q.key === AMENITY_YES_KEY || q.key === AMENITY_NO_KEY)) {
+      await this.loadAmenitySummaryOptions();
+    }
+
     // Two questions on the same step can share a plain taxonomyType — e.g. the "Traveler type"
     // step's single-choice `persona` and multi-choice `persona_group` both read taxonomyType
     // 'persona' — which used to fire the identical suggestedGeography query twice in a row
@@ -1264,6 +1278,16 @@ export class WizardComponent implements OnInit {
     } finally {
       this.geographyLoading.update((g) => ({ ...g, [questionKey]: false }));
     }
+  }
+
+  /** Mirrors AmenityPickerComponent.fetchOptions()'s combined fetch, but writes the result into
+   *  the SHARED geographyOptions map (under both amenities_yes and amenities_no — either key
+   *  works for optionLabel()'s lookup, they're both searching the same combined slug pool)
+   *  instead of the picker's own private state — see AMENITY_SUMMARY_TAXONOMY_TYPES docblock. */
+  private async loadAmenitySummaryOptions(): Promise<void> {
+    const results = await Promise.all(AMENITY_SUMMARY_TAXONOMY_TYPES.map((type) => this.wizard.loadGeographyOptions(type)));
+    const combined = results.flat();
+    this.geographyOptions.update((g) => ({ ...g, [AMENITY_YES_KEY]: combined, [AMENITY_NO_KEY]: combined }));
   }
 
   /** country_region is multi-select (owner's ask, 2026-08-12) — the answer is an array of
