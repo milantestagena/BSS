@@ -39,6 +39,7 @@ class WizardSeeder extends Seeder
         $this->seedCityAndCountryVibeProfiles();
         $this->seedSwimAtmosphereTags();
         $this->seedExplorationAndBeachTags();
+        $this->seedRomanticTags();
         $this->propagateCityAtmosphereToCountry();
         $this->seedAccommodationSeasons();
         $this->seedHolidayPricingWindows();
@@ -1124,21 +1125,56 @@ class WizardSeeder extends Seeder
     }
 
     /**
-     * Owner's catch, 2026-08-12: `van_utabanih_staza`/`lepe_plaze`/`zivahna_nocna_zabava` only
-     * ever got written onto CITIES above (correctly — a beach, an old town, or a party strip is
-     * a per-place thing, not "the whole country"), which meant selecting e.g. "Great beaches" or
-     * "Lively nightlife" at the COUNTRY step could never match anything at all, silently — caught
-     * live: Malta showed under "Great beaches" but not "Lively nightlife" despite St. Julian's
-     * being a real, standout rave city. Fix: if a country has ANY child city carrying one of
-     * these tags, the country itself also gets it — a derived signal ("this country HAS a real
-     * nightlife scene, somewhere in it"), not a manually-judged one. Deliberately scoped to just
-     * these three tags, not a blanket "any city tag becomes a country tag" rule — `pivo`/`vino`/
-     * `dobra_hrana` are already seeded directly at country level with their own reasoning (see
-     * seedSwimAtmosphereTags) and must not be silently overwritten or duplicated by this pass.
+     * `romanticno` — owner's ask, 2026-08-13 ("za Couple nemamo ni jedan romanticarski index").
+     * Same tier>=2-only standard, sourced from: (a) vibe_profile descriptions already written
+     * above that explicitly use the word "romantic"/"couples", (b) general-knowledge sunset/
+     * scenery reputation (Santorini's caldera sunset is the textbook Mediterranean example),
+     * (c) a hard exclusion — anything already carrying `zivahna_nocna_zabava` is skipped
+     * regardless of scenery, since party and romance don't co-exist as a destination's PRIMARY
+     * character (matches the same mixed-identity reasoning used for the rave tag itself).
+     */
+    private function seedRomanticTags(): void
+    {
+        $tierTwoPlus = ['santorini', 'taormina', 'dubrovnik', 'rodos', 'pafos', 'simi'];
+
+        $raveSlugs = TaxonomyNode::whereIn('type', ['city', 'country'])
+            ->get()
+            ->filter(fn (TaxonomyNode $n) => in_array('zivahna_nocna_zabava', $n->meta['atmosphere'] ?? [], true))
+            ->pluck('slug');
+
+        foreach ($tierTwoPlus as $slug) {
+            if ($raveSlugs->contains($slug)) {
+                continue;
+            }
+
+            $city = TaxonomyNode::where('type', 'city')->where('slug', $slug)->first();
+            if (! $city) {
+                continue;
+            }
+
+            $meta = $city->meta ?? [];
+            $meta['atmosphere'] = array_unique([...($meta['atmosphere'] ?? []), 'romanticno']);
+            $city->update(['meta' => $meta]);
+        }
+    }
+
+    /**
+     * Owner's catch, 2026-08-12: `van_utabanih_staza`/`lepe_plaze`/`zivahna_nocna_zabava`/
+     * `romanticno` only ever got written onto CITIES above (correctly — a beach, an old town, a
+     * party strip, or a romantic setting is a per-place thing, not "the whole country"), which
+     * meant selecting e.g. "Great beaches" or "Lively nightlife" at the COUNTRY step could never
+     * match anything at all, silently — caught live: Malta showed under "Great beaches" but not
+     * "Lively nightlife" despite St. Julian's being a real, standout rave city. Fix: if a country
+     * has ANY child city carrying one of these tags, the country itself also gets it — a derived
+     * signal ("this country HAS a real nightlife scene, somewhere in it"), not a manually-judged
+     * one. Deliberately scoped to just these four tags, not a blanket "any city tag becomes a
+     * country tag" rule — `pivo`/`vino`/`dobra_hrana` are already seeded directly at country
+     * level with their own reasoning (see seedSwimAtmosphereTags) and must not be silently
+     * overwritten or duplicated by this pass.
      */
     private function propagateCityAtmosphereToCountry(): void
     {
-        $propagatedTags = ['van_utabanih_staza', 'lepe_plaze', 'zivahna_nocna_zabava'];
+        $propagatedTags = ['van_utabanih_staza', 'lepe_plaze', 'zivahna_nocna_zabava', 'romanticno'];
 
         $countries = TaxonomyNode::where('type', 'country')->with('children')->get();
 
