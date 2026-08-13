@@ -15,6 +15,10 @@ export interface TaxonomyNode {
    *  enough price data to rank: 1 (cheapest of the currently-shown candidates) to 5 (priciest).
    *  Null when there isn't enough data yet — see WizardComponent.priceRankClass(). */
   priceRank?: number | null;
+  /** Populated only when returned from suggestedGeography for type=city — the parent country's
+   *  label, so a mixed-country city grid (multi-select Country/region, 2026-08-13) can show
+   *  which country each card belongs to. */
+  parent?: { label: string } | null;
 }
 
 export type WizardInputType =

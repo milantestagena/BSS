@@ -388,7 +388,7 @@
                           @for (node of group.nodes; track node.id) {
                             <button
                               type="button"
-                              class="rounded-xl border p-4 text-left text-sm font-medium transition hover:border-sky-400 hover:bg-sky-50"
+                              class="relative rounded-xl border p-4 text-left text-sm font-medium transition hover:border-sky-400 hover:bg-sky-50"
                               [class.border-sky-500]="isDestinationSelected(question, node)"
                               [class.bg-sky-50]="isDestinationSelected(question, node)"
                               [class.border-slate-400]="!isDestinationSelected(question, node)"
@@ -397,6 +397,14 @@
                               (mouseleave)="hoveredNode.set(null)"
                               (click)="onDestinationCardSelect(question, node)"
                             >
+                              <!-- Owner's ask, 2026-08-13: country/region became multi-select, so
+                                   a City grid can now mix cities from several countries — this is
+                                   the "which one is this" hint, only shown at the City step. -->
+                              @if (question.key === 'city' && node.parent; as parent) {
+                                <span class="absolute right-3 top-3 text-[10px] font-normal uppercase tracking-wide text-slate-400">{{
+                                  parent.label
+                                }}</span>
+                              }
                               {{ node.label }}
                               @if (matchedTagLabelsFor(node); as matched) {
                                 <span class="mt-0.5 block text-xs font-normal text-slate-500">{{ matched }}</span>
