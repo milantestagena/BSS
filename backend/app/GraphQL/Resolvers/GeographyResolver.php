@@ -326,13 +326,20 @@ class GeographyResolver
         // and checkout day (you still eat before flying home) — one more than nights slept.
         $foodDays = $nights + 1;
 
+        // Owner's catch, 2026-08-13: a 500€/8-day/all-inclusive session was passing Greece at a
+        // price that could never actually buy all-inclusive there — meal_plan_preference wasn't
+        // reaching the budget check at all. See BudgetEstimationEngine::mealPlanTotalFor.
+        $mealPlanSlugs = $session->free_text_answers['meal_plan_preference'] ?? [];
+        $mealPlanSlug = BudgetEstimationEngine::strongestMealPlanSlug($mealPlanSlugs);
+
         $result = (new BudgetEstimationEngine)->narrowCandidates(
             $countries,
             (float) $session->total_budget,
             $session->adults_count,
             count($session->children_ages ?? []),
             $foodDays,
-            fn (TaxonomyNode $country) => $this->cheapestAccommodationTotal($country, $session, $totalTravelers, $nights)
+            fn (TaxonomyNode $country) => $this->cheapestAccommodationTotal($country, $session, $totalTravelers, $nights),
+            $mealPlanSlug
         );
 
         $narrowed = $result->pluck('country')->values();

@@ -134,4 +134,62 @@ class BudgetEstimationEngineTest extends TestCase
         $this->assertCount(1, $result);
         $this->assertSame('withdata', $result->first()['country']->slug);
     }
+
+    public function test_meal_plan_slug_with_default_coefficient_costs_exactly_the_eating_out_total(): void
+    {
+        // Owner's own framing, 2026-08-13: "ono bi uvek bilo *2.5, kad bi koeficijent bio 1" —
+        // with the default (unset) meal_plan_coefficient, any meal_plan_preference must total
+        // to the SAME eating_out_total_eur as no preference at all, regardless of which meals
+        // are covered — the split between "pay hotel" and "pay restaurant" changes, the total
+        // doesn't, until a real coefficient calibrates it away from 1.0.
+        $country = $this->countryWithPrices(meal: 10, coffee: 2); // eating_out total = 623 (2 adults, 2 children, 7 days — see test_estimate_matches_hand_calculation)
+        $engine = new BudgetEstimationEngine;
+
+        $this->assertSame('meal_plan', $engine->fitFor($country, 623, 2, 2, 7, mealPlanSlug: 'dorucak'));
+        $this->assertSame('insufficient', $engine->fitFor($country, 622, 2, 2, 7, mealPlanSlug: 'dorucak'));
+        $this->assertSame('meal_plan', $engine->fitFor($country, 623, 2, 2, 7, mealPlanSlug: 'sve_ukljuceno'));
+        $this->assertSame('insufficient', $engine->fitFor($country, 622, 2, 2, 7, mealPlanSlug: 'sve_ukljuceno'));
+    }
+
+    public function test_all_inclusive_costs_more_than_eating_out_when_coefficient_above_one(): void
+    {
+        $country = $this->countryWithPrices(meal: 10, coffee: 2); // eating_out total = 623
+        $country->update(['meta' => [...$country->meta, 'meal_plan_coefficient' => 1.5]]);
+        $engine = new BudgetEstimationEngine;
+
+        // sve_ukljuceno covers the FULL 2.5 ratio, so its total is exactly eatingOutTotal * 1.5 = 934.5.
+        $this->assertSame('meal_plan', $engine->fitFor($country, 935, 2, 2, 7, mealPlanSlug: 'sve_ukljuceno'));
+        $this->assertSame('insufficient', $engine->fitFor($country, 934, 2, 2, 7, mealPlanSlug: 'sve_ukljuceno'));
+    }
+
+    public function test_a_lighter_meal_plan_costs_less_than_all_inclusive_under_the_same_coefficient(): void
+    {
+        // Owner's real bug report: a 500€/8-day all-inclusive session was passing Greece at a
+        // price it could never really buy all-inclusive at. Breakfast-only should sit well
+        // below all-inclusive for the same destination/coefficient.
+        $country = $this->countryWithPrices(meal: 10, coffee: 2);
+        $country->update(['meta' => [...$country->meta, 'meal_plan_coefficient' => 1.5]]);
+        $engine = new BudgetEstimationEngine;
+
+        // eating_out total 623; dorucak covers 0.3/2.5 of it -> 623 * (1 + 0.12*0.5) = 660.38
+        $this->assertSame('meal_plan', $engine->fitFor($country, 661, 2, 2, 7, mealPlanSlug: 'dorucak'));
+        $this->assertSame('insufficient', $engine->fitFor($country, 660, 2, 2, 7, mealPlanSlug: 'dorucak'));
+    }
+
+    public function test_samostalno_kuvanje_meal_plan_slug_uses_the_existing_self_catering_path(): void
+    {
+        $country = $this->countryWithPrices(meal: 10, coffee: 2); // eating_out 728, self_catering ~208
+        $engine = new BudgetEstimationEngine;
+
+        $this->assertSame('self_catering', $engine->fitFor($country, 300, 2, 2, 7, mealPlanSlug: 'samostalno_kuvanje'));
+        $this->assertSame('insufficient', $engine->fitFor($country, 50, 2, 2, 7, mealPlanSlug: 'samostalno_kuvanje'));
+    }
+
+    public function test_strongest_meal_plan_slug_picks_the_most_demanding_pick(): void
+    {
+        $this->assertSame('sve_ukljuceno', BudgetEstimationEngine::strongestMealPlanSlug(['dorucak', 'sve_ukljuceno']));
+        $this->assertSame('dorucak_rucak', BudgetEstimationEngine::strongestMealPlanSlug(['dorucak_rucak', 'dorucak_vecera']));
+        $this->assertSame('samostalno_kuvanje', BudgetEstimationEngine::strongestMealPlanSlug(['samostalno_kuvanje']));
+        $this->assertNull(BudgetEstimationEngine::strongestMealPlanSlug([]));
+    }
 }

@@ -43,6 +43,25 @@ class BudgetEstimationEngine
     private const EATING_OUT_TO_SELF_CATERING_RATIO = 3.5;
 
     /**
+     * Owner's ask, 2026-08-13: when we DON'T have a real `includes_meals` price for a
+     * destination but the user asked for a specific meal_plan_preference, estimate what the
+     * hotel would charge for it as a fraction of MEALS_PER_DAY_PER_ADULT (2.5) — a full
+     * eating-out day, per the same per-adult mealPrice this whole class already uses. Breakfast
+     * is lighter than a full meal (~0.3), dinner a bit less than lunch (~0.65) — same "plain
+     * reasoned constant, not measured" convention as everything else here. `sve_ukljuceno`
+     * (all-inclusive) covers the WHOLE 2.5 — nothing left to eat out.
+     * `samostalno_kuvanje` (self-catering) isn't in this map — it reuses the EXISTING
+     * self-catering path (the user is cooking, not the hotel feeding them).
+     */
+    private const MEAL_PLAN_COVERAGE_RATIOS = [
+        'dorucak' => 0.3,
+        'dorucak_rucak' => 1.3,
+        'dorucak_vecera' => 0.95,
+        'pun_pansion' => 1.95,
+        'sve_ukljuceno' => self::MEALS_PER_DAY_PER_ADULT,
+    ];
+
+    /**
      * Estimated cost (EUR) for the whole trip, both spending styles, for the given country.
      * Returns null if the country has no `meta.hospitality.avg_restaurant_meal_eur` seeded —
      * absence, not a zero estimate, so callers don't mistake "no data" for "free."
@@ -88,8 +107,16 @@ class BudgetEstimationEngine
      * the caller already knew, silently re-adding a cost that was deliberately zeroed
      * elsewhere (SearchSessionQueryCompiler's `estimate` signal) — the fit result never
      * actually reflected the zeroing.
+     *
+     * `$mealPlanSlug` (2026-08-13): the session's requested meal_plan_preference, ONLY consulted
+     * when `$mealsIncluded` is false — i.e. we don't have a real bundled price for this
+     * destination, so estimate one instead of silently ignoring what was asked for (owner's
+     * catch: a 500€/8-day/all-inclusive session was passing Greece at a price that could never
+     * actually buy all-inclusive there). `samostalno_kuvanje` reuses the existing self_catering
+     * path unchanged. Any other/no slug falls through to the original eating_out/self_catering
+     * behavior.
      */
-    public function fitFor(TaxonomyNode $country, float $totalBudget, int $adults, int $children, int $days, float $accommodationTotal = 0.0, bool $mealsIncluded = false): ?string
+    public function fitFor(TaxonomyNode $country, float $totalBudget, int $adults, int $children, int $days, float $accommodationTotal = 0.0, bool $mealsIncluded = false, ?string $mealPlanSlug = null): ?string
     {
         if ($mealsIncluded) {
             return $totalBudget >= $accommodationTotal ? 'eating_out' : 'insufficient';
@@ -106,6 +133,16 @@ class BudgetEstimationEngine
             return 'insufficient';
         }
 
+        if ($mealPlanSlug === 'samostalno_kuvanje') {
+            return $disposableBudget >= $estimate['self_catering_total_eur'] ? 'self_catering' : 'insufficient';
+        }
+
+        if ($mealPlanSlug !== null && isset(self::MEAL_PLAN_COVERAGE_RATIOS[$mealPlanSlug])) {
+            $mealPlanTotal = $this->mealPlanTotalFor($country, $mealPlanSlug, $estimate['eating_out_total_eur']);
+
+            return $disposableBudget >= $mealPlanTotal ? 'meal_plan' : 'insufficient';
+        }
+
         if ($disposableBudget >= $estimate['eating_out_total_eur']) {
             return 'eating_out';
         }
@@ -115,6 +152,44 @@ class BudgetEstimationEngine
         }
 
         return 'insufficient';
+    }
+
+    /**
+     * Owner's ask, 2026-08-13: real total cost of a specific meal_plan_preference, used only as
+     * a FALLBACK when we don't have a real `includes_meals` price for the destination. Reuses
+     * the already-computed `eatingOutTotal` (which already accounts for adults/children/coffee/
+     * days) rather than re-deriving per-meal math from scratch — the covered-meals fraction of
+     * that total gets multiplied by the country's `meal_plan_coefficient` (1.0 default —
+     * neutral until a real price comparison calibrates it, see MealPlanCoefficientCalculator
+     * Filament page), the uncovered fraction stays at plain restaurant price. When the
+     * coefficient is exactly 1.0 this always equals `eatingOutTotal` itself, whatever the split
+     * — "ono bi uvek bilo *2.5, kad bi koeficijent bio 1" (owner's own framing).
+     */
+    private function mealPlanTotalFor(TaxonomyNode $country, string $mealPlanSlug, float $eatingOutTotal): float
+    {
+        $coveredRatio = self::MEAL_PLAN_COVERAGE_RATIOS[$mealPlanSlug];
+        $coefficient = (float) ($country->meta['meal_plan_coefficient'] ?? 1.0);
+        $coveredFraction = $coveredRatio / self::MEALS_PER_DAY_PER_ADULT;
+
+        return $eatingOutTotal * (1 + $coveredFraction * ($coefficient - 1));
+    }
+
+    /**
+     * Among several meal_plan_preference picks in one session (the question is multi-choice),
+     * the MOST demanding one is the honest bar to test budget against — checking against a
+     * lighter pick would say "fits" for a destination that can't actually deliver the fuller
+     * plan they also asked for. Returns null for an empty list or if only `samostalno_kuvanje`
+     * was picked (handled separately in fitFor, not part of this coverage ranking).
+     *
+     * @param  string[]  $slugs
+     */
+    public static function strongestMealPlanSlug(array $slugs): ?string
+    {
+        $ranked = collect($slugs)
+            ->filter(fn (string $slug) => isset(self::MEAL_PLAN_COVERAGE_RATIOS[$slug]) || $slug === 'samostalno_kuvanje')
+            ->sortByDesc(fn (string $slug) => self::MEAL_PLAN_COVERAGE_RATIOS[$slug] ?? -1);
+
+        return $ranked->first();
     }
 
     /**
@@ -131,13 +206,16 @@ class BudgetEstimationEngine
      * fitFor()'s parameter. Kept decoupled from campaign/session specifics on purpose — this
      * engine only ever deals in plain numbers, the caller supplies how to get them.
      *
+     * `$mealPlanSlug` (2026-08-13): threaded straight into fitFor() for every candidate — see
+     * that method's docblock.
+     *
      * @param  Collection<int, TaxonomyNode>  $countries
      * @return Collection<int, array{country: TaxonomyNode, estimate: array, accommodation_total_eur: float, fit: string, caveat: bool}>
      */
-    public function narrowCandidates(Collection $countries, float $totalBudget, int $adults, int $children, int $days, ?callable $accommodationTotalFor = null): Collection
+    public function narrowCandidates(Collection $countries, float $totalBudget, int $adults, int $children, int $days, ?callable $accommodationTotalFor = null, ?string $mealPlanSlug = null): Collection
     {
         $evaluated = $countries
-            ->map(function (TaxonomyNode $country) use ($totalBudget, $adults, $children, $days, $accommodationTotalFor) {
+            ->map(function (TaxonomyNode $country) use ($totalBudget, $adults, $children, $days, $accommodationTotalFor, $mealPlanSlug) {
                 $estimate = $this->estimate($country, $adults, $children, $days);
                 if ($estimate === null) {
                     return null;
@@ -149,7 +227,7 @@ class BudgetEstimationEngine
                     'country' => $country,
                     'estimate' => $estimate,
                     'accommodation_total_eur' => $accommodationTotal,
-                    'fit' => $this->fitFor($country, $totalBudget, $adults, $children, $days, $accommodationTotal),
+                    'fit' => $this->fitFor($country, $totalBudget, $adults, $children, $days, $accommodationTotal, false, $mealPlanSlug),
                     'caveat' => false,
                 ];
             })
