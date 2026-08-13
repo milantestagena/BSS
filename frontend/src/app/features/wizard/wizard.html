@@ -97,17 +97,21 @@
         </p>
       </div>
 
-      @if (resultsCityChoices.length > 1) {
-        <!-- Owner's ask, 2026-08-12: jump between shortlisted cities without walking back
-             through the whole wizard — same session (its answers/filters aren't lost), just a
-             different city. Reuses the City step's already-fetched top matches. -->
-        <div
-          class="mb-6 rounded-xl border border-white/50 bg-white/90 px-4 py-3 shadow-lg shadow-black/10 ring-1 ring-black/5 backdrop-blur-sm"
-        >
+      <!-- Owner's catch, 2026-08-13: "Back to session" used to live nested inside the
+           multi-city box below, so it vanished along with it whenever there was only ONE
+           shortlisted city ("nema opciju da izaberemo drugi... al se i on izgubio"). Always
+           rendered now, regardless of how many cities there are to switch between. -->
+      <div
+        class="mb-6 rounded-xl border border-white/50 bg-white/90 px-4 py-3 shadow-lg shadow-black/10 ring-1 ring-black/5 backdrop-blur-sm"
+      >
+        @if (resultsCityChoices.length > 1) {
+          <!-- Owner's ask, 2026-08-12: jump between shortlisted cities without walking back
+               through the whole wizard — same session (its answers/filters aren't lost), just a
+               different city. Reuses the City step's already-fetched top matches. -->
           <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
             {{ i18n.t('otherShortlistedCities') }}
           </p>
-          <div class="flex flex-wrap items-center gap-2">
+          <div class="mb-2 flex flex-wrap items-center gap-2">
             @for (node of resultsCityChoices; track node.id) {
               <button
                 type="button"
@@ -126,17 +130,17 @@
               i18n.t('search')
             }}</ui-button>
           </div>
-          <!-- Owner's ask, 2026-08-12: not every tweak is "pick a different city" — sometimes
-               it's one small answer somewhere earlier. Back to the chat, not a new destination. -->
-          <button
-            type="button"
-            class="mt-2 text-xs font-medium text-slate-500 underline decoration-dotted hover:text-slate-700"
-            (click)="backToSession()"
-          >
-            {{ i18n.t('backToSession') }}
-          </button>
-        </div>
-      }
+        }
+        <!-- Owner's ask, 2026-08-12: not every tweak is "pick a different city" — sometimes
+             it's one small answer somewhere earlier. Back to the chat, not a new destination. -->
+        <button
+          type="button"
+          class="text-xs font-medium text-slate-500 underline decoration-dotted hover:text-slate-700"
+          (click)="backToSession()"
+        >
+          {{ i18n.t('backToSession') }}
+        </button>
+      </div>
 
       <h2
         class="mb-6 rounded-xl border border-white/50 bg-white/90 px-4 py-3 text-xl font-semibold
