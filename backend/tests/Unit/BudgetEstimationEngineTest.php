@@ -135,20 +135,40 @@ class BudgetEstimationEngineTest extends TestCase
         $this->assertSame('withdata', $result->first()['country']->slug);
     }
 
-    public function test_meal_plan_slug_with_default_coefficient_costs_exactly_the_eating_out_total(): void
+    public function test_meal_plan_slug_with_an_explicit_coefficient_of_one_costs_exactly_the_eating_out_total(): void
     {
         // Owner's own framing, 2026-08-13: "ono bi uvek bilo *2.5, kad bi koeficijent bio 1" —
-        // with the default (unset) meal_plan_coefficient, any meal_plan_preference must total
+        // with meal_plan_coefficient explicitly set to 1.0, any meal_plan_preference must total
         // to the SAME eating_out_total_eur as no preference at all, regardless of which meals
         // are covered — the split between "pay hotel" and "pay restaurant" changes, the total
-        // doesn't, until a real coefficient calibrates it away from 1.0.
+        // doesn't. Verifies the underlying math, independent of whatever the DEFAULT happens to
+        // be (see the next test for that).
         $country = $this->countryWithPrices(meal: 10, coffee: 2); // eating_out total = 623 (2 adults, 2 children, 7 days — see test_estimate_matches_hand_calculation)
+        $country->update(['meta' => [...$country->meta, 'meal_plan_coefficient' => 1.0]]);
         $engine = new BudgetEstimationEngine;
 
         $this->assertSame('meal_plan', $engine->fitFor($country, 623, 2, 2, 7, mealPlanSlug: 'dorucak'));
         $this->assertSame('insufficient', $engine->fitFor($country, 622, 2, 2, 7, mealPlanSlug: 'dorucak'));
         $this->assertSame('meal_plan', $engine->fitFor($country, 623, 2, 2, 7, mealPlanSlug: 'sve_ukljuceno'));
         $this->assertSame('insufficient', $engine->fitFor($country, 622, 2, 2, 7, mealPlanSlug: 'sve_ukljuceno'));
+    }
+
+    public function test_meal_plan_slug_with_no_coefficient_set_uses_the_0_8_default(): void
+    {
+        // Owner's call, 2026-08-13, after cross-checking MEAL_PLAN_COVERAGE_RATIOS against an
+        // independent real-world board-supplement estimate: 0.7 lined up well across every
+        // tier, 0.8 picked as the shipped default to be a bit more conservative ("da budemo
+        // sigurni... najjeftiniji retko kad nude all inclusive").
+        $country = $this->countryWithPrices(meal: 10, coffee: 2); // eating_out total = 623
+        $engine = new BudgetEstimationEngine;
+
+        // dorucak: coveredFraction 0.12 -> 623 * (1 + 0.12*(0.8-1)) = 608.048
+        $this->assertSame('meal_plan', $engine->fitFor($country, 609, 2, 2, 7, mealPlanSlug: 'dorucak'));
+        $this->assertSame('insufficient', $engine->fitFor($country, 608, 2, 2, 7, mealPlanSlug: 'dorucak'));
+
+        // sve_ukljuceno: coveredFraction 1.0 -> 623 * 0.8 = 498.4
+        $this->assertSame('meal_plan', $engine->fitFor($country, 499, 2, 2, 7, mealPlanSlug: 'sve_ukljuceno'));
+        $this->assertSame('insufficient', $engine->fitFor($country, 498, 2, 2, 7, mealPlanSlug: 'sve_ukljuceno'));
     }
 
     public function test_all_inclusive_costs_more_than_eating_out_when_coefficient_above_one(): void

@@ -159,16 +159,25 @@ class BudgetEstimationEngine
      * a FALLBACK when we don't have a real `includes_meals` price for the destination. Reuses
      * the already-computed `eatingOutTotal` (which already accounts for adults/children/coffee/
      * days) rather than re-deriving per-meal math from scratch — the covered-meals fraction of
-     * that total gets multiplied by the country's `meal_plan_coefficient` (1.0 default —
-     * neutral until a real price comparison calibrates it, see MealPlanCoefficientCalculator
-     * Filament page), the uncovered fraction stays at plain restaurant price. When the
-     * coefficient is exactly 1.0 this always equals `eatingOutTotal` itself, whatever the split
-     * — "ono bi uvek bilo *2.5, kad bi koeficijent bio 1" (owner's own framing).
+     * that total gets multiplied by the country's `meal_plan_coefficient` (see
+     * MealPlanCoefficientCalculator Filament page for deriving a real per-country value), the
+     * uncovered fraction stays at plain restaurant price. When the coefficient is exactly 1.0
+     * this always equals `eatingOutTotal` itself, whatever the split — "ono bi uvek bilo *2.5,
+     * kad bi koeficijent bio 1" (owner's own framing).
+     *
+     * Default 0.8, not 1.0 (owner's call, 2026-08-13, after cross-checking our
+     * MEAL_PLAN_COVERAGE_RATIOS against an independent estimate: a flat 0.7 lined up with real-
+     * world board-supplement pricing across breakfast/half-board/full-board/all-inclusive
+     * simultaneously — hotels really do discount combo meal plans vs pure street-price
+     * extrapolation, "najjeftiniji retko kad nude all inclusive." 0.8 picked deliberately more
+     * conservative than that 0.7 match — safer to slightly overestimate cost than let a
+     * genuinely-too-tight budget through). Still an ESTIMATE, not measured — supersede per
+     * country via the calculator page once real Booking prices are checked.
      */
     private function mealPlanTotalFor(TaxonomyNode $country, string $mealPlanSlug, float $eatingOutTotal): float
     {
         $coveredRatio = self::MEAL_PLAN_COVERAGE_RATIOS[$mealPlanSlug];
-        $coefficient = (float) ($country->meta['meal_plan_coefficient'] ?? 1.0);
+        $coefficient = (float) ($country->meta['meal_plan_coefficient'] ?? 0.8);
         $coveredFraction = $coveredRatio / self::MEALS_PER_DAY_PER_ADULT;
 
         return $eatingOutTotal * (1 + $coveredFraction * ($coefficient - 1));
