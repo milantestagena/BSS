@@ -134,6 +134,48 @@ class GeographyResolver
             $this->assignPriceRanks($mapped, $priceTotals);
         }
 
+        // `jeftino`/`kvalitet` reframed 2026-08-13 (owner's call) — these never belonged as
+        // atmosphere/meta tags in the first place (a city isn't durably "cheap," what it costs
+        // THIS session depends on dates/headcount, which we already compute for real via
+        // accommodationTotalFor/price_rank). Reframed as a SORT preference over that real price
+        // instead: real atmosphere/persona matches still decide the primary order, this only
+        // breaks ties (or drives order entirely once nothing else matched) — "bira jeftino, a
+        // stavio je budzet od 3000... mozda planira nesto da vrati" is exactly why this doesn't
+        // override a real preference_tag match, only tie-breaks among equals. If both are
+        // somehow selected at once (contradictory), `kvalitet` wins — deterministic, not worth
+        // a UI-level mutual-exclusion relation for an edge case nobody's hit yet.
+        $costPreference = match (true) {
+            $preferenceTags->contains('kvalitet') => 'kvalitet',
+            $preferenceTags->contains('jeftino') => 'jeftino',
+            default => null,
+        };
+
+        if ($isGeoType && $costPreference) {
+            return $mapped
+                ->sort(function (TaxonomyNode $a, TaxonomyNode $b) use ($priceTotals, $costPreference) {
+                    if ($a->match_score !== $b->match_score) {
+                        return $b->match_score <=> $a->match_score;
+                    }
+
+                    $priceA = $priceTotals[$a->id] ?? null;
+                    $priceB = $priceTotals[$b->id] ?? null;
+                    if ($priceA === null || $priceB === null) {
+                        return 0;
+                    }
+
+                    // jeftino: cheapest first. kvalitet: priciest-within-budget first. For
+                    // type=country, filterByBudget already dropped anything that doesn't fit (or
+                    // fell back to the 2 nearest with a caveat) before we ever get here, so
+                    // "priciest of what's left" IS "best quality tier still in reach" — no
+                    // separate page-2 fallback needed, that already happened upstream. type=city
+                    // has no budget-fit narrowing at all yet (only country does) — this still
+                    // orders correctly (priciest first), just without that pre-filter's safety
+                    // net for the city list specifically.
+                    return $costPreference === 'jeftino' ? $priceA <=> $priceB : $priceB <=> $priceA;
+                })
+                ->values();
+        }
+
         // Owner's call, 2026-08-11: "cena je uvek parametar, jer svako oce da ustedi" — when
         // nothing carries a real match_score (no preference stated yet, or the fallback above
         // just kept everything because nothing matched at all), sorting by match_score is a

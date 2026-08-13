@@ -338,4 +338,101 @@ class GeographyResolverTest extends TestCase
         $this->assertSame($cheap->id, $results->first()->id);
         $this->assertSame($pricey->id, $results->last()->id);
     }
+
+    public function test_jeftino_preference_sorts_cheapest_first(): void
+    {
+        // Owner's call, 2026-08-13: jeftino/kvalitet reframed as a sort preference over real
+        // computed price (not a city meta tag — neither ever carries geography data).
+        $cheap = $this->node('country', 'cheap');
+        $pricey = $this->node('country', 'pricey');
+        $cheapCity = $this->node('city', 'cheap_city');
+        $cheapCity->update(['parent_id' => $cheap->id]);
+        $priceyCity = $this->node('city', 'pricey_city');
+        $priceyCity->update(['parent_id' => $pricey->id]);
+
+        $campaign = \App\Models\WizardCampaign::create(['key' => 'test-campaign-4', 'label' => 'Test 4']);
+        \App\Models\WizardCampaignDestinationPrice::create([
+            'wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $priceyCity->id, 'price_per_person_eur' => 200,
+        ]);
+        \App\Models\WizardCampaignDestinationPrice::create([
+            'wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $cheapCity->id, 'price_per_person_eur' => 20,
+        ]);
+
+        $session = SearchSession::create([
+            'status' => 'in_progress', 'adults_count' => 2, 'wizard_campaign_id' => $campaign->id,
+            'date_from' => '2026-09-01', 'date_to' => '2026-09-08',
+            'free_text_answers' => ['preference_tags' => ['jeftino']],
+        ]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'country']);
+
+        $this->assertSame($cheap->id, $results->first()->id);
+        $this->assertSame($pricey->id, $results->last()->id);
+    }
+
+    public function test_kvalitet_preference_sorts_priciest_first(): void
+    {
+        $cheap = $this->node('country', 'cheap');
+        $pricey = $this->node('country', 'pricey');
+        $cheapCity = $this->node('city', 'cheap_city');
+        $cheapCity->update(['parent_id' => $cheap->id]);
+        $priceyCity = $this->node('city', 'pricey_city');
+        $priceyCity->update(['parent_id' => $pricey->id]);
+
+        $campaign = \App\Models\WizardCampaign::create(['key' => 'test-campaign-5', 'label' => 'Test 5']);
+        \App\Models\WizardCampaignDestinationPrice::create([
+            'wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $cheapCity->id, 'price_per_person_eur' => 20,
+        ]);
+        \App\Models\WizardCampaignDestinationPrice::create([
+            'wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $priceyCity->id, 'price_per_person_eur' => 200,
+        ]);
+
+        $session = SearchSession::create([
+            'status' => 'in_progress', 'adults_count' => 2, 'wizard_campaign_id' => $campaign->id,
+            'date_from' => '2026-09-01', 'date_to' => '2026-09-08',
+            'free_text_answers' => ['preference_tags' => ['kvalitet']],
+        ]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'country']);
+
+        $this->assertSame($pricey->id, $results->first()->id);
+        $this->assertSame($cheap->id, $results->last()->id);
+    }
+
+    public function test_cost_preference_still_respects_a_stronger_real_atmosphere_match_first(): void
+    {
+        // jeftino/kvalitet only break ties among EQUAL match_score — a candidate that matches
+        // more of what the user actually asked for still wins over cost preference, even if
+        // it's pricier. Both candidates here match `dobra_hrana` (so both survive the
+        // zero-match narrowing above), but only one ALSO matches `zivahna_nocna_zabava` — that
+        // higher match_score must beat `jeftino` even though it's the more expensive one.
+        $betterMatch = $this->node('country', 'better_match_pricey');
+        $betterMatch->update(['meta' => ['food' => ['dobra_hrana'], 'atmosphere' => ['zivahna_nocna_zabava']]]);
+        $weakerMatch = $this->node('country', 'weaker_match_cheap');
+        $weakerMatch->update(['meta' => ['food' => ['dobra_hrana']]]);
+
+        $betterCity = $this->node('city', 'better_match_pricey_city');
+        $betterCity->update(['parent_id' => $betterMatch->id]);
+        $weakerCity = $this->node('city', 'weaker_match_cheap_city');
+        $weakerCity->update(['parent_id' => $weakerMatch->id]);
+
+        $campaign = \App\Models\WizardCampaign::create(['key' => 'test-campaign-6', 'label' => 'Test 6']);
+        \App\Models\WizardCampaignDestinationPrice::create([
+            'wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $betterCity->id, 'price_per_person_eur' => 200,
+        ]);
+        \App\Models\WizardCampaignDestinationPrice::create([
+            'wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $weakerCity->id, 'price_per_person_eur' => 20,
+        ]);
+
+        $session = SearchSession::create([
+            'status' => 'in_progress', 'adults_count' => 2, 'wizard_campaign_id' => $campaign->id,
+            'date_from' => '2026-09-01', 'date_to' => '2026-09-08',
+            'free_text_answers' => ['preference_tags' => ['jeftino', 'dobra_hrana', 'zivahna_nocna_zabava']],
+        ]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'country']);
+
+        $this->assertSame($betterMatch->id, $results->first()->id);
+        $this->assertSame($weakerMatch->id, $results->last()->id);
+    }
 }
