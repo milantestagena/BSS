@@ -1135,7 +1135,13 @@ class WizardSeeder extends Seeder
      */
     private function seedRomanticTags(): void
     {
-        $tierTwoPlus = ['santorini', 'taormina', 'dubrovnik', 'rodos', 'pafos', 'simi'];
+        // krit/paros added 2026-08-13 after a real cross-check (WebSearch against current
+        // "most romantic Greek islands" lists) — both showed up repeatedly with specific,
+        // non-generic reasoning (Crete's varied scenery/hidden coves, Paros's "candlelit
+        // cocktails, secret beaches"). Mykonos deliberately still excluded despite ALSO showing
+        // up on every list — it's already zivahna_nocna_zabava, and the party/romance exclusion
+        // rule stays consistent rather than making a one-off exception for it.
+        $tierTwoPlus = ['santorini', 'taormina', 'dubrovnik', 'rodos', 'pafos', 'simi', 'krit', 'paros'];
 
         $raveSlugs = TaxonomyNode::whereIn('type', ['city', 'country'])
             ->get()
