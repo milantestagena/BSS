@@ -210,6 +210,11 @@ class WizardSeeder extends Seeder
             // from van_utabanih_staza (that's about the DESTINATION overall; this is purely
             // about the beach itself). See seedExplorationAndBeachTags().
             ['slug' => 'lepe_plaze', 'en' => 'Great beaches', 'sr' => 'Lepe plaže'],
+            // Owner's ask, 2026-08-13 ("za Couple nemamo ni jedan romanticarski index") —
+            // relationship_type=par (Couple) suggests this. Deliberately no city/country tagging
+            // pass for it yet (unlike food/wine/beach/exploration) — parked until real content
+            // decisions are made about which destinations actually earn it.
+            ['slug' => 'romanticno', 'en' => 'Romantic atmosphere', 'sr' => 'Romantična atmosfera'],
             // Cultural-availability preference tags (2026-07-30, see wizard_architecture
             // "cultural_availability engine"). `meta.cultural_category` + `meta.max_tier` is
             // the generic convention GeographyResolver reads — same shape as budget_tier's
@@ -1522,6 +1527,11 @@ class WizardSeeder extends Seeder
         $this->relate('group_type', 'drustvo_penzionera', 'suggests', 'preference_tag', 'mirno_i_tiho');
         $this->relate('group_type', 'grupa_prijatelja', 'suggests', 'preference_tag', 'zivahna_nocna_zabava');
 
+        // relationship_type -> preference_tag, 2026-08-13 (owner's ask: "za Couple nemamo ni
+        // jedan romanticarski index") — same `suggests` (soft, editable) pattern as group_type
+        // above.
+        $this->relate('relationship_type', 'par', 'suggests', 'preference_tag', 'romanticno');
+
         // Proves the seasonal_window mechanism end-to-end (Greece is a summer-beach country in
         // the current seed data) — not an exhaustive seasonality dataset, see wizard_architecture.
         $this->relate('country', 'grcka', 'seasonal_window', 'termin_category', 'letovanje', ['months' => [6, 7, 8, 9]]);
@@ -1644,6 +1654,7 @@ class WizardSeeder extends Seeder
                 'mirno_i_tiho' => 'Ruhig & friedlich',
                 'van_utabanih_staza' => 'Abseits ausgetretener Pfade',
                 'lepe_plaze' => 'Schöne Strände',
+                'romanticno' => 'Romantische Atmosphäre',
                 'porodicna_atmosfera' => 'Familienfreundliche Atmosphäre',
                 'zeli_alkohol_slobodno' => 'Freier Zugang zu Alkohol gewünscht',
                 'zeli_halal' => 'Halal-Optionen gewünscht',
