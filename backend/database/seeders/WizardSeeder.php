@@ -298,6 +298,17 @@ class WizardSeeder extends Seeder
             ['slug' => 'parking', 'en' => 'Parking', 'sr' => 'Parking', 'id' => 2],
             ['slug' => 'wifi', 'en' => 'Free WiFi', 'sr' => 'Besplatan WiFi', 'id' => 107],
             ['slug' => 'spa', 'en' => 'Spa & wellness centre', 'sr' => 'Spa i wellness', 'id' => 54],
+            // Added 2026-08-13 from owner's own real "Facilities" filter-sidebar export —
+            // curated to what's actually relevant for a family/couple beach trip (dropped
+            // niche ones like EV charging from the same export).
+            ['slug' => 'restoran', 'en' => 'Restaurant', 'sr' => 'Restoran', 'id' => 3],
+            ['slug' => 'usluga_u_sobu', 'en' => 'Room service', 'sr' => 'Usluga u sobu', 'id' => 5],
+            ['slug' => 'recepcija_24h', 'en' => '24-hour front desk', 'sr' => 'Recepcija 24h', 'id' => 8],
+            ['slug' => 'teretana', 'en' => 'Fitness centre', 'sr' => 'Teretana', 'id' => 11],
+            ['slug' => 'sobe_za_nepusace', 'en' => 'Non-smoking rooms', 'sr' => 'Sobe za nepušače', 'id' => 16],
+            ['slug' => 'aerodromski_prevoz', 'en' => 'Airport shuttle', 'sr' => 'Prevoz od aerodroma', 'id' => 17],
+            ['slug' => 'djakuzi', 'en' => 'Hot tub/Jacuzzi', 'sr' => 'Džakuzi', 'id' => 63],
+            ['slug' => 'pristupacnost_kolica', 'en' => 'Wheelchair accessible', 'sr' => 'Pristupačno kolicima', 'id' => 185],
         ];
         foreach ($accommodationFacilities as $i => $item) {
             $this->node('accommodation_facility', $item['slug'], $item['en'], $item['sr'], $i, [
@@ -313,6 +324,15 @@ class WizardSeeder extends Seeder
             ['slug' => 'privatni_bazen', 'en' => 'Private pool', 'sr' => 'Privatni bazen', 'id' => 93],
             ['slug' => 'pogled_na_more', 'en' => 'Sea view', 'sr' => 'Pogled na more', 'id' => 108],
             ['slug' => 'balkon', 'en' => 'Balcony', 'sr' => 'Balkon', 'id' => 17],
+            // Added 2026-08-13 from owner's own real "Room facilities" filter-sidebar export —
+            // curated (dropped niche ones from the same export: Fax, Game console, Reading
+            // light, Privacy curtain, Pool cover, Yukata, room-level Hot tub — already have the
+            // property-level Jacuzzi in accommodation_facility, a second near-duplicate would
+            // just be confusing pill choice).
+            ['slug' => 'kuhinja', 'en' => 'Kitchen/kitchenette', 'sr' => 'Kuhinja', 'id' => 999],
+            ['slug' => 'vesmasina', 'en' => 'Washing machine', 'sr' => 'Veš mašina', 'id' => 34],
+            ['slug' => 'frizider', 'en' => 'Refrigerator', 'sr' => 'Frižider', 'id' => 22],
+            ['slug' => 'terasa', 'en' => 'Terrace', 'sr' => 'Terasa', 'id' => 123],
         ];
         foreach ($roomFacilities as $i => $item) {
             $this->node('room_facility', $item['slug'], $item['en'], $item['sr'], $i, [
@@ -321,12 +341,17 @@ class WizardSeeder extends Seeder
             ]);
         }
 
-        // mealplan — filters.meal_plan (verified real 2026-07-30, see wizard_architecture).
-        // "Self catering" count was visible on-site but no id param was captured in what was
-        // observed — left out rather than guessed; add once confirmed.
+        // mealplan — filters.meal_plan (verified real 2026-07-30; expanded 2026-08-13 with the
+        // rest of Booking's real "Meals" filter group, owner's own export — all_inclusive/
+        // pun_pansion/self-catering IDs were previously left out rather than guessed, now
+        // confirmed real).
         $mealPlans = [
             ['slug' => 'dorucak', 'en' => 'Breakfast included', 'sr' => 'Doručak uključen', 'id' => 1],
+            ['slug' => 'dorucak_rucak', 'en' => 'Breakfast & lunch included', 'sr' => 'Doručak i ručak uključeni', 'id' => 8],
             ['slug' => 'dorucak_vecera', 'en' => 'Breakfast & dinner included', 'sr' => 'Doručak i večera uključeni', 'id' => 9],
+            ['slug' => 'pun_pansion', 'en' => 'All meals included', 'sr' => 'Svi obroci uključeni', 'id' => 3],
+            ['slug' => 'sve_ukljuceno', 'en' => 'All-inclusive', 'sr' => 'Sve uključeno', 'id' => 4],
+            ['slug' => 'samostalno_kuvanje', 'en' => 'Self catering', 'sr' => 'Samostalno kuvanje', 'id' => 999],
         ];
         foreach ($mealPlans as $i => $item) {
             $this->node('meal_plan', $item['slug'], $item['en'], $item['sr'], $i, [
@@ -1847,6 +1872,14 @@ class WizardSeeder extends Seeder
                 'parking' => 'Parkplatz',
                 'wifi' => 'Kostenloses WLAN',
                 'spa' => 'Spa & Wellnessbereich',
+                'restoran' => 'Restaurant',
+                'usluga_u_sobu' => 'Zimmerservice',
+                'recepcija_24h' => '24-Stunden-Rezeption',
+                'teretana' => 'Fitnesscenter',
+                'sobe_za_nepusace' => 'Nichtraucherzimmer',
+                'aerodromski_prevoz' => 'Flughafentransfer',
+                'djakuzi' => 'Whirlpool',
+                'pristupacnost_kolica' => 'Rollstuhlgerecht',
             ],
             'room_facility' => [
                 'klima' => 'Klimaanlage',
@@ -1854,10 +1887,18 @@ class WizardSeeder extends Seeder
                 'privatni_bazen' => 'Privatpool',
                 'pogled_na_more' => 'Meerblick',
                 'balkon' => 'Balkon',
+                'kuhinja' => 'Küche/Kochnische',
+                'vesmasina' => 'Waschmaschine',
+                'frizider' => 'Kühlschrank',
+                'terasa' => 'Terrasse',
             ],
             'meal_plan' => [
                 'dorucak' => 'Frühstück inklusive',
+                'dorucak_rucak' => 'Frühstück & Mittagessen inklusive',
                 'dorucak_vecera' => 'Frühstück & Abendessen inklusive',
+                'pun_pansion' => 'Alle Mahlzeiten inklusive',
+                'sve_ukljuceno' => 'All-inclusive',
+                'samostalno_kuvanje' => 'Selbstverpflegung',
             ],
             'cost_category' => [
                 'hospitality' => 'Gastronomie (Essen/Trinken auswärts)',

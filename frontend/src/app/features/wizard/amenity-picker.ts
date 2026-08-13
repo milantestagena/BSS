@@ -56,6 +56,13 @@ export class AmenityPickerComponent implements OnInit {
   readonly yesQuery = signal('');
   readonly noQuery = signal('');
 
+  /** Owner's ask, 2026-08-13: "možda ne mogu da se sete prave reči, al kad skroluju vide" —
+   *  focusing the field now browses the FULL remaining list (empty query no longer means empty
+   *  dropdown), typing still narrows it. Blur hides it on a short delay rather than immediately,
+   *  so a click on a suggestion registers before the list disappears (blur fires first). */
+  readonly yesFocused = signal(false);
+  readonly noFocused = signal(false);
+
   /** Purely visual confirmation for unmatched text — see flushUnmatched. Bug fixed 2026-08-04:
    *  typing something with no taxonomy match (e.g. "Crowd" in the NO box) DID get captured
    *  (routed to smestaj_avoid, invisible field), but with zero on-screen confirmation it read
@@ -110,12 +117,18 @@ export class AmenityPickerComponent implements OnInit {
     return this.suggestionsFor(this.noQuery(), this.noSlugs(), this.yesSlugs());
   }
 
+  /** Empty query -> the full remaining (unselected) list, alphabetical, unlimited — this is the
+   *  "browse" case (field just got focused, nothing typed yet). A real query narrows AND caps
+   *  to MAX_SUGGESTIONS, same as before — that's still a search, not a browse. */
   private suggestionsFor(query: string, ownSlugs: string[], otherSlugs: string[]): AmenityOption[] {
+    const remaining = this.allOptions().filter((o) => !ownSlugs.includes(o.slug) && !otherSlugs.includes(o.slug));
     const q = query.trim().toLowerCase();
-    if (q.length === 0) return [];
 
-    return this.allOptions()
-      .filter((o) => !ownSlugs.includes(o.slug) && !otherSlugs.includes(o.slug))
+    if (q.length === 0) {
+      return [...remaining].sort((a, b) => a.label.localeCompare(b.label));
+    }
+
+    return remaining
       .filter((o) => o.label.toLowerCase().includes(q))
       .sort((a, b) => {
         const aStarts = a.label.toLowerCase().startsWith(q) ? 0 : 1;
@@ -123,6 +136,24 @@ export class AmenityPickerComponent implements OnInit {
         return aStarts - bStarts;
       })
       .slice(0, MAX_SUGGESTIONS);
+  }
+
+  onYesFocus(): void {
+    this.yesFocused.set(true);
+  }
+
+  /** Delayed, not immediate — blur fires before a suggestion button's click, so hiding right
+   *  away would swallow the click before addYes() ever runs. */
+  onYesBlur(): void {
+    setTimeout(() => this.yesFocused.set(false), 150);
+  }
+
+  onNoFocus(): void {
+    this.noFocused.set(true);
+  }
+
+  onNoBlur(): void {
+    setTimeout(() => this.noFocused.set(false), 150);
   }
 
   addYes(slug: string): void {
@@ -150,7 +181,10 @@ export class AmenityPickerComponent implements OnInit {
    *  ("wishlist: Crowd, Loud" sounds like they're wanted, not avoided) — now tagged so the
    *  parent can route each to a field with the right framing. */
   onYesEnter(): void {
-    const top = this.yesSuggestions()[0];
+    // Guarded on a real typed query now (2026-08-13) — suggestionsFor() returns the whole
+    // browse list on an EMPTY query too, so without this an Enter press on an untouched,
+    // just-focused field would silently add whatever sorts first alphabetically.
+    const top = this.yesQuery().trim().length > 0 ? this.yesSuggestions()[0] : undefined;
     if (top) {
       this.addYes(top.slug);
       return;
@@ -160,7 +194,7 @@ export class AmenityPickerComponent implements OnInit {
   }
 
   onNoEnter(): void {
-    const top = this.noSuggestions()[0];
+    const top = this.noQuery().trim().length > 0 ? this.noSuggestions()[0] : undefined;
     if (top) {
       this.addNo(top.slug);
       return;
