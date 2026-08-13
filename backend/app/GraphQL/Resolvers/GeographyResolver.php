@@ -118,6 +118,15 @@ class GeographyResolver
             $narrowed = $mapped->filter(fn (TaxonomyNode $node) => $node->implied || $node->match_score > 0);
             if ($narrowed->isNotEmpty()) {
                 $mapped = $narrowed->values();
+            } else {
+                // Owner's ask, 2026-08-13 (funnel log) — a real signal for what to tag next:
+                // logged server-side (not left for the frontend to notice) since this is the
+                // one place that actually knows the fallback fired, not just that a list came back.
+                \App\Models\WizardEvent::create([
+                    'search_session_id' => $session->id,
+                    'event_type' => 'zero_match_fallback',
+                    'payload' => ['type' => $args['type'], 'preference_tags' => $preferenceTags->values()->all()],
+                ]);
             }
         }
 

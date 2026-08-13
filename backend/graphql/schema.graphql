@@ -86,6 +86,10 @@ type Mutation {
     generateHonestReport(sessionId: ID!, listingName: String!, listingDescription: String!, reviews: [String!]): HonestReport!
         @field(resolver: "App\\GraphQL\\Resolvers\\HonestReportResolver@generate")
         @aiCredits
+
+    "Raw funnel/usage log entry — owner's ask, 2026-08-13, see WizardEvent model. Fire-and-forget from the frontend (step_viewed today); never blocks or errors the wizard flow if it fails."
+    recordWizardEvent(sessionId: ID!, eventType: String!, payload: JSON): Boolean!
+        @field(resolver: "App\\GraphQL\\Resolvers\\WizardEventResolver@record")
 }
 
 "A node in the self-referencing taxonomy tree (trip types, group types, personas, geography, ...)."

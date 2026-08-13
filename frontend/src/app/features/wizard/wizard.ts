@@ -544,6 +544,8 @@ export class WizardComponent implements OnInit {
     // Fire-and-forget — geo-IP lookup latency must never delay the visible wizard, see
     // WizardService.detectHomeCity docblock.
     void this.wizard.detectHomeCity();
+    const firstStepKey = this.wizard.currentStep()?.key;
+    if (firstStepKey) void this.wizard.recordEvent('step_viewed', { stepKey: firstStepKey });
     await this.loadGeographyForCurrentStep();
     this.prefillRecommendedDates();
     this.prefillDefaultAdultsCount();
@@ -864,11 +866,13 @@ export class WizardComponent implements OnInit {
         // flow leaves the page scrolled wherever the last question was; the results screen is a
         // different "page" entirely and must always open at the top.
         window.scrollTo(0, 0);
+        void this.wizard.recordEvent('results_reached');
         void this.loadHonestReports();
         return;
       }
 
       const newStepKey = this.wizard.currentStep()?.key;
+      if (newStepKey) void this.wizard.recordEvent('step_viewed', { stepKey: newStepKey });
       // "Screen 1" -> "screen 2" boundary: all Q&A (smestaj is the last screen-1 step) just
       // finished, zemlja_regija (destination cards) is next. Owner's call, 2026-08-04: a
       // "calculating" transition here, not an instant swap — "zarolamo neki loader koji kao

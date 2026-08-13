@@ -64,6 +64,12 @@ const DETECT_HOME_CITY_MUTATION = `
   }
 `;
 
+const RECORD_WIZARD_EVENT_MUTATION = `
+  mutation RecordWizardEvent($sessionId: ID!, $eventType: String!, $payload: JSON) {
+    recordWizardEvent(sessionId: $sessionId, eventType: $eventType, payload: $payload)
+  }
+`;
+
 /** See SearchSessionQueryCompiler (backend) — refreshed after every step so the debug panel
  *  (wizard.html) shows what's ACTUALLY mapped/inferred so far, including recommended-dates
  *  fallback before a real date is picked. Best-effort: a failure here must never block the
@@ -308,6 +314,20 @@ export class WizardService {
       await this.refreshCompiledQuery();
     } catch {
       // best-effort — a visitor we can't geolocate just has no home_city, same as before
+    }
+  }
+
+  /** Raw funnel log — owner's ask, 2026-08-13. Fire-and-forget, same "must never block or
+   *  error the wizard" rule as detectHomeCity: a dropped log line is not worth interrupting a
+   *  real visitor over. */
+  async recordEvent(eventType: string, payload?: Record<string, unknown>): Promise<void> {
+    const sessionId = this.sessionId();
+    if (!sessionId) return;
+
+    try {
+      await this.gql.request(RECORD_WIZARD_EVENT_MUTATION, { sessionId, eventType, payload: payload ?? null });
+    } catch {
+      // best-effort — see docblock
     }
   }
 
