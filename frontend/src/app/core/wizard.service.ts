@@ -581,6 +581,20 @@ export class WizardService {
       }
     }
 
+    // Owner's catch, 2026-08-13: a `suggests` relation onto a preference_tag (e.g. group_type
+    // "Family" -> "Family-friendly atmosphere") writes into implied_preference_tags server-side
+    // (counts toward match_score correctly) but was never shown as checked in the Vibe step —
+    // only a HARD `implies` (locked, disabled checkbox) was ever visible. Backfilling it into the
+    // real local `preference_tags` answer makes it show pre-checked AND freely editable — the
+    // "contrarian retiree who wants to rave anyway" case the owner explicitly wanted to allow.
+    // Skipped once the user has touched the field locally, same first-touch-wins rule as every
+    // other field above.
+    const impliedTags = (session.freeTextAnswers?.['implied_preference_tags'] as string[] | undefined) ?? [];
+    if (impliedTags.length > 0 && !('preference_tags' in this.answers())) {
+      const current = (this.answers()['preference_tags'] as string[] | undefined) ?? [];
+      updates['preference_tags'] = Array.from(new Set([...current, ...impliedTags]));
+    }
+
     if (Object.keys(updates).length > 0) {
       this.answers.update((a) => ({ ...a, ...updates }));
     }

@@ -1509,6 +1509,19 @@ class WizardSeeder extends Seeder
         // a demonstrated example of the pattern.
         $this->relate('group_type', 'drustvo_penzionera', 'excludes', 'persona', 'partijaner');
 
+        // group_type -> preference_tag, 2026-08-13 (owner's ask) — deliberately `suggests`, not
+        // `implies`: a pre-checked, freely-editable nudge, not a locked one. Owner's own framing
+        // ("baksuz kontraš koji kaže oću bre da divljam" — the contrarian retiree who wants to
+        // rave anyway) — group composition is a REASONABLE default, not a hard rule about what a
+        // family/retiree group is allowed to want. `klub` (Club/sports team) deliberately left
+        // unwired — needs real research (Spa? Team building? Corporate) parked for a v2 backlog,
+        // not guessed at here. See WizardService.syncAnswersFromSession for the frontend half
+        // that makes a `suggests`'d preference_tag actually show up checked, not just silently
+        // count toward match_score.
+        $this->relate('group_type', 'porodica', 'suggests', 'preference_tag', 'porodicna_atmosfera');
+        $this->relate('group_type', 'drustvo_penzionera', 'suggests', 'preference_tag', 'mirno_i_tiho');
+        $this->relate('group_type', 'grupa_prijatelja', 'suggests', 'preference_tag', 'zivahna_nocna_zabava');
+
         // Proves the seasonal_window mechanism end-to-end (Greece is a summer-beach country in
         // the current seed data) — not an exhaustive seasonality dataset, see wizard_architecture.
         $this->relate('country', 'grcka', 'seasonal_window', 'termin_category', 'letovanje', ['months' => [6, 7, 8, 9]]);

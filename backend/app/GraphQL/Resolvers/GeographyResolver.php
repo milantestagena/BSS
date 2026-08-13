@@ -69,8 +69,13 @@ class GeographyResolver
             [$nodes, $budgetCaveatIds] = $this->filterByBudget($nodes, $session);
         }
 
+        // .unique() added 2026-08-13: a tag can now legitimately appear in BOTH arrays (explicit
+        // AND implied — see WizardService.syncAnswersFromSession backfilling a `suggests` tag
+        // into the user's own explicit answer so it shows pre-checked-but-editable) — without
+        // dedup, intersect()'s count would double it, inflating match_score for that one tag.
         $preferenceTags = collect($session->free_text_answers['preference_tags'] ?? [])
-            ->merge($session->free_text_answers['implied_preference_tags'] ?? []);
+            ->merge($session->free_text_answers['implied_preference_tags'] ?? [])
+            ->unique();
 
         $isGeoType = in_array($args['type'], ['country', 'city'], true);
 

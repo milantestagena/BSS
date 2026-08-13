@@ -70,6 +70,28 @@ class GeographyResolverTest extends TestCase
         $this->assertFalse($results->pluck('id')->contains($tenerife->id));
     }
 
+    public function test_a_tag_present_in_both_explicit_and_implied_is_not_double_counted(): void
+    {
+        // Regression test — owner's ask, 2026-08-13: syncAnswersFromSession now backfills a
+        // `suggests`-driven preference_tag into the user's own explicit answer (so it shows
+        // checked-but-editable, not silently invisible). That means the SAME slug can genuinely
+        // appear in both preference_tags and implied_preference_tags — without dedup, matching
+        // it against a node's tags would count it twice, doubling that one tag's contribution.
+        $italija = $this->node('country', 'italija', ['food' => ['dobra_hrana']]);
+
+        $session = SearchSession::create([
+            'status' => 'in_progress',
+            'free_text_answers' => [
+                'preference_tags' => ['dobra_hrana'],
+                'implied_preference_tags' => ['dobra_hrana'],
+            ],
+        ]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'country']);
+
+        $this->assertSame(5, $results->firstWhere('id', $italija->id)->match_score);
+    }
+
     public function test_implies_keeps_the_implied_option_in_the_list_but_flags_it(): void
     {
         // Owner's call, 2026-08-04: an implied option ("obvious" consequence) stays visible,
