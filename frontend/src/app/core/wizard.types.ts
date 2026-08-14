@@ -15,6 +15,14 @@ export interface TaxonomyNode {
    *  enough price data to rank: 1 (cheapest of the currently-shown candidates) to 5 (priciest).
    *  Null when there isn't enough data yet — see WizardComponent.priceRankClass(). */
   priceRank?: number | null;
+  /** Populated only when returned from suggestedGeography for type=country, when budget data
+   *  exists: 'eating_out' | 'self_catering' | 'meal_plan' | null — which spending style this
+   *  country's price actually fit under. See WizardComponent.budgetNoteFor(). */
+  budgetFit?: string | null;
+  /** Populated only when returned from suggestedGeography for type=country: true if this
+   *  country only appears because nothing fit the stated budget and it's one of the 2 closest
+   *  fallbacks. See WizardComponent.budgetNoteFor(). */
+  budgetCaveat?: boolean | null;
   /** Populated only when returned from suggestedGeography for type=city — the parent country's
    *  label (+ meta, for the iso_code badge — see wizard.ts's countryCodeFor), so a mixed-country
    *  city grid (multi-select Country/region, 2026-08-13) can show which country each card

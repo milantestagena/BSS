@@ -77,6 +77,10 @@ const STRINGS: Record<'en' | 'de', Record<string, string>> = {
     otherShortlistedCities: 'Not quite it? Try one of your other shortlisted cities:',
     search: 'Search',
     backToSession: '← Back to your session (change a smaller detail instead)',
+    budgetNoteCaveat: 'Closest match to your budget — a bit more than you asked for',
+    budgetNoteSelfCatering: 'Fits if you cook for yourself',
+    budgetNoteMealPlan: 'Fits your chosen meal plan',
+    budgetNoteRoomToSpare: "You could even go here with a smaller budget",
   },
   de: {
     back: 'Zurück',
@@ -146,6 +150,10 @@ const STRINGS: Record<'en' | 'de', Record<string, string>> = {
     otherShortlistedCities: 'Nicht ganz das Richtige? Probier eine deiner anderen Wunsch-Städte:',
     search: 'Suchen',
     backToSession: '← Zurück zu deiner Sitzung (stattdessen eine Kleinigkeit ändern)',
+    budgetNoteCaveat: 'Am nächsten an deinem Budget — etwas mehr als angefragt',
+    budgetNoteSelfCatering: 'Passt, wenn du selbst kochst',
+    budgetNoteMealPlan: 'Passt zu deiner gewählten Verpflegung',
+    budgetNoteRoomToSpare: 'Hier würde sogar ein kleineres Budget reichen',
   },
 };
 

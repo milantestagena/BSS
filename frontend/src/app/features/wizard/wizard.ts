@@ -772,6 +772,23 @@ export class WizardComponent implements OnInit {
     return (node.matchedTags ?? []).map((slug) => tagLabels.get(slug)).filter(Boolean).join(', ');
   }
 
+  /** Owner's ask, 2026-08-14: "dodaj one komentare... ovde mozes i sa manjim budzetom" — turn
+   *  the backend's budgetFit/budgetCaveat/priceRank signals into a short, honest reason instead
+   *  of a bare price-rank color. Only reachable for type=country cards (budgetFit is only
+   *  computed at that level today — see GeographyResolver::filterByBudget). Returns null when
+   *  there's nothing worth saying (a plain, unremarkable fit) rather than forcing a caption onto
+   *  every single card. */
+  budgetNoteFor(node: TaxonomyNode): string | null {
+    if (node.budgetCaveat) return this.i18n.t('budgetNoteCaveat');
+    if (node.budgetFit === 'self_catering') return this.i18n.t('budgetNoteSelfCatering');
+    if (node.budgetFit === 'meal_plan') return this.i18n.t('budgetNoteMealPlan');
+    // priceRank <= 2 (cheapest/second-cheapest of what's currently shown) is the "you have real
+    // headroom" signal — reusing the already-computed rank rather than adding a second budget
+    // pass just to detect comfortable margin.
+    if (node.budgetFit === 'eating_out' && (node.priceRank ?? 99) <= 2) return this.i18n.t('budgetNoteRoomToSpare');
+    return null;
+  }
+
   /** 2-letter code for the City-step country badge (see wizard.html) — falls back to the full
    *  label for any country missing WizardSeeder's iso_code meta, so a gap here degrades to the
    *  old (verbose but correct) behavior rather than showing blank. */

@@ -106,6 +106,8 @@ type TaxonomyNode {
     matchScore: Int @rename(attribute: "match_score")
     "Populated only when returned from `suggestedGeography` for type=country: true if this country only appears because nothing fit the stated budget and it's one of the 2 closest fallbacks — show an 'more expensive than asked, but nearest fit' note."
     budgetCaveat: Boolean @rename(attribute: "budget_caveat")
+    "Populated only when returned from `suggestedGeography` for type=country, when budget data exists: 'eating_out' | 'self_catering' | 'meal_plan' | null — which spending style this country's price actually fit under, see BudgetEstimationEngine::fitFor. Frontend turns this (plus budgetCaveat/priceRank) into a short reason, e.g. 'fits if you cook for yourself'."
+    budgetFit: String @rename(attribute: "budget_fit")
     "Populated only when returned from `suggestedGeography` — true if forced on by an `implies` relation from an already-selected answer (e.g. Foodie -> Great food). Shown selected-and-locked in the UI rather than hidden, so the reason is visible instead of the option silently vanishing."
     implied: Boolean
     "Populated only when returned from `suggestedGeography` for type=country/city — preference_tag slugs this node matched against the session's selected preferences. Frontend groups results by shared matched_tags rather than showing a flat ranked list."

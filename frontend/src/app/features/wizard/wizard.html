@@ -412,6 +412,13 @@
                               @if (matchedTagLabelsFor(node); as matched) {
                                 <span class="mt-0.5 block text-xs font-normal text-slate-500">{{ matched }}</span>
                               }
+                              @if (budgetNoteFor(node); as budgetNote) {
+                                <span
+                                  class="mt-0.5 block text-xs font-normal italic"
+                                  [class.text-amber-700]="node.budgetCaveat"
+                                  [class.text-emerald-700]="!node.budgetCaveat"
+                                >{{ budgetNote }}</span>
+                              }
                             </button>
                           }
                         </div>

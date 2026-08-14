@@ -228,6 +228,7 @@ class GeographyResolverTest extends TestCase
         $this->assertTrue($results->pluck('id')->contains($cheap->id));
         $this->assertFalse($results->pluck('id')->contains($expensive->id));
         $this->assertFalse($results->firstWhere('id', $cheap->id)->budget_caveat);
+        $this->assertSame('eating_out', $results->firstWhere('id', $cheap->id)->budget_fit);
     }
 
     public function test_budget_falls_back_to_closest_with_caveat_when_nothing_fits(): void
@@ -245,6 +246,10 @@ class GeographyResolverTest extends TestCase
 
         $this->assertCount(2, $results->whereIn('id', [$a->id, $b->id]));
         $this->assertTrue($results->firstWhere('id', $a->id)->budget_caveat);
+        // Owner's ask, 2026-08-14 (per-card budget reason) — budget_fit must still be set even
+        // on a caveat/fallback row, not just on a real fit, so the frontend can show WHY it's
+        // the closest match (e.g. "closest match, fits if you self-cater") not just THAT it is.
+        $this->assertNotNull($results->firstWhere('id', $a->id)->budget_fit);
     }
 
     public function test_budget_is_skipped_entirely_when_total_budget_not_answered(): void

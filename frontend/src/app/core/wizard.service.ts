@@ -106,7 +106,7 @@ const UPDATE_SESSION_MUTATION = `
 const SUGGESTED_GEOGRAPHY_QUERY = `
   query SuggestedGeography($sessionId: ID!, $type: String!, $parentId: ID, $parentIds: [ID!]) {
     suggestedGeography(sessionId: $sessionId, type: $type, parentId: $parentId, parentIds: $parentIds) {
-      id slug label matchScore meta implied matchedTags priceRank
+      id slug label matchScore meta implied matchedTags priceRank budgetFit budgetCaveat
       parent { label meta }
     }
   }

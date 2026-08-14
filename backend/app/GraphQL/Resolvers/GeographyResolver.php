@@ -63,10 +63,11 @@ class GeographyResolver
 
         $nodes = $query->get();
         $budgetCaveatIds = collect();
+        $budgetFitById = collect();
 
         if ($args['type'] === 'country') {
             $nodes = $this->filterByCulturalAvailability($nodes, $session);
-            [$nodes, $budgetCaveatIds] = $this->filterByBudget($nodes, $session);
+            [$nodes, $budgetCaveatIds, $budgetFitById] = $this->filterByBudget($nodes, $session);
         }
 
         // .unique() added 2026-08-13: a tag can now legitimately appear in BOTH arrays (explicit
@@ -86,7 +87,7 @@ class GeographyResolver
             }
         }
 
-        $mapped = $nodes->map(function (TaxonomyNode $node) use ($preferenceTags, $budgetCaveatIds, $impliedIds) {
+        $mapped = $nodes->map(function (TaxonomyNode $node) use ($preferenceTags, $budgetCaveatIds, $budgetFitById, $impliedIds) {
             $meta = $node->meta ?? [];
 
             $nodeTags = collect($meta['drinks'] ?? [])
@@ -100,6 +101,7 @@ class GeographyResolver
             $node->setAttribute('matched_tags', $matchedTags->all());
             $node->setAttribute('match_score', $matchedTags->count() * 5);
             $node->setAttribute('budget_caveat', $budgetCaveatIds->contains($node->id));
+            $node->setAttribute('budget_fit', $budgetFitById->get($node->id));
 
             return $node;
         });
@@ -311,14 +313,14 @@ class GeographyResolver
      * list only as an over-budget-but-closest fallback (surfaced to the frontend as
      * `budget_caveat` so it can show "more expensive than asked, but nearest fit").
      *
-     * @return array{0: Collection<int, TaxonomyNode>, 1: Collection<int, int>}
+     * @return array{0: Collection<int, TaxonomyNode>, 1: Collection<int, int>, 2: Collection<int, string>}
      */
     private function filterByBudget(Collection $countries, SearchSession $session): array
     {
         $nights = $this->tripDurationNights($session);
 
         if (! $session->total_budget || ! $session->adults_count || ! $nights || $countries->isEmpty()) {
-            return [$countries, collect()];
+            return [$countries, collect(), collect()];
         }
 
         $totalTravelers = $session->adults_count + count($session->children_ages ?? []);
@@ -348,8 +350,12 @@ class GeographyResolver
 
         $narrowed = $result->pluck('country')->values();
         $caveatIds = $result->filter(fn (array $row) => $row['caveat'])->pluck('country.id')->values();
+        // Owner's ask, 2026-08-14: "dodaj one komentare... ovde mozes i sa manjim budzetom" —
+        // the frontend needs WHICH spending style each country actually fit under (not just the
+        // pass/fail caveat flag) to show a real reason instead of a bare price-rank color.
+        $fitById = $result->pluck('fit', 'country.id');
 
-        return [$narrowed, $caveatIds];
+        return [$narrowed, $caveatIds, $fitById];
     }
 
     /**
