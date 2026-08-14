@@ -156,13 +156,16 @@ class WizardSeeder extends Seeder
      */
     private function seedMealStyles(): void
     {
+        // Redesigned 2026-08-14 (owner's catch) — this is now a pure FLOW GATE, not a budget
+        // signal of its own: "Local restaurants" skips meal_plan_preference entirely (fast
+        // path, matches the question's own "...or eat out?" wording without repeating it in the
+        // pill). "At the accommodation" reveals meal_plan_preference's full picker — breakfast/
+        // half-board/full-board/all-inclusive/self-catering all live there now (self-catering
+        // moved back in, see seedAmenities' $mealPlans — this question no longer decides
+        // self-catering vs a hotel meal plan by itself, it just decides whether to ask at all).
         $items = [
-            ['slug' => 'jede_napolju', 'en' => 'Eating out / at restaurants', 'sr' => 'Jedem napolju / u restoranima'],
-            // Carries the real Booking `mealplan=999` (Self catering) filter ID — previously
-            // lived on a separate 'samostalno_kuvanje' meal_plan-type node offered inside the
-            // meal_plan_preference pill list, now redundant since meal_style is mandatory and
-            // asked first; see applyMealPlanPreferenceFilter's meal_style branch.
-            ['slug' => 'kuva_sam', 'en' => "I'll cook for myself", 'sr' => 'Sam ću da spremam', 'meta' => ['booking_meal_plan_id' => 999]],
+            ['slug' => 'jede_napolju', 'en' => 'Local restaurants', 'sr' => 'Lokalni restorani'],
+            ['slug' => 'u_smestaju', 'en' => 'At the accommodation', 'sr' => 'U okviru smeštaja'],
         ];
 
         foreach ($items as $i => $item) {
@@ -379,15 +382,18 @@ class WizardSeeder extends Seeder
         // mealplan — filters.meal_plan (verified real 2026-07-30; expanded 2026-08-13 with the
         // rest of Booking's real "Meals" filter group, owner's own export — all_inclusive/
         // pun_pansion/self-catering IDs were previously left out rather than guessed, now
-        // confirmed real). 'Self catering' (id 999) moved OUT of this list, 2026-08-13 — it's
-        // now the `kuva_sam` meal_style node instead (see seedMealStyles), since meal_style is
-        // its own dedicated mandatory question, not a pill in the meal_plan_preference list.
+        // confirmed real). 'Self catering' briefly lived on a separate meal_style node
+        // (2026-08-13), moved back here 2026-08-14 (owner's catch) — meal_style is now a pure
+        // flow gate ("Local restaurants" vs "At the accommodation"), every actual food
+        // arrangement (including self-catering) lives in this one list, only asked at all once
+        // "At the accommodation" is picked.
         $mealPlans = [
             ['slug' => 'dorucak', 'en' => 'Breakfast included', 'sr' => 'Doručak uključen', 'id' => 1],
             ['slug' => 'dorucak_rucak', 'en' => 'Breakfast & lunch included', 'sr' => 'Doručak i ručak uključeni', 'id' => 8],
             ['slug' => 'dorucak_vecera', 'en' => 'Breakfast & dinner included', 'sr' => 'Doručak i večera uključeni', 'id' => 9],
             ['slug' => 'pun_pansion', 'en' => 'All meals included', 'sr' => 'Svi obroci uključeni', 'id' => 3],
             ['slug' => 'sve_ukljuceno', 'en' => 'All-inclusive', 'sr' => 'Sve uključeno', 'id' => 4],
+            ['slug' => 'samostalno_kuvanje', 'en' => 'Self catering', 'sr' => 'Samostalno kuvanje', 'id' => 999],
         ];
         foreach ($mealPlans as $i => $item) {
             $this->node('meal_plan', $item['slug'], $item['en'], $item['sr'], $i, [
@@ -1514,15 +1520,16 @@ class WizardSeeder extends Seeder
                 // adults, 0 children — now evaluated live within the SAME step as adults_count,
                 // which is fine since it's all reactive client-side signals pre-submission.
                 ['key' => 'relationship_type', 'en' => 'Just friends, or something more?', 'sr' => 'Par ili drugari?', 'input_type' => 'taxonomy_choice', 'taxonomy_type' => 'relationship_type', 'session_field' => 'free_text_answers.relationship_type'],
-                // Owner's call, 2026-08-13: split out from meal_plan_preference — this ONE
-                // answer swings the accommodation budget by the eating_out/self_catering ratio
-                // (1:3.5), a much bigger effect than which hotel meal tier someone picks, and
-                // "vecina korisnika su idioti" (won't naturally think to look for "self
-                // catering" under a question titled "want meals included?"). Mandatory, same
-                // reasoning as total_budget below — this is a real input to that number, not a
-                // nice-to-have. Own taxonomy_type (no real Booking filter behind it — this is
-                // pure wizard-side budget logic, same category as group_type/relationship_type).
-                ['key' => 'meal_style', 'en' => 'Will you cook for yourself, or eat out?', 'sr' => 'Planiraš da spremaš sam, ili da jedeš napolju?', 'input_type' => 'taxonomy_choice', 'taxonomy_type' => 'meal_style', 'session_field' => 'free_text_answers.meal_style', 'mandatory' => true],
+                // Owner's call, 2026-08-13: split out from meal_plan_preference so a mandatory
+                // question forces a real answer up front ("vecina korisnika su idioti", won't
+                // naturally think to look for "self catering" under a question titled "want
+                // meals included?"). Redesigned 2026-08-14 (owner's catch) — a pure flow gate
+                // now: "Local restaurants" skips meal_plan_preference entirely, "At the
+                // accommodation" reveals its full picker (breakfast/half-board/full-board/
+                // all-inclusive/self-catering all live there, see seedAmenities' $mealPlans).
+                // Own taxonomy_type (no real Booking filter behind THIS question — it's pure
+                // wizard-side flow logic, same category as group_type/relationship_type).
+                ['key' => 'meal_style', 'en' => 'Where do you plan to eat?', 'sr' => 'Gde planiraš da jedeš?', 'input_type' => 'taxonomy_choice', 'taxonomy_type' => 'meal_style', 'session_field' => 'free_text_answers.meal_style', 'mandatory' => true],
                 // Total trip spending budget (2026-07-30) — deliberately in the same "warm-up"
                 // group as the other always-asked questions, not tied to any destination. See
                 // BudgetEstimationEngine / GeographyResolver filterByBudget.
@@ -1969,10 +1976,11 @@ class WizardSeeder extends Seeder
                 'dorucak_vecera' => 'Frühstück & Abendessen inklusive',
                 'pun_pansion' => 'Alle Mahlzeiten inklusive',
                 'sve_ukljuceno' => 'All-inclusive',
+                'samostalno_kuvanje' => 'Selbstverpflegung',
             ],
             'meal_style' => [
-                'jede_napolju' => 'Auswärts essen / im Restaurant',
-                'kuva_sam' => 'Ich koche selbst',
+                'jede_napolju' => 'Lokale Restaurants',
+                'u_smestaju' => 'In der Unterkunft',
             ],
             'cost_category' => [
                 'hospitality' => 'Gastronomie (Essen/Trinken auswärts)',

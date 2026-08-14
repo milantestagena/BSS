@@ -196,23 +196,28 @@ class BudgetEstimationEngineTest extends TestCase
         $this->assertSame('insufficient', $engine->fitFor($country, 660, 2, 2, 7, mealPlanSlug: 'dorucak'));
     }
 
-    public function test_self_catering_flag_uses_the_existing_self_catering_path_regardless_of_meal_plan_slug(): void
+    public function test_samostalno_kuvanje_meal_plan_slug_uses_the_existing_self_catering_path(): void
     {
-        // Owner's call, 2026-08-13: self-catering split into its own mandatory meal_style
-        // question — $selfCatering now takes priority over any meal_plan_preference slug.
+        // Redesigned 2026-08-14 (owner's catch): meal_style is a pure flow gate now ("Local
+        // restaurants" vs "At the accommodation"), no budget logic of its own — self-catering
+        // moved back into meal_plan_preference as a real slug, only ever reachable once "At the
+        // accommodation" was picked.
         $country = $this->countryWithPrices(meal: 10, coffee: 2); // eating_out 623, self_catering ~178
         $engine = new BudgetEstimationEngine;
 
-        $this->assertSame('self_catering', $engine->fitFor($country, 200, 2, 2, 7, selfCatering: true));
-        $this->assertSame('insufficient', $engine->fitFor($country, 50, 2, 2, 7, selfCatering: true));
-        // Even with a meal_plan_preference also set, selfCatering wins.
-        $this->assertSame('self_catering', $engine->fitFor($country, 200, 2, 2, 7, mealPlanSlug: 'sve_ukljuceno', selfCatering: true));
+        $this->assertSame('self_catering', $engine->fitFor($country, 200, 2, 2, 7, mealPlanSlug: 'samostalno_kuvanje'));
+        $this->assertSame('insufficient', $engine->fitFor($country, 50, 2, 2, 7, mealPlanSlug: 'samostalno_kuvanje'));
     }
 
     public function test_strongest_meal_plan_slug_picks_the_most_demanding_pick(): void
     {
         $this->assertSame('sve_ukljuceno', BudgetEstimationEngine::strongestMealPlanSlug(['dorucak', 'sve_ukljuceno']));
         $this->assertSame('dorucak_rucak', BudgetEstimationEngine::strongestMealPlanSlug(['dorucak_rucak', 'dorucak_vecera']));
+        // samostalno_kuvanje ranks lowest — only wins if it's the only thing picked, since
+        // picking it alongside a real hotel meal tier is a contradiction and the pricier one is
+        // the honest bar to test against.
+        $this->assertSame('samostalno_kuvanje', BudgetEstimationEngine::strongestMealPlanSlug(['samostalno_kuvanje']));
+        $this->assertSame('dorucak', BudgetEstimationEngine::strongestMealPlanSlug(['samostalno_kuvanje', 'dorucak']));
         $this->assertNull(BudgetEstimationEngine::strongestMealPlanSlug([]));
     }
 }

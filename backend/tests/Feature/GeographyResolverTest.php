@@ -440,4 +440,82 @@ class GeographyResolverTest extends TestCase
         $this->assertSame($betterMatch->id, $results->first()->id);
         $this->assertSame($weakerMatch->id, $results->last()->id);
     }
+
+    public function test_climate_narrows_cities_below_the_caveat_threshold(): void
+    {
+        // CLAUDE.md §8 item 3, 2026-08-14: reuses the SAME honest_report_thresholds.sea_temp_c
+        // config the Honest Report climate caveat already reads — the 'caveat' bound becomes a
+        // hard exclude line here instead of just a surfaced note.
+        $termin = $this->node('termin_category', 'kasno_kupanje', [
+            'honest_report_thresholds' => ['sea_temp_c' => ['good' => 22, 'caveat' => 18]],
+        ]);
+        $country = $this->node('country', 'testcountry');
+        $warmCity = $this->node('city', 'warmcity');
+        $warmCity->update(['parent_id' => $country->id]);
+        $coldCity = $this->node('city', 'coldcity');
+        $coldCity->update(['parent_id' => $country->id]);
+
+        \App\Models\TaxonomyNodeClimate::create(['taxonomy_node_id' => $warmCity->id, 'month' => 9, 'sea_temp_c' => 24]);
+        \App\Models\TaxonomyNodeClimate::create(['taxonomy_node_id' => $coldCity->id, 'month' => 9, 'sea_temp_c' => 15]);
+
+        $session = SearchSession::create([
+            'status' => 'in_progress', 'termin_category' => $termin->slug,
+            'adults_count' => 2, 'date_from' => '2026-09-01', 'date_to' => '2026-09-08',
+        ]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'city', 'parentId' => $country->id]);
+
+        $this->assertTrue($results->pluck('id')->contains($warmCity->id));
+        $this->assertFalse($results->pluck('id')->contains($coldCity->id));
+    }
+
+    public function test_climate_keeps_a_country_only_if_at_least_one_child_city_still_passes(): void
+    {
+        $termin = $this->node('termin_category', 'kasno_kupanje', [
+            'honest_report_thresholds' => ['sea_temp_c' => ['good' => 22, 'caveat' => 18]],
+        ]);
+        $mixedCountry = $this->node('country', 'mixedcountry');
+        $warmCity = $this->node('city', 'warmcity2');
+        $warmCity->update(['parent_id' => $mixedCountry->id]);
+        $coldCity = $this->node('city', 'coldcity2');
+        $coldCity->update(['parent_id' => $mixedCountry->id]);
+
+        $allColdCountry = $this->node('country', 'allcoldcountry');
+        $onlyColdCity = $this->node('city', 'onlycoldcity');
+        $onlyColdCity->update(['parent_id' => $allColdCountry->id]);
+
+        \App\Models\TaxonomyNodeClimate::create(['taxonomy_node_id' => $warmCity->id, 'month' => 9, 'sea_temp_c' => 24]);
+        \App\Models\TaxonomyNodeClimate::create(['taxonomy_node_id' => $coldCity->id, 'month' => 9, 'sea_temp_c' => 15]);
+        \App\Models\TaxonomyNodeClimate::create(['taxonomy_node_id' => $onlyColdCity->id, 'month' => 9, 'sea_temp_c' => 15]);
+
+        $session = SearchSession::create([
+            'status' => 'in_progress', 'termin_category' => $termin->slug,
+            'adults_count' => 2, 'date_from' => '2026-09-01', 'date_to' => '2026-09-08',
+        ]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'country']);
+
+        $this->assertTrue($results->pluck('id')->contains($mixedCountry->id));
+        $this->assertFalse($results->pluck('id')->contains($allColdCountry->id));
+    }
+
+    public function test_climate_narrowing_is_a_no_op_without_a_configured_threshold(): void
+    {
+        // No honest_report_thresholds on the termin_category — must behave exactly like before
+        // this feature existed, same "skip until the inputs exist" convention as budget/cultural.
+        $termin = $this->node('termin_category', 'kasno_kupanje');
+        $country = $this->node('country', 'anycountry3');
+        $city = $this->node('city', 'anycity3');
+        $city->update(['parent_id' => $country->id]);
+        \App\Models\TaxonomyNodeClimate::create(['taxonomy_node_id' => $city->id, 'month' => 9, 'sea_temp_c' => 5]);
+
+        $session = SearchSession::create([
+            'status' => 'in_progress', 'termin_category' => $termin->slug,
+            'adults_count' => 2, 'date_from' => '2026-09-01', 'date_to' => '2026-09-08',
+        ]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'city', 'parentId' => $country->id]);
+
+        $this->assertTrue($results->pluck('id')->contains($city->id));
+    }
 }

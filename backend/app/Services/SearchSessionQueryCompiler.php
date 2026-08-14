@@ -375,13 +375,12 @@ class SearchSessionQueryCompiler
         // have a real bundled price for it.
         $mealPlanSlugs = $this->session->free_text_answers['meal_plan_preference'] ?? [];
         $mealPlanSlug = BudgetEstimationEngine::strongestMealPlanSlug($mealPlanSlugs);
-        $selfCatering = ($this->session->free_text_answers['meal_style'] ?? null) === 'kuva_sam';
 
         return [
             'total_budget_eur' => (float) $this->session->total_budget,
             'fit' => (new BudgetEstimationEngine)->fitFor(
                 $context['country'], (float) $this->session->total_budget, $this->session->adults_count, $children, $days,
-                $context['accommodation_total_eur'], $context['meals_included'], $mealPlanSlug, $selfCatering
+                $context['accommodation_total_eur'], $context['meals_included'], $mealPlanSlug
             ),
             'estimate' => $context['estimate'],
             'accommodation_total_eur' => $context['accommodation_total_eur'],

@@ -70,6 +70,10 @@ class GeographyResolver
             [$nodes, $budgetCaveatIds, $budgetFitById] = $this->filterByBudget($nodes, $session);
         }
 
+        if ($args['type'] === 'country' || $args['type'] === 'city') {
+            $nodes = $this->filterByClimate($nodes, $session, $args['type']);
+        }
+
         // .unique() added 2026-08-13: a tag can now legitimately appear in BOTH arrays (explicit
         // AND implied — see WizardService.syncAnswersFromSession backfilling a `suggests` tag
         // into the user's own explicit answer so it shows pre-checked-but-editable) — without
@@ -331,11 +335,10 @@ class GeographyResolver
         // Owner's catch, 2026-08-13: a 500€/8-day/all-inclusive session was passing Greece at a
         // price that could never actually buy all-inclusive there — meal_plan_preference wasn't
         // reaching the budget check at all. See BudgetEstimationEngine::mealPlanTotalFor.
+        // meal_plan_preference (and therefore this) is only ever answered at all once meal_style
+        // says "at the accommodation" — see WizardService.isQuestionVisible, 2026-08-14 redesign.
         $mealPlanSlugs = $session->free_text_answers['meal_plan_preference'] ?? [];
         $mealPlanSlug = BudgetEstimationEngine::strongestMealPlanSlug($mealPlanSlugs);
-        // meal_style split into its own mandatory question, 2026-08-13 — the single biggest
-        // lever on disposable accommodation budget (eating_out vs self_catering, ~1:3.5).
-        $selfCatering = ($session->free_text_answers['meal_style'] ?? null) === 'kuva_sam';
 
         $result = (new BudgetEstimationEngine)->narrowCandidates(
             $countries,
@@ -344,8 +347,7 @@ class GeographyResolver
             count($session->children_ages ?? []),
             $foodDays,
             fn (TaxonomyNode $country) => $this->cheapestAccommodationTotal($country, $session, $totalTravelers, $nights),
-            $mealPlanSlug,
-            $selfCatering
+            $mealPlanSlug
         );
 
         $narrowed = $result->pluck('country')->values();
@@ -356,6 +358,67 @@ class GeographyResolver
         $fitById = $result->pluck('fit', 'country.id');
 
         return [$narrowed, $caveatIds, $fitById];
+    }
+
+    /**
+     * Owner's ask, CLAUDE.md §8 item 3 (2026-08-14): "sezona ide od ~150 gradova ka ~15 do
+     * oktobra" — narrows candidates to ones actually warm enough for the session's travel
+     * month, instead of showing every seeded swim city year-round regardless of season.
+     * Reuses the SAME `honest_report_thresholds.sea_temp_c` config already on the
+     * termin_category (good/caveat, e.g. 22/18 — see SearchSessionQueryCompiler::climateSignal,
+     * which already reads it as a Honest Report caveat, never a hard exclude). Here the
+     * 'caveat' bound becomes the hard exclude line — the exact same criterion used when these
+     * cities were originally chosen for the campaign ("nijedna nije pala ispod cold praga").
+     *
+     * No-op if the termin_category has no sea_temp_c threshold configured, or the session has
+     * no resolvable travel date yet — same "skip until the inputs exist" convention as
+     * filterByBudget/filterByCulturalAvailability. Uses the trip's FIRST month only (a late-
+     * summer window rarely spans more than one or two calendar months, and the earlier month is
+     * the warmer, more forgiving one to check against — "never over-exclude").
+     *
+     * type=city: excludes any city colder than the threshold. type=country: keeps a country
+     * only if at least one child city still passes — offering a country just to have its city
+     * list come back empty next is worse than not offering it at all. Reverts to the unfiltered
+     * list if this would leave nothing, same "never show zero results" philosophy as every
+     * other narrowing pass in this class.
+     */
+    private function filterByClimate(Collection $nodes, SearchSession $session, string $type): Collection
+    {
+        if ($nodes->isEmpty()) {
+            return $nodes;
+        }
+
+        $termin = $session->termin_category
+            ? TaxonomyNode::where('type', 'termin_category')->where('slug', $session->termin_category)->first()
+            : null;
+        $caveatThreshold = $termin?->meta['honest_report_thresholds']['sea_temp_c']['caveat'] ?? null;
+        if ($caveatThreshold === null) {
+            return $nodes;
+        }
+
+        [$checkin] = $this->tripCheckinCheckout($session);
+        if (! $checkin) {
+            return $nodes;
+        }
+        $month = $checkin->month;
+
+        $passesClimate = function (TaxonomyNode $city) use ($month, $caveatThreshold): bool {
+            $seaTemp = $city->climateFor($month)?->sea_temp_c;
+
+            return $seaTemp === null || (float) $seaTemp >= $caveatThreshold;
+        };
+
+        if ($type === 'city') {
+            $narrowed = $nodes->filter($passesClimate)->values();
+        } else {
+            $narrowed = $nodes->filter(function (TaxonomyNode $country) use ($passesClimate) {
+                $children = $country->children()->where('type', 'city')->get();
+
+                return $children->isEmpty() || $children->contains($passesClimate);
+            })->values();
+        }
+
+        return $narrowed->isEmpty() ? $nodes : $narrowed;
     }
 
     /**
