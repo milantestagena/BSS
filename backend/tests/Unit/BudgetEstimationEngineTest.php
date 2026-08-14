@@ -223,6 +223,26 @@ class BudgetEstimationEngineTest extends TestCase
         $this->assertSame('insufficient', $engine->fitFor($country, 50, 2, 2, 7, mealStyle: 'sam_se_snalazim'));
     }
 
+    public function test_all_inclusive_fits_is_a_purely_informational_cross_check(): void
+    {
+        // Owner's own gradation, 2026-08-14: even for a session that picked "Local restaurants"
+        // or "I'll organize myself," it's worth telling them separately whether all-inclusive
+        // would ALSO fit for the same money — "biram restoran... mozemo mu kazemo negde imas
+        // all inclusive za te pare." Uses the default 0.8 coefficient (discount), so
+        // all-inclusive@498.4 is CHEAPER than plain eating_out@623 here.
+        $country = $this->countryWithPrices(meal: 10, coffee: 2); // eating_out 623; sve_ukljuceno@0.8 = 498.4
+        $engine = new BudgetEstimationEngine;
+
+        $this->assertTrue($engine->allInclusiveFits($country, 500, 2, 2, 7));
+        $this->assertFalse($engine->allInclusiveFits($country, 498, 2, 2, 7));
+        // Accommodation total still comes off the top first, same as fitFor().
+        $this->assertFalse($engine->allInclusiveFits($country, 500, 2, 2, 7, accommodationTotal: 100.0));
+        // A destination with a real bundled (mealsIncluded) price just checks that price
+        // directly against the budget — same shortcut as fitFor()'s $mealsIncluded branch.
+        $this->assertTrue($engine->allInclusiveFits($country, 300, 2, 2, 7, accommodationTotal: 250.0, mealsIncluded: true));
+        $this->assertFalse($engine->allInclusiveFits($country, 200, 2, 2, 7, accommodationTotal: 250.0, mealsIncluded: true));
+    }
+
     public function test_multiple_meal_plan_picks_are_a_priority_list_not_a_contradiction(): void
     {
         // Owner's own framing, 2026-08-14: picking BOTH all-inclusive and a lighter tier means

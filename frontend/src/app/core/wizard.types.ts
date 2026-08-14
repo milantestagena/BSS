@@ -23,6 +23,12 @@ export interface TaxonomyNode {
    *  country only appears because nothing fit the stated budget and it's one of the 2 closest
    *  fallbacks. See WizardComponent.budgetNoteFor(). */
   budgetCaveat?: boolean | null;
+  /** Populated only when returned from suggestedGeography for type=country, when budget data
+   *  exists — true if an all-inclusive meal plan would ALSO fit for the session's budget,
+   *  regardless of the session's actual meal_style. Purely informational (owner's ask,
+   *  2026-08-14: "mozemo mu kazemo negde imas all inclusive za te pare") — never affects
+   *  budgetFit/inclusion/sorting. See WizardComponent.budgetNoteFor(). */
+  allInclusiveFits?: boolean | null;
   /** Populated only when returned from suggestedGeography for type=city — the parent country's
    *  label (+ meta, for the iso_code badge — see wizard.ts's countryCodeFor), so a mixed-country
    *  city grid (multi-select Country/region, 2026-08-13) can show which country each card

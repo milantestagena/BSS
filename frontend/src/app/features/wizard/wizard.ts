@@ -776,20 +776,37 @@ export class WizardComponent implements OnInit {
    *  there's nothing worth saying (a plain, unremarkable fit) rather than forcing a caption onto
    *  every single card. */
   budgetNoteFor(node: TaxonomyNode): string | null {
-    if (node.budgetCaveat) return this.i18n.t('budgetNoteCaveat');
-    // Owner's redesign, 2026-08-14: budgetFit is now the SPECIFIC winning meal_plan_preference
-    // slug (e.g. 'sve_ukljuceno', 'samostalno_kuvanje') when meal_plan_preference was answered
-    // — every pick is checked as a priority list, not collapsed to one before testing — rather
-    // than a generic 'meal_plan'/'self_catering' bucket. 'samostalno_kuvanje' still gets its
-    // own message (whether it came from that list or the old plain self_catering default path);
-    // any other real slug is "a specific meal plan matched," without naming which one yet.
-    if (node.budgetFit === 'self_catering' || node.budgetFit === 'samostalno_kuvanje') return this.i18n.t('budgetNoteSelfCatering');
-    if (node.budgetFit && node.budgetFit !== 'eating_out') return this.i18n.t('budgetNoteMealPlan');
-    // priceRank <= 2 (cheapest/second-cheapest of what's currently shown) is the "you have real
-    // headroom" signal — reusing the already-computed rank rather than adding a second budget
-    // pass just to detect comfortable margin.
-    if (node.budgetFit === 'eating_out' && (node.priceRank ?? 99) <= 2) return this.i18n.t('budgetNoteRoomToSpare');
-    return null;
+    const parts: string[] = [];
+
+    if (node.budgetCaveat) {
+      parts.push(this.i18n.t('budgetNoteCaveat'));
+    } else if (node.budgetFit === 'self_catering') {
+      // Owner's redesign, 2026-08-14 (second pass): budgetFit is now the SPECIFIC winning
+      // meal_plan_preference slug (e.g. 'sve_ukljuceno') when meal_plan_preference was answered
+      // — every pick is checked as a priority list, not collapsed to one before testing —
+      // rather than a generic 'meal_plan' bucket. Any real slug here is "a specific meal plan
+      // matched," without naming which one yet.
+      parts.push(this.i18n.t('budgetNoteSelfCatering'));
+    } else if (node.budgetFit && node.budgetFit !== 'eating_out') {
+      parts.push(this.i18n.t('budgetNoteMealPlan'));
+    } else if (node.budgetFit === 'eating_out' && (node.priceRank ?? 99) <= 2) {
+      // priceRank <= 2 (cheapest/second-cheapest of what's currently shown) is the "you have
+      // real headroom" signal — reusing the already-computed rank rather than adding a second
+      // budget pass just to detect comfortable margin.
+      parts.push(this.i18n.t('budgetNoteRoomToSpare'));
+    }
+
+    // Owner's ask, 2026-08-14 (second refinement): a purely informational cross-check, tacked
+    // on regardless of the primary reason above — "biram restoran... mozemo mu kazemo negde
+    // imas all inclusive za te pare" / "bira kuvanje... proverimo mi all inclusive." Only
+    // relevant when the session's own meal_style wouldn't already have found this (u_smestaju
+    // sessions get their real matched tier from budgetFit above already).
+    const mealStyle = this.wizard.getAnswer('meal_style');
+    if (node.allInclusiveFits && (mealStyle === 'jede_napolju' || mealStyle === 'sam_se_snalazim')) {
+      parts.push(this.i18n.t('budgetNoteAllInclusiveAlsoFits'));
+    }
+
+    return parts.length > 0 ? parts.join(' · ') : null;
   }
 
   /** 2-letter code for the City-step country badge (see wizard.html) — falls back to the full

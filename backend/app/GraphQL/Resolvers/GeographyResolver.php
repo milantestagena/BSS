@@ -64,10 +64,11 @@ class GeographyResolver
         $nodes = $query->get();
         $budgetCaveatIds = collect();
         $budgetFitById = collect();
+        $allInclusiveById = collect();
 
         if ($args['type'] === 'country') {
             $nodes = $this->filterByCulturalAvailability($nodes, $session);
-            [$nodes, $budgetCaveatIds, $budgetFitById] = $this->filterByBudget($nodes, $session);
+            [$nodes, $budgetCaveatIds, $budgetFitById, $allInclusiveById] = $this->filterByBudget($nodes, $session);
         }
 
         if ($args['type'] === 'country' || $args['type'] === 'city') {
@@ -91,7 +92,7 @@ class GeographyResolver
             }
         }
 
-        $mapped = $nodes->map(function (TaxonomyNode $node) use ($preferenceTags, $budgetCaveatIds, $budgetFitById, $impliedIds) {
+        $mapped = $nodes->map(function (TaxonomyNode $node) use ($preferenceTags, $budgetCaveatIds, $budgetFitById, $allInclusiveById, $impliedIds) {
             $meta = $node->meta ?? [];
 
             $nodeTags = collect($meta['drinks'] ?? [])
@@ -106,6 +107,7 @@ class GeographyResolver
             $node->setAttribute('match_score', $matchedTags->count() * 5);
             $node->setAttribute('budget_caveat', $budgetCaveatIds->contains($node->id));
             $node->setAttribute('budget_fit', $budgetFitById->get($node->id));
+            $node->setAttribute('all_inclusive_fits', $allInclusiveById->get($node->id, false));
 
             return $node;
         });
@@ -317,14 +319,14 @@ class GeographyResolver
      * list only as an over-budget-but-closest fallback (surfaced to the frontend as
      * `budget_caveat` so it can show "more expensive than asked, but nearest fit").
      *
-     * @return array{0: Collection<int, TaxonomyNode>, 1: Collection<int, int>, 2: Collection<int, string>}
+     * @return array{0: Collection<int, TaxonomyNode>, 1: Collection<int, int>, 2: Collection<int, string>, 3: Collection<int, bool>}
      */
     private function filterByBudget(Collection $countries, SearchSession $session): array
     {
         $nights = $this->tripDurationNights($session);
 
         if (! $session->total_budget || ! $session->adults_count || ! $nights || $countries->isEmpty()) {
-            return [$countries, collect(), collect()];
+            return [$countries, collect(), collect(), collect()];
         }
 
         $totalTravelers = $session->adults_count + count($session->children_ages ?? []);
@@ -366,7 +368,19 @@ class GeographyResolver
         // pass/fail caveat flag) to show a real reason instead of a bare price-rank color.
         $fitById = $result->pluck('fit', 'country.id');
 
-        return [$narrowed, $caveatIds, $fitById];
+        // Owner's ask, 2026-08-14 (second refinement) — a purely informational cross-check,
+        // independent of the strict fit above: does all-inclusive fit here for this budget?
+        // Worth surfacing even (especially) when the session's meal_style means fitFor() would
+        // never suggest it as the primary reason — see BudgetEstimationEngine::allInclusiveFits.
+        $budgetEngine = new BudgetEstimationEngine;
+        $allInclusiveById = $result->mapWithKeys(fn (array $row) => [
+            $row['country']->id => $budgetEngine->allInclusiveFits(
+                $row['country'], (float) $session->total_budget, $session->adults_count,
+                count($session->children_ages ?? []), $foodDays, $row['accommodation_total_eur']
+            ),
+        ]);
+
+        return [$narrowed, $caveatIds, $fitById, $allInclusiveById];
     }
 
     /**

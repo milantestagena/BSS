@@ -219,6 +219,41 @@ class BudgetEstimationEngine
     }
 
     /**
+     * Owner's ask, 2026-08-14 (second refinement): even when the user's stated meal_style is
+     * 'jede_napolju' or 'sam_se_snalazim' (so fitFor() correctly never suggests a hotel meal
+     * plan as the PRIMARY fit — see that method's docblock), it's still worth telling them
+     * separately whether all-inclusive would fit for the same money — a genuinely useful "did
+     * you know" upsell, not a suggestion to change their plan. Owner's own gradation:
+     * "biram restoran... možemo mu kažemo negde imaš all inclusive za te pare, ne nudimo
+     * kuvanje" (eating-out picker: fine to mention all-inclusive, never self-catering) and
+     * "bira kuvanje... proverimo mi all inclusive, tom nije do istraživanja restorana, al neće
+     * da se žali da mu je neko sve već spremio" (self-catering picker: same all-inclusive
+     * check — they're not interested in restaurants specifically, but wouldn't mind everything
+     * done for them at the same price). Deliberately ALWAYS checks all-inclusive specifically
+     * (not "any meal plan"), matching the owner's own examples — that's the one upgrade
+     * dramatic enough to be worth a callout regardless of which non-hotel style was picked.
+     * Purely informational — never changes fitFor()'s own inclusion/exclusion/sort decision.
+     */
+    public function allInclusiveFits(TaxonomyNode $country, float $totalBudget, int $adults, int $children, int $days, float $accommodationTotal = 0.0, bool $mealsIncluded = false): bool
+    {
+        if ($mealsIncluded) {
+            return $totalBudget >= $accommodationTotal;
+        }
+
+        $estimate = $this->estimate($country, $adults, $children, $days);
+        if ($estimate === null) {
+            return false;
+        }
+
+        $disposableBudget = $totalBudget - $accommodationTotal;
+        if ($disposableBudget < 0) {
+            return false;
+        }
+
+        return $disposableBudget >= $this->mealPlanTotalFor($country, 'sve_ukljuceno', $estimate['eating_out_total_eur']);
+    }
+
+    /**
      * Narrows a list of candidate countries to the ones the budget realistically covers
      * ('eating_out' or 'self_catering'). If NONE fit, falls back to the 2 closest by smallest
      * overage rather than returning nothing — owner's explicit call: never show zero results,
