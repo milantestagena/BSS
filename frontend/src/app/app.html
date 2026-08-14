@@ -1,2 +1,6 @@
 <app-account-badge></app-account-badge>
-<router-outlet></router-outlet>
+<!-- Reserves space for the fixed header bar above (see AccountBadgeComponent docblock, bug
+     fixed 2026-08-14) so no page's content ever starts underneath it. -->
+<div class="pt-14">
+  <router-outlet></router-outlet>
+</div>

@@ -12,12 +12,20 @@ import { LocaleService } from '../../core/locale.service';
  *
  * EN/DE language switch lives here too, 2026-08-11 — same "always visible, top corner" slot,
  * no reason to mount a second fixed-position element just for it.
+ *
+ * Bug fixed 2026-08-14: this used to be a small `fixed top-4 right-4` chip with no background
+ * of its own, so whatever chat bubble/question happened to scroll up underneath it (there's no
+ * reserved gap for a `fixed` element in normal document flow) showed through and collided with
+ * it — owner caught it live on mobile ("How many adults are traveling?" overlapping the EN/DE +
+ * credits chips). Now a real full-width header bar with its own opaque/blurred background, so
+ * nothing is ever visible underneath it regardless of scroll position — see app.html's
+ * `pt-14` spacer on the router-outlet wrapper for the matching reserved space up top.
  */
 @Component({
   selector: 'app-account-badge',
   standalone: true,
   template: `
-    <div class="fixed right-4 top-4 z-30 flex items-center gap-2">
+    <div class="fixed inset-x-0 top-0 z-30 flex items-center justify-end gap-2 border-b border-white/10 bg-slate-900/70 px-4 py-2.5 backdrop-blur-md">
       <div class="flex overflow-hidden rounded-full border border-white/50 bg-white/95 text-xs font-semibold shadow-lg backdrop-blur-sm">
         <button
           type="button"
