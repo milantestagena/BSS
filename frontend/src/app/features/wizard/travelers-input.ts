@@ -1,5 +1,6 @@
 import { Component, input, output } from '@angular/core';
 import { I18nService } from '../../core/i18n.service';
+import { NumberStepperComponent } from '../../ui/number-stepper';
 
 export interface TravelersValue {
   adultsCount: number | null;
@@ -18,6 +19,7 @@ export interface TravelersValue {
 @Component({
   selector: 'app-travelers-input',
   standalone: true,
+  imports: [NumberStepperComponent],
   templateUrl: './travelers-input.html',
 })
 export class TravelersInputComponent {
@@ -35,15 +37,21 @@ export class TravelersInputComponent {
 
   constructor(public i18n: I18nService) {}
 
-  incrementAdults(): void {
-    // null (unanswered) displays as 1 in the template's `?? 1` fallback — must increment FROM
-    // that same displayed baseline, or the first click silently no-ops (null -> 0+1 -> 1 again,
-    // no visible change). Bug caught 2026-07-30 by owner testing.
-    this.emit((this.adultsCount() ?? 1) + 1, this.childrenAges(), this.needsCrib());
+  /** Owner's catch, 2026-08-14: the "Children" section header stayed plural even with exactly
+   *  one child listed — same class of singular/plural mismatch as the destination group
+   *  headers. childCount/childrenCount already exist (lowercase, built for mid-sentence use
+   *  like "2 children") — capitalized here for use as a standalone label instead of adding a
+   *  near-duplicate key pair. */
+  get childrenSectionLabel(): string {
+    const label = this.childrenAges().length === 1 ? this.i18n.t('childCount') : this.i18n.t('childrenCount');
+    return label.charAt(0).toUpperCase() + label.slice(1);
   }
 
-  decrementAdults(): void {
-    this.emit(Math.max(1, (this.adultsCount() ?? 1) - 1), this.childrenAges(), this.needsCrib());
+  /** ui-number-stepper's min=1 already clamps every path (buttons AND typing) — the `?? 1`
+   *  fallback here only covers the brief instant the input is emptied while typing a
+   *  replacement value. */
+  onAdultsChange(value: number | null): void {
+    this.emit(value ?? 1, this.childrenAges(), this.needsCrib());
   }
 
   addChild(): void {
@@ -59,14 +67,19 @@ export class TravelersInputComponent {
   }
 
   /** Changing a child's age auto-sets their crib default (true at <=2, false above) — still
-   *  user-editable via onCribToggle afterward, this is just a sane starting point. */
-  onChildAgeChange(index: number, raw: string): void {
-    const age = Number(raw);
+   *  user-editable via onCribToggle afterward, this is just a sane starting point.
+   *  ui-number-stepper's min=0/max=17 already clamps every path — the `?? 0` fallback here only
+   *  covers the brief instant the input is emptied while typing a replacement value. */
+  onChildAgeStepperChange(index: number, value: number | null): void {
+    this.setChildAge(index, value ?? 0);
+  }
+
+  private setChildAge(index: number, age: number): void {
     const ages = this.childrenAges().slice();
-    ages[index] = Number.isNaN(age) ? 0 : age;
+    ages[index] = age;
 
     const cribs = this.needsCrib().slice();
-    cribs[index] = ages[index] <= 2;
+    cribs[index] = age <= 2;
 
     this.emit(this.adultsCount(), ages, cribs);
   }

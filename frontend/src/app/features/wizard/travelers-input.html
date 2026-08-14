@@ -1,41 +1,17 @@
 <div class="mb-6 space-y-6">
   <div>
     <label class="mb-2 block text-sm font-semibold text-slate-800">{{ adultsLabel() }}</label>
-    <div class="inline-flex items-center gap-3">
-      <button
-        type="button"
-        class="h-9 w-9 rounded-lg border border-slate-300 text-lg font-medium text-slate-700 hover:bg-slate-50"
-        (click)="decrementAdults()"
-      >
-        −
-      </button>
-      <span class="w-8 text-center text-base font-semibold text-slate-900">{{ adultsCount() ?? 1 }}</span>
-      <button
-        type="button"
-        class="h-9 w-9 rounded-lg border border-slate-300 text-lg font-medium text-slate-700 hover:bg-slate-50"
-        (click)="incrementAdults()"
-      >
-        +
-      </button>
-    </div>
+    <ui-number-stepper [value]="adultsCount() ?? 1" [min]="1" (valueChange)="onAdultsChange($event)" />
   </div>
 
   <div>
-    <label class="mb-2 block text-sm font-semibold text-slate-800">{{ i18n.t('children') }}</label>
+    <label class="mb-2 block text-sm font-semibold text-slate-800">{{ childrenSectionLabel }}</label>
 
     <div class="space-y-2">
       @for (age of childrenAges(); track $index) {
         <div class="flex items-center gap-3">
           <span class="text-sm text-slate-500">{{ i18n.t('age') }}</span>
-          <input
-            type="number"
-            min="0"
-            max="17"
-            class="w-20 rounded-lg border border-slate-300 px-3 py-1.5 text-sm
-                   focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-            [value]="age"
-            (change)="onChildAgeChange($index, $any($event.target).value)"
-          />
+          <ui-number-stepper [value]="age" [min]="0" [max]="17" (valueChange)="onChildAgeStepperChange($index, $event)" />
 
           @if (age <= 2) {
             <label class="inline-flex items-center gap-1.5 text-sm text-slate-600">

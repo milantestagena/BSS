@@ -4,12 +4,13 @@ import { TaxonomyNode, WizardQuestion } from '../../core/wizard.types';
 import { ChoiceComponent } from '../../ui/choice';
 import { TextFieldComponent } from '../../ui/text-field';
 import { DateFieldComponent } from '../../ui/date-field';
+import { NumberStepperComponent } from '../../ui/number-stepper';
 import { I18nService } from '../../core/i18n.service';
 
 @Component({
   selector: 'app-question-input',
   standalone: true,
-  imports: [CommonModule, ChoiceComponent, TextFieldComponent, DateFieldComponent],
+  imports: [CommonModule, ChoiceComponent, TextFieldComponent, DateFieldComponent, NumberStepperComponent],
   templateUrl: './question-input.html',
 })
 export class QuestionInputComponent {
@@ -46,15 +47,15 @@ export class QuestionInputComponent {
     return scores.some((s) => s !== 0) && new Set(scores).size > 1;
   }
 
-  get numberAsString(): string {
-    return this.value == null ? '' : String(this.value);
+  get numberValue(): number | null {
+    return this.value == null ? null : Number(this.value);
   }
 
   /** Owner's ask, 2026-08-04: total_budget's native spinner should jump by 100, not 1 — nobody
    *  budgets a trip in single-euro increments. Every other 'number' question (adults_count,
    *  number_of_rooms) stays at the default 1. */
-  get numberStep(): string {
-    return this.question.key === 'total_budget' ? '100' : '1';
+  get numberStep(): number {
+    return this.question.key === 'total_budget' ? 100 : 1;
   }
 
   get textValue(): string {
@@ -73,20 +74,8 @@ export class QuestionInputComponent {
     return ((this.value as [string, string]) || ['', ''])[1];
   }
 
-  onNumberChange(raw: string): void {
-    this.valueChange.emit(raw === '' ? null : Number(raw));
-  }
-
-  /** Visible +/- buttons alongside the number field — owner's ask, 2026-08-13: the native
-   *  spinner arrows are CSS-hidden project-wide (see ui-text-field's [&::-webkit-*-spin-button]
-   *  reset), so total_budget's step=100 had no visible way to use it. Step size matches
-   *  numberStep (100 for total_budget, 1 for everything else). */
-  incrementNumber(): void {
-    this.valueChange.emit((Number(this.value) || 0) + Number(this.numberStep));
-  }
-
-  decrementNumber(): void {
-    this.valueChange.emit(Math.max(0, (Number(this.value) || 0) - Number(this.numberStep)));
+  onNumberChange(value: number | null): void {
+    this.valueChange.emit(value);
   }
 
   onChildrenAgesChange(raw: string): void {

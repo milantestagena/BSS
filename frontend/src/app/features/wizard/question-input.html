@@ -11,33 +11,9 @@
 
   @switch (question.inputType) {
     @case ('number') {
-      <div class="inline-flex items-center gap-2">
-        <button
-          type="button"
-          class="h-9 w-9 shrink-0 rounded-lg border border-slate-300 text-lg font-medium text-slate-700 hover:bg-slate-50"
-          (click)="decrementNumber()"
-        >
-          −
-        </button>
-        <!-- Owner's call, 2026-08-13: "maximum je 5 cifre, niko nece da unosi 15" — nothing
-             here needs to fit more than 5 digits, so the field stays narrow instead of
-             stretching to fill its old max-w-[16rem] container. -->
-        <div class="w-20">
-          <ui-text-field
-            type="number"
-            [step]="numberStep"
-            [value]="numberAsString"
-            (valueChange)="onNumberChange($event)"
-          />
-        </div>
-        <button
-          type="button"
-          class="h-9 w-9 shrink-0 rounded-lg border border-slate-300 text-lg font-medium text-slate-700 hover:bg-slate-50"
-          (click)="incrementNumber()"
-        >
-          +
-        </button>
-      </div>
+      <!-- Owner's ask, 2026-08-14: shared ui-number-stepper (one [-][input][+] component, used
+           everywhere a number is entered) instead of hand-built markup per question. -->
+      <ui-number-stepper [value]="numberValue" [step]="numberStep" (valueChange)="onNumberChange($event)" />
     }
 
     @case ('number_array') {
