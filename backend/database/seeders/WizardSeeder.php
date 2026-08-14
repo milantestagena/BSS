@@ -952,6 +952,16 @@ class WizardSeeder extends Seeder
             'hurgada' => ['Big all-inclusive resort belt on the Red Sea — diving reefs right offshore, built for families and groups who want warm water without much else to plan.', ['istrazivac'], []],
             'sarm_el_seik' => ['Upscale diving hub with a livelier Naama Bay strip after dark, but still resort-family-friendly overall.', ['istrazivac'], []],
             'marsa_alam' => ['Remote and quiet, built around diving and reef life — barely any nightlife, best for people who came for the water, not the bars.', ['istrazivac', 'flegma'], ['partijaner']],
+            // Expansion round, 2026-08-11 additions — same manual_estimate/general-knowledge
+            // convention, written 2026-08-14 alongside the price estimates (see WizardSeeder's
+            // owner-referenced neighbor mapping in seedSwimDestinations for which city each was
+            // compared against).
+            'el_guna' => ['Purpose-built lagoon resort town just north of Hurghada — more polished and planned than Hurghada itself, popular with windsurfers/kitesurfers, marina bars but no real club scene.', ['istrazivac'], []],
+            'dahab' => ["Laid-back diver/backpacker town, a totally different character from Sharm — Bedouin-camp beach cafes, the Blue Hole, barely any nightlife.", ['istrazivac', 'flegma'], ['partijaner']],
+            'nuvejba' => ['Even quieter and more remote than Dahab — undeveloped beach camps, mostly divers and people actively seeking solitude.', ['flegma', 'istrazivac'], ['partijaner']],
+            'taba' => ['Small border-town resort cluster near the Israel/Jordan crossing — quiet, low-key, far less developed than Sharm or Hurghada.', ['flegma'], ['partijaner']],
+            'safaga' => ['Windsurfing/kitesurfing hub with a working port-town feel — quieter and less resort-dense than Hurghada.', ['istrazivac'], []],
+            'soma_bej' => ['Isolated purpose-built peninsula resort (golf course, spa hotels) — upscale and self-contained, essentially no town or nightlife outside the resorts.', ['flegma'], ['partijaner']],
 
             'larnaka' => ['Relaxed seafront town, historic, easygoing — not a party destination.', ['flegma'], []],
             'pafos' => ['UNESCO mosaics and archaeological parks — culture-and-beach, quiet evenings, popular with families and couples.', ['istrazivac'], ['partijaner']],
@@ -965,6 +975,13 @@ class WizardSeeder extends Seeder
             'djerba' => ['Island with real Tunisian character beyond the resorts, relaxed pace, good for culture-curious travelers, light on nightlife.', ['istrazivac', 'flegma'], ['partijaner']],
             'susa' => ['Livelier resort town with an old medina and some backpacker energy — busier than Hammamet, still not a hard party scene.', ['istrazivac'], []],
             'monastir' => ['Quiet marina town, mostly resort hotels, low-key evenings — built for families, not nightlife.', [], ['partijaner']],
+            // Expansion round, 2026-08-11 additions — see the el_guna comment above.
+            'nabel' => ["Right next to Hammamet, known for its pottery/ceramics and a big weekly market — quieter and more local-feeling than Hammamet's resort strip.", [], []],
+            'mahdija' => ['Historic fishing town with a real medina — quieter and more authentic than the big resort belt further north, relaxed pace.', ['istrazivac', 'flegma'], ['partijaner']],
+            'sfaks' => ["Tunisia's second-largest city — a real working port city more than a resort town, genuine local life rather than a classic beach-holiday strip.", ['istrazivac'], ['partijaner']],
+            'zarzis' => ['Quiet resort town near Djerba, olive groves — calmer and less touristy than Djerba proper.', ['flegma'], ['partijaner']],
+            'tabarka' => ['Northern coast, known for coral diving and pine forests — noticeably cooler and greener than the southern resort belt, quiet evenings.', ['istrazivac', 'flegma'], ['partijaner']],
+            'bizerta' => ["Tunisia's northernmost city, a picturesque old harbor — more authentic port-city mix than resort strip.", ['istrazivac'], ['partijaner']],
 
             'tenerife' => ['Big enough to be two different trips in one — Playa de las Américas is loud and club-heavy, Puerto de la Cruz up north is calm and old-town. Worth being specific about which end you mean.', [], []],
             'gran_kanarija' => ["Same split personality as Tenerife — Playa del Inglés/Maspalomas has a famous party scene, the rest of the island is quiet dunes and fishing villages.", [], []],
@@ -975,6 +992,15 @@ class WizardSeeder extends Seeder
             'bodrum' => ["Turkey's answer to St. Tropez — yacht culture, upscale beach clubs, a real party scene once the sun goes down.", ['partijaner', 'istrazivac'], ['porodica']],
             'marmaris' => ['Package-holiday party town, loud late into the night — fun for a group trip, not built for families.', ['partijaner'], ['porodica']],
             'alanija' => ["Huge, mostly family package-tourism resort belt — has a nightlife strip but it's not the main character.", [], []],
+            // Expansion round, 2026-08-11 additions — see the el_guna comment above.
+            'kas' => ['Boutique diving/paragliding town on the Lycian coast — upscale-bohemian, no big resorts, wine bars rather than clubs.', ['istrazivac', 'flegma'], ['partijaner']],
+            'kalkan' => ['Small upscale harbor town near Kaş, boutique villas — quiet, sophisticated, expensive for its size, not a nightlife destination.', ['flegma', 'istrazivac'], ['partijaner']],
+            'fethije' => ['Larger town and gateway to the Blue Lagoon, big paragliding hub — a lively marina with a mix of backpacker and family tourism, moderate nightlife.', ['istrazivac'], []],
+            'oludeniz' => ["Home to the iconic Blue Lagoon beach right next to Fethiye — resort-heavy, family and photo-tourist destination, limited nightlife.", ['istrazivac'], []],
+            'sajd' => ['Ancient ruins sit right in the resort town (a Temple of Apollo on the beach) — a family-oriented all-inclusive resort belt similar to Antalya\'s Lara/Belek.', ['istrazivac'], []],
+            'datca' => ["Quieter peninsula beyond Bodrum's crowds, known for almond blossoms — favored by domestic Turkish tourists seeking a calmer alternative to Bodrum.", ['flegma'], ['partijaner']],
+            'cesme' => ['Popular with the Izmir/Istanbul domestic crowd, windsurfing beaches — some upscale beach clubs, but far less internationally touristed than Bodrum.', [], []],
+            'kusadasi' => ['Major cruise-ship port and gateway to Ephesus — a busy touristy resort strip, moderate nightlife catering to cruise/package tourists.', ['istrazivac'], []],
 
             'krit' => ['Crete is enormous — Heraklion itself is a real city, but Malia/Hersonissos nearby are infamous for hard partying. Depends entirely which part you land in.', [], []],
             'rodos' => ['Same split as Crete — Rhodes Old Town is medieval-castle romantic, Faliraki a few km away is a legendary party strip.', [], []],
