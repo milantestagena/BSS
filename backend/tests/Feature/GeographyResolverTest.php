@@ -313,6 +313,79 @@ class GeographyResolverTest extends TestCase
         $this->assertNull($results->firstWhere('id', $onlyOne->id)->price_rank);
     }
 
+    /**
+     * Bug fixed 2026-08-14: price_rank used to reuse the country's CHEAPEST city as its whole
+     * price signal, so a country with one bargain outlier town read as "cheap" overall even when
+     * every other city in it was pricier than the other country's whole lineup. Owner caught
+     * this live (Turkey and Egypt both had a ~13€ outlier town, so they tied and lost their
+     * color entirely — see the next test). Average settles this correctly: countryA's real
+     * spread (15/15) beats countryB's (10/200) on typical price, even though countryB's MIN is
+     * lower.
+     */
+    public function test_price_rank_uses_average_across_a_countrys_cities_not_the_cheapest_one(): void
+    {
+        $countryA = $this->node('country', 'countrya');
+        $aCity1 = $this->node('city', 'a_city_1');
+        $aCity1->update(['parent_id' => $countryA->id]);
+        $aCity2 = $this->node('city', 'a_city_2');
+        $aCity2->update(['parent_id' => $countryA->id]);
+
+        $countryB = $this->node('country', 'countryb');
+        $bCity1 = $this->node('city', 'b_city_1');
+        $bCity1->update(['parent_id' => $countryB->id]);
+        $bCity2 = $this->node('city', 'b_city_2');
+        $bCity2->update(['parent_id' => $countryB->id]);
+
+        $campaign = \App\Models\WizardCampaign::create(['key' => 'test-campaign-avg', 'label' => 'Test avg']);
+        foreach ([$aCity1->id => 15, $aCity2->id => 15, $bCity1->id => 10, $bCity2->id => 200] as $cityId => $price) {
+            \App\Models\WizardCampaignDestinationPrice::create([
+                'wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $cityId, 'price_per_person_eur' => $price,
+            ]);
+        }
+
+        $session = SearchSession::create([
+            'status' => 'in_progress', 'adults_count' => 2, 'wizard_campaign_id' => $campaign->id,
+            'date_from' => '2026-09-01', 'date_to' => '2026-09-08',
+        ]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'country']);
+
+        $this->assertSame(1, $results->firstWhere('id', $countryA->id)->price_rank);
+        $this->assertSame(5, $results->firstWhere('id', $countryB->id)->price_rank);
+    }
+
+    /** Owner's follow-up call, 2026-08-14: a genuine tie is real information ("these cost the
+     *  same"), not missing data — both candidates get the same color (rank 2, a medium green in
+     *  priceRankClass) instead of losing their color entirely. */
+    public function test_price_rank_tie_gets_a_shared_color_instead_of_null(): void
+    {
+        $countryA = $this->node('country', 'tiea');
+        $cityA = $this->node('city', 'tiea_city');
+        $cityA->update(['parent_id' => $countryA->id]);
+
+        $countryB = $this->node('country', 'tieb');
+        $cityB = $this->node('city', 'tieb_city');
+        $cityB->update(['parent_id' => $countryB->id]);
+
+        $campaign = \App\Models\WizardCampaign::create(['key' => 'test-campaign-tie', 'label' => 'Test tie']);
+        \App\Models\WizardCampaignDestinationPrice::create([
+            'wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $cityA->id, 'price_per_person_eur' => 13,
+        ]);
+        \App\Models\WizardCampaignDestinationPrice::create([
+            'wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $cityB->id, 'price_per_person_eur' => 13,
+        ]);
+
+        $session = SearchSession::create([
+            'status' => 'in_progress', 'adults_count' => 2, 'wizard_campaign_id' => $campaign->id,
+            'date_from' => '2026-09-01', 'date_to' => '2026-09-08',
+        ]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'country']);
+
+        $this->assertSame(2, $results->firstWhere('id', $countryA->id)->price_rank);
+        $this->assertSame(2, $results->firstWhere('id', $countryB->id)->price_rank);
+    }
+
     public function test_falls_back_to_price_ascending_when_nothing_has_a_real_match_score(): void
     {
         // Owner's call, 2026-08-11: "cena je uvek parametar, jer svako oce da ustedi" — when

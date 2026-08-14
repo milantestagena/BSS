@@ -233,7 +233,10 @@ class GeographyResolver
         // Nights, not calendar days present — see WizardCampaignDestinationPrice's night-count
         // fix, 2026-08-12. No +1: checkout day itself is never a paid night.
         $nights = $checkin->diffInDays($checkout);
-        $total = $this->cheapestAccommodationTotal($node, $session, $totalTravelers, $nights);
+        // averageAccommodationTotal, not cheapestAccommodationTotal — this feeds price_rank
+        // (relative color), a different question than the budget-fit INCLUDE/EXCLUDE check
+        // elsewhere in this file. See averageAccommodationTotal's docblock, 2026-08-14.
+        $total = $this->averageAccommodationTotal($node, $session, $totalTravelers, $nights);
 
         return $total > 0.0 ? $total : null;
     }
@@ -248,9 +251,24 @@ class GeographyResolver
     {
         $values = collect($totals)->filter(fn (?float $v) => $v !== null && $v > 0);
 
-        if ($values->count() < 2 || $values->max() === $values->min()) {
+        if ($values->count() < 2) {
             foreach ($nodes as $node) {
                 $node->setAttribute('price_rank', null);
+            }
+
+            return;
+        }
+
+        // Owner's call, 2026-08-14: a genuine tie (every priced candidate landed on the exact
+        // same total) is still real information — "these cost the same" — not "we don't know."
+        // Gets the same color for everyone instead of no color at all, which used to read as a
+        // missing-data gap rather than an actual (if rare) price match. Rank 2 (lime, a medium
+        // green in priceRankClass) rather than the middle amber (3) — owner's follow-up call:
+        // "sve je bolje nego nema nista" (green reads as "still fine," not a warning).
+        if ($values->max() === $values->min()) {
+            foreach ($nodes as $node) {
+                $total = $totals[$node->id] ?? null;
+                $node->setAttribute('price_rank', ($total !== null && $total > 0) ? 2 : null);
             }
 
             return;
@@ -450,13 +468,19 @@ class GeographyResolver
      * WizardCampaignDestinationPrice). Uses the cheapest priced child city as the country's
      * representative accommodation cost, matching this engine's existing "never over-exclude,
      * lean toward what could still work" philosophy (same spirit as the 2-closest-fallback in
-     * narrowCandidates itself). 0.0 (no accommodation cost applied) if the session has no
-     * campaign, or none of the country's cities have a price filled in yet.
+     * narrowCandidates itself) — this is a hard budget-fit INCLUDE/EXCLUDE signal (see
+     * filterByBudget), so it deliberately asks "is there at least one affordable option here,"
+     * not "is the typical option here affordable." 0.0 (no accommodation cost applied) if the
+     * session has no campaign, or none of the country's cities have a price filled in yet.
      *
      * Weekly-price-aware, 2026-08-11 — each candidate city's CHEAPEST per-night rate across the
      * actual stay dates (see WizardCampaignDestinationPrice::cheapestNightlyRateFor) is used
      * instead of the flat price_per_person_eur scalar, so this stays correct once destinations
      * move to per-week pricing instead of one flat number.
+     *
+     * Deliberately NOT used for price_rank/color (see averageAccommodationTotal below) — MIN is
+     * right for "can they afford anything here," but wrong for "how does this country's overall
+     * price level compare to the others," which is what the color is showing.
      */
     private function cheapestAccommodationTotal(TaxonomyNode $country, SearchSession $session, int $totalTravelers, int $nights): float
     {
@@ -479,6 +503,42 @@ class GeographyResolver
             ->min();
 
         return $cheapestPerNight !== null ? $cheapestPerNight * $totalTravelers * $nights : 0.0;
+    }
+
+    /**
+     * Country-level accommodation signal for price_rank/color specifically (see
+     * assignPriceRanks) — a SEPARATE method from cheapestAccommodationTotal above on purpose,
+     * since that one deliberately answers a different question (budget-fit INCLUDE/EXCLUDE:
+     * "is there at least one affordable option here").
+     *
+     * Bug fixed 2026-08-14: price_rank used to reuse cheapestAccommodationTotal (MIN across
+     * cities), so a country's single cheapest outlier town stood in for its whole price signal —
+     * two countries that each happened to have one similarly-priced budget town (Turkey's Alanya
+     * and Egypt's Marsa Alam, both ~13€) came out with an IDENTICAL total and lost their color
+     * entirely (see assignPriceRanks' tie guard). Owner's call: average spreads candidates out
+     * by their overall price level instead of colliding on one shared bargain town.
+     */
+    private function averageAccommodationTotal(TaxonomyNode $country, SearchSession $session, int $totalTravelers, int $nights): float
+    {
+        if (! $session->wizard_campaign_id) {
+            return 0.0;
+        }
+
+        [$checkin, $checkout] = $this->tripCheckinCheckout($session);
+        if (! $checkin) {
+            return 0.0;
+        }
+
+        $avgPerNight = $country->children()
+            ->with(['campaignDestinationPrices' => fn ($q) => $q->where('wizard_campaign_id', $session->wizard_campaign_id)->with(['campaign', 'weeklyPrices'])])
+            ->get()
+            ->pluck('campaignDestinationPrices')
+            ->flatten()
+            ->map(fn ($priceRow) => $priceRow->cheapestNightlyRateFor($checkin, $checkout))
+            ->filter(fn ($v) => $v !== null)
+            ->avg();
+
+        return $avgPerNight !== null ? $avgPerNight * $totalTravelers * $nights : 0.0;
     }
 
     /**
