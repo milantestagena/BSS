@@ -33,14 +33,19 @@ class AuditDestinationData extends Command
             return self::FAILURE;
         }
 
-        $mediteran = TaxonomyNode::where('type', 'region_theme')->where('slug', 'mediteran')->first();
-        if (! $mediteran) {
-            $this->error("No 'mediteran' region_theme found.");
-
-            return self::FAILURE;
-        }
-
-        $countries = TaxonomyNode::where('type', 'country')->where('parent_id', $mediteran->id)->orderBy('label')->get();
+        // Bug fixed 2026-08-14: this used to resolve countries via `parent_id = mediteran`,
+        // which silently excluded Greece and Italy (and every one of their ~30 cities) from
+        // the WHOLE audit — both are country nodes REUSED from the old city-break taxonomy
+        // (parent_id still points to the old 'anticki_svet' region_theme, never reparented when
+        // the swim campaign added children under them), even though they're fully live,
+        // selectable countries in the real wizard. Resolving by "has at least one city with a
+        // vibe_profile" instead — the same real-membership signal
+        // campaign:seed-destination-price-rows already uses for its own city scoping — sidesteps
+        // the region_theme parentage question entirely instead of guessing at another one.
+        $countries = TaxonomyNode::where('type', 'country')
+            ->whereHas('children', fn ($q) => $q->where('type', 'city')->whereNotNull('meta->vibe_profile'))
+            ->orderBy('label')
+            ->get();
 
         $this->info('=== Per-country: hospitality & meal-plan data ===');
         $countryRows = [];

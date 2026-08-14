@@ -332,9 +332,6 @@ export class WizardComponent implements OnInit {
   readonly homeCityLabel = signal<string | null>(null);
   readonly finished = signal(false);
 
-  /** Card currently under the pointer in the "screen 2" destination grid — drives the
-   *  hover-preview panel in the reserved left column. Null shows nothing there. */
-  readonly hoveredNode = signal<TaxonomyNode | null>(null);
   readonly showCalculatingTransition = signal(false);
   readonly calculatingMessageIndex = signal(0);
 
@@ -1022,16 +1019,6 @@ export class WizardComponent implements OnInit {
   vibeDescription(node: TaxonomyNode | null): string | null {
     const profile = node?.meta?.['vibe_profile'] as { description?: string } | undefined;
     return profile?.description ?? null;
-  }
-
-  /** Owner's ask, 2026-08-14: the info-circle tap target on each destination card — works
-   *  identically on mobile and desktop, unlike the old hover-only sidebar (hidden entirely
-   *  below the lg breakpoint). Reuses hoveredNode as a click-toggle rather than a hover state
-   *  here; stopPropagation so tapping the circle never also fires the card's own selection
-   *  click underneath it. */
-  toggleNodeInfo(node: TaxonomyNode, event: Event): void {
-    event.stopPropagation();
-    this.hoveredNode.update((current) => (current === node ? null : node));
   }
 
   /** Left-column fallback when nothing's hovered — see STEP_DESCRIPTIONS. Prepends the
