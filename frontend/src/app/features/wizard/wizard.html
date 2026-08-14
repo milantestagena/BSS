@@ -102,24 +102,28 @@
           <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
             {{ i18n.t('otherShortlistedCities') }}
           </p>
+          <!-- Owner's call, 2026-08-14: same "no separate confirm button" pattern as the City
+               step — picking a shortlisted city is already the whole decision, so clicking it
+               starts the search immediately instead of waiting for a separate Search click. -->
           <div class="mb-2 flex flex-wrap items-center gap-2">
             @for (node of resultsCityChoices; track node.id) {
               <button
                 type="button"
-                class="rounded-full border px-3 py-1.5 text-sm font-medium transition"
+                class="rounded-full border px-3 py-1.5 text-sm font-medium transition disabled:opacity-60"
                 [class.border-sky-500]="isResultsCitySelected(node)"
                 [class.bg-sky-50]="isResultsCitySelected(node)"
                 [class.text-sky-700]="isResultsCitySelected(node)"
                 [class.border-slate-300]="!isResultsCitySelected(node)"
                 [class.hover:border-sky-400]="!isResultsCitySelected(node)"
-                (click)="selectedResultsCityId.set(node.id)"
+                [disabled]="wizard.loading()"
+                (click)="selectResultsCity(node)"
               >
                 {{ node.label }}
+                @if (wizard.loading() && isResultsCitySelected(node)) {
+                  <ui-spinner size="sm" />
+                }
               </button>
             }
-            <ui-button [loading]="wizard.loading()" (clicked)="searchResultsCity()">{{
-              i18n.t('search')
-            }}</ui-button>
           </div>
         }
         <!-- Owner's ask, 2026-08-12: not every tweak is "pick a different city" — sometimes
@@ -478,15 +482,20 @@
                   <p class="mt-2 text-xs text-amber-700">{{ i18n.t('fillRequiredFields') }}</p>
                 }
               } @else {
+                <!-- City step: no Proceed button — onDestinationCardSelect already advances the
+                     instant a card is clicked (exactly-one-by-definition, nothing left to
+                     confirm). Back stays, so a wrong tap is still recoverable. -->
                 <div class="mt-8 flex gap-3">
                   @if (wizard.visitedStepIndices().length > 1) {
                     <ui-button variant="secondary" [disabled]="submitting()" (clicked)="goBack()"
                       >{{ i18n.t('back') }}</ui-button
                     >
                   }
-                  <ui-button [disabled]="!canProceed" [loading]="submitting()" (clicked)="goNext()">{{ i18n.t('proceed') }}</ui-button>
+                  @if (!isCityStep) {
+                    <ui-button [disabled]="!canProceed" [loading]="submitting()" (clicked)="goNext()">{{ i18n.t('proceed') }}</ui-button>
+                  }
                 </div>
-                @if (!canProceed) {
+                @if (!canProceed && !isCityStep) {
                   <p class="mt-2 text-xs text-amber-700">{{ i18n.t('fillRequiredFields') }}</p>
                 }
               }

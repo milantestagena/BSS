@@ -534,6 +534,13 @@ export class WizardComponent implements OnInit {
     return (this.selectedResultsCityId() ?? (this.wizard.getAnswer('city') as string | undefined)) === node.id;
   }
 
+  /** Owner's call, 2026-08-14: clicking a shortlisted-city pill is the whole decision — no
+   *  separate Search button anymore, see wizard.html. */
+  selectResultsCity(node: TaxonomyNode): void {
+    this.selectedResultsCityId.set(node.id);
+    void this.searchResultsCity();
+  }
+
   /** Re-runs the results screen against a different shortlisted city — same session, no wizard
    *  steps re-walked. Resets honestReports so stale text from the OLD city's context never
    *  lingers under the new selection while the fresh ones load. */
@@ -696,6 +703,14 @@ export class WizardComponent implements OnInit {
   get showRoomsTogetherQuestion(): boolean {
     const step = this.wizard.currentStep();
     return !!step?.questions.some((q) => q.key === ROOMS_QUESTION_KEY) && this.wizard.totalTravelers() > 3;
+  }
+
+  /** Owner's call, 2026-08-14: the `grad` step is exactly-one-city-by-definition, and
+   *  onDestinationCardSelect already advances the instant a card is clicked — same "no separate
+   *  Proceed button" pattern as showRoomsTogetherQuestion above, just driven by step key since
+   *  there's no yes/no choice here to swap the nav row for. */
+  get isCityStep(): boolean {
+    return this.wizard.currentStep()?.key === 'grad';
   }
 
   /** Yes -> everyone in one unit. No -> ceil(travelers / 3), owner's own rule of thumb for
@@ -1010,6 +1025,11 @@ export class WizardComponent implements OnInit {
    * (matching the persona_tags/preference_tags multi-choice convention, since its session_field
    * no longer ends in `_id`), so onAnswerChange's implies/excludes pipeline resolves it exactly
    * like any other free_text_answers.* multi-choice field.
+   *
+   * Owner's call, 2026-08-14: picking a city is exactly-one by definition, so there's nothing
+   * left to decide once a card is clicked — the separate Proceed button on the `grad` step was
+   * pure friction. Clicking a city card now answers AND advances in one tap; country_region
+   * stays a plain toggle since it's multi-select (still needs its own Proceed).
    */
   onDestinationCardSelect(question: WizardQuestion, node: TaxonomyNode): void {
     if (question.key === 'country_region') {
@@ -1020,6 +1040,10 @@ export class WizardComponent implements OnInit {
     }
 
     this.onAnswerChange(question, node.id);
+
+    if (question.key === 'city') {
+      void this.goNext();
+    }
   }
 
   isDestinationSelected(question: WizardQuestion, node: TaxonomyNode): boolean {
@@ -1330,14 +1354,21 @@ export class WizardComponent implements OnInit {
   /** country_region is multi-select (owner's ask, 2026-08-12) — the answer is an array of
    *  country SLUGS (see onDestinationCardSelect), resolved here to IDs via whatever
    *  geographyOptions['country_region'] already holds, for passing as suggestedGeography's
-   *  parentIds. Empty when nothing's selected (region_theme step was skipped, or every country
-   *  card was deselected) — the resolver already treats that as "every country". */
+   *  parentIds.
+   *
+   *  Bug fixed 2026-08-14: nothing selected used to resolve to `[]`, which the backend reads as
+   *  "no parent filter at all" — that queried cities from EVERY country in the DB, not just the
+   *  ones actually offered on this narrowed screen (owner caught it live: Bruges/Belgium showing
+   *  up in a Mediterranean summer-sea campaign). Owner's call: an untouched country step means
+   *  "every OFFERED country stays in", so falls back to every id currently in
+   *  geographyOptions['country_region'] (the already budget/cultural/climate-narrowed candidate
+   *  set) instead of an empty array. */
   private selectedCountryIds(): string[] {
-    const selectedSlugs = (this.wizard.getAnswer('country_region') as string[] | undefined) ?? [];
-    if (selectedSlugs.length === 0) return [];
-
     const countryOptions = this.geographyOptions()['country_region'] ?? [];
-    return selectedSlugs
+    const selectedSlugs = (this.wizard.getAnswer('country_region') as string[] | undefined) ?? [];
+    const slugs = selectedSlugs.length > 0 ? selectedSlugs : countryOptions.map((n) => n.slug);
+
+    return slugs
       .map((slug) => countryOptions.find((n) => n.slug === slug)?.id)
       .filter((id): id is string => !!id);
   }
