@@ -35,9 +35,20 @@ class CommissionShare extends Model
      * `share_percentage` (e.g. standard 50%, or up to 100% for the launch-incentive partner);
      * the 2nd/3rd tiers are fixed standard values regardless of that negotiated rate, and the
      * 4th booking onward earns nothing.
+     *
+     * `decay_enabled = false` (owner's ask, 2026-08-14 — a micro-influencer blogger cohort)
+     * skips all of that: every booking, forever, pays the partner's own `share_percentage`
+     * flat. Owner's own reasoning: "ako mnogo dobrih dovede, mnogo mi je doneo prihod" — a
+     * partner earning more because they brought a lot of genuinely good referrals isn't a risk
+     * to cap, it scales with revenue they actually generated. Defaults to true (existing decay
+     * curve, unchanged) for every partner that hasn't opted into the flat rate.
      */
     public static function decayTierPercentage(ReferralPartner $partner, int $bookingSequenceNumber): float
     {
+        if (! $partner->decay_enabled) {
+            return (float) $partner->share_percentage;
+        }
+
         return match ($bookingSequenceNumber) {
             1 => (float) $partner->share_percentage,
             2 => 15.0,

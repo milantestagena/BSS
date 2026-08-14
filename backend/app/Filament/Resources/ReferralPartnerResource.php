@@ -33,7 +33,11 @@ class ReferralPartnerResource extends Resource
                 ->numeric()
                 ->required()
                 ->suffix('%')
-                ->helperText('Applied to the FIRST booking only — see CLAUDE.md section 6 decay tiers (2nd = 15%, 3rd = 5%, fixed).'),
+                ->helperText('With decay ON: applied to the FIRST booking only (2nd = 15%, 3rd = 5%, fixed, 4th+ = 0%). With decay OFF: applied to EVERY booking, forever.'),
+            Forms\Components\Toggle::make('decay_enabled')
+                ->label('Standard decay tiers')
+                ->default(true)
+                ->helperText('Off = flat share_percentage on every booking forever, instead of dropping to 15%/5%/0% after the first few. Owner\'s call, 2026-08-14, for partner cohorts like micro-influencer bloggers.'),
             Forms\Components\Select::make('status')
                 ->options(['active' => 'Active', 'inactive' => 'Inactive'])
                 ->required(),
@@ -48,6 +52,8 @@ class ReferralPartnerResource extends Resource
                 Tables\Columns\TextColumn::make('user.name')->label('Name')->weight(FontWeight::Medium)->searchable(),
                 Tables\Columns\TextColumn::make('user.email')->label('Email')->searchable(),
                 Tables\Columns\TextColumn::make('share_percentage')->label('First-booking share')->suffix('%'),
+                Tables\Columns\IconColumn::make('decay_enabled')->label('Decay')->boolean()
+                    ->tooltip('On = drops to 15%/5%/0% after the first bookings. Off = flat share_percentage forever.'),
                 Tables\Columns\TextColumn::make('status')->badge()
                     ->color(fn (string $state) => $state === 'active' ? 'success' : 'gray'),
                 Tables\Columns\TextColumn::make('referral_codes_count')->counts('referralCodes')->label('Codes'),
