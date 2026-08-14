@@ -77,4 +77,31 @@ class WizardCampaignDestinationPriceTest extends TestCase
 
         $this->assertSame(30.0, $rate);
     }
+
+    public function test_falls_back_to_flat_price_when_weekly_rows_exist_but_are_all_still_empty(): void
+    {
+        // Real bug caught live 2026-08-14: campaign:seed-destination-weekly-price-rows
+        // pre-creates a weekly row per season week with a NULL price, ready to fill in later.
+        // estimateAccommodationTotal used to check "do any weekly ROWS exist" to decide whether
+        // to fall back to the flat price_per_person_eur — rows existing (even all-empty) meant
+        // it never fell back, so a destination with a real flat price but still-unfilled weekly
+        // rows silently totaled 0.0 instead. Rodos was exactly this case in production: real
+        // flat price entered, 10 empty weekly placeholder rows, total came back 0.
+        $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'testgrad', 'label' => 'test', 'sort_order' => 0]);
+        $campaign = WizardCampaign::create([
+            'key' => 'testcamp', 'label' => 'test', 'is_active' => true, 'sort_order' => 0,
+            'season_start_date' => '2026-08-29', 'season_end_date' => '2026-11-01',
+        ]);
+        $price = WizardCampaignDestinationPrice::create([
+            'wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $city->id, 'price_per_person_eur' => 24,
+        ]);
+        // Pre-created, still empty — exactly what the seeder leaves behind before anyone fills them in.
+        $price->weeklyPrices()->create(['week_start_date' => '2026-09-19', 'price_per_person_eur' => null]);
+        $price->weeklyPrices()->create(['week_start_date' => '2026-09-26', 'price_per_person_eur' => null]);
+
+        $total = $price->estimateAccommodationTotal(Carbon::parse('2026-09-19'), Carbon::parse('2026-09-27'), 2);
+
+        // 8 nights * 24 EUR * 2 travelers = 384, NOT 0.
+        $this->assertSame(384.0, $total);
+    }
 }

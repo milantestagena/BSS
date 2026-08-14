@@ -52,17 +52,24 @@ class WizardCampaignDestinationPrice extends Model
     public function estimateAccommodationTotal(CarbonInterface $checkin, CarbonInterface $checkout, int $totalTravelers): float
     {
         $seasonStart = $this->campaign?->season_start_date;
-        $weeklyPrices = $this->weeklyPrices;
+        // Bug fixed 2026-08-14: this used to check `$this->weeklyPrices->isEmpty()` — whether
+        // any weekly ROWS exist at all — not whether any of them actually have a price. Weekly
+        // rows are pre-created empty for every destination (see campaign:seed-destination-
+        // weekly-price-rows) well before they're filled in, so a destination with a real flat
+        // `price_per_person_eur` but still-empty weekly rows silently computed a total of 0.0
+        // instead of falling back to that flat price — starved every such city of a real
+        // accommodation total (no price_rank color, budget fit always "insufficient", zero
+        // Honest Report accommodation cost). `cheapestNightlyRateFor` below already had the
+        // correct check; this now matches it.
+        $pricedWeeks = $this->weeklyPrices->filter(fn (WizardCampaignDestinationWeeklyPrice $w) => $w->price_per_person_eur !== null);
 
         // Owner's catch, 2026-08-12: checkin Sep 19 / checkout Sep 27 is 8 NIGHTS (19-26 slept,
         // checkout morning of the 27th — no night charged for the 27th), not 9. Nights are
         // `diffInDays` with no +1 — the +1 convention belongs to FOOD estimates only (you still
         // eat on checkout day, but you don't sleep there), and had been wrongly copied over here.
-        if (! $seasonStart || $weeklyPrices->isEmpty()) {
+        if (! $seasonStart || $pricedWeeks->isEmpty()) {
             return ($this->price_per_person_eur ?? 0.0) * $totalTravelers * $checkin->diffInDays($checkout);
         }
-
-        $pricedWeeks = $weeklyPrices->filter(fn (WizardCampaignDestinationWeeklyPrice $w) => $w->price_per_person_eur !== null);
 
         $totalPerPerson = 0.0;
         $cursor = $checkin->copy();

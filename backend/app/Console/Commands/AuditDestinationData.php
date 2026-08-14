@@ -71,9 +71,14 @@ class AuditDestinationData extends Command
                 $hasVibe = ! empty($city->meta['vibe_profile']['description'] ?? null);
 
                 $priceRow = $city->campaignDestinationPrices()->where('wizard_campaign_id', $campaign->id)->first();
+                // Bug fixed 2026-08-14 (same one as WizardCampaignDestinationPrice::
+                // estimateAccommodationTotal): a weekly row EXISTING (pre-created empty) isn't
+                // the same as it having a real price — this used to report "price ✓" for cities
+                // whose weekly prices were all still null, hiding the exact gap this audit
+                // exists to catch.
                 $hasPrice = $priceRow && (
                     $priceRow->price_per_person_eur !== null
-                    || $priceRow->weeklyPrices()->exists()
+                    || $priceRow->weeklyPrices()->whereNotNull('price_per_person_eur')->exists()
                 );
 
                 $hasClimate = $city->climateMonths()->exists();
