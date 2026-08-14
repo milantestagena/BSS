@@ -399,16 +399,32 @@
                             >
                               <!-- Owner's ask, 2026-08-13: country/region became multi-select, so
                                    a City grid can now mix cities from several countries — this is
-                                   the "which one is this" hint, only shown at the City step.
-                                   2-letter code (not the full name) so it never collides with a
-                                   long city label — node.label below gets a matching right-padding
-                                   reservation as a second guard. -->
+                                   the "which one is this" hint, only shown at the City step. Moved
+                                   to the LEFT, 2026-08-14 (owner's call) — most people are right-
+                                   handed, and this is a passive label, not a tap target, unlike
+                                   the info circle which now owns the right side. -->
                               @if (question.key === 'city' && node.parent; as parent) {
-                                <span class="absolute right-3 top-3 text-[10px] font-semibold uppercase text-slate-400">{{
+                                <span class="absolute left-3 top-3 text-[10px] font-semibold uppercase text-slate-400">{{
                                   countryCodeFor(parent)
                                 }}</span>
                               }
-                              <span class="block pr-8">{{ node.label }}</span>
+                              <!-- Owner's ask, 2026-08-14: the vibe_profile description used to
+                                   only show on desktop hover (see hoveredNode above) — a `hidden
+                                   lg:block` sidebar panel, meaning it never existed at all on
+                                   mobile/tablet (no hover, and the panel itself was display:none
+                                   below the lg breakpoint). This tap/click target works
+                                   identically on every device — toggles the SAME hoveredNode
+                                   signal, which the inline block right below reads directly
+                                   inside the card instead of relying on that hidden sidebar. -->
+                              <span
+                                role="button"
+                                tabindex="0"
+                                class="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 bg-white text-[11px] font-semibold text-slate-500 hover:border-sky-400 hover:text-sky-600"
+                                [attr.aria-label]="i18n.t('destinationInfoAriaLabel')"
+                                (click)="toggleNodeInfo(node, $event)"
+                                (keydown.enter)="toggleNodeInfo(node, $event)"
+                              >i</span>
+                              <span class="block px-8">{{ node.label }}</span>
                               @if (matchedTagLabelsFor(node); as matched) {
                                 <span class="mt-0.5 block text-xs font-normal text-slate-500">{{ matched }}</span>
                               }
@@ -418,6 +434,11 @@
                                   [class.text-amber-700]="node.budgetCaveat"
                                   [class.text-emerald-700]="!node.budgetCaveat"
                                 >{{ budgetNote }}</span>
+                              }
+                              @if (hoveredNode() === node) {
+                                <span class="mt-2 block rounded-lg bg-slate-50 p-2 text-xs font-normal leading-relaxed text-slate-600">{{
+                                  vibeDescription(node) ?? i18n.t('destinationInfoNotDescribed')
+                                }}</span>
                               }
                             </button>
                           }

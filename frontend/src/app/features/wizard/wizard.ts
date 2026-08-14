@@ -1024,6 +1024,16 @@ export class WizardComponent implements OnInit {
     return profile?.description ?? null;
   }
 
+  /** Owner's ask, 2026-08-14: the info-circle tap target on each destination card — works
+   *  identically on mobile and desktop, unlike the old hover-only sidebar (hidden entirely
+   *  below the lg breakpoint). Reuses hoveredNode as a click-toggle rather than a hover state
+   *  here; stopPropagation so tapping the circle never also fires the card's own selection
+   *  click underneath it. */
+  toggleNodeInfo(node: TaxonomyNode, event: Event): void {
+    event.stopPropagation();
+    this.hoveredNode.update((current) => (current === node ? null : node));
+  }
+
   /** Left-column fallback when nothing's hovered — see STEP_DESCRIPTIONS. Prepends the
    *  campaign-context blurb only on the very first step (visitedStepIndices().length === 1),
    *  since that's the one place a first-time viewer hasn't yet seen enough of the flow to

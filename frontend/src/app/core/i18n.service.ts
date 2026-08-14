@@ -81,6 +81,8 @@ const STRINGS: Record<'en' | 'de', Record<string, string>> = {
     budgetNoteSelfCatering: 'Fits if you cook for yourself',
     budgetNoteMealPlan: 'Fits your chosen meal plan',
     budgetNoteRoomToSpare: "You could even go here with a smaller budget",
+    destinationInfoAriaLabel: 'More about this destination',
+    destinationInfoNotDescribed: 'Not described yet.',
   },
   de: {
     back: 'Zurück',
@@ -154,6 +156,8 @@ const STRINGS: Record<'en' | 'de', Record<string, string>> = {
     budgetNoteSelfCatering: 'Passt, wenn du selbst kochst',
     budgetNoteMealPlan: 'Passt zu deiner gewählten Verpflegung',
     budgetNoteRoomToSpare: 'Hier würde sogar ein kleineres Budget reichen',
+    destinationInfoAriaLabel: 'Mehr über dieses Reiseziel',
+    destinationInfoNotDescribed: 'Noch nicht beschrieben.',
   },
 };
 
