@@ -370,17 +370,16 @@ class SearchSessionQueryCompiler
         [$checkin, $checkout] = $this->resolveDates();
         $days = $checkin->diffInDays($checkout) + 1;
 
-        // Same threading as GeographyResolver::filterByBudget, 2026-08-13 — a chosen destination
-        // shouldn't say "eating_out fits" once a meal_plan_preference was stated and we don't
-        // have a real bundled price for it.
+        // Same threading as GeographyResolver::filterByBudget, 2026-08-14 — every meal_plan_
+        // preference pick is checked (not collapsed to one "strongest" slug), and the best one
+        // that actually fits wins, e.g. 'sve_ukljuceno' if it fits, else 'samostalno_kuvanje'.
         $mealPlanSlugs = $this->session->free_text_answers['meal_plan_preference'] ?? [];
-        $mealPlanSlug = BudgetEstimationEngine::strongestMealPlanSlug($mealPlanSlugs);
 
         return [
             'total_budget_eur' => (float) $this->session->total_budget,
             'fit' => (new BudgetEstimationEngine)->fitFor(
                 $context['country'], (float) $this->session->total_budget, $this->session->adults_count, $children, $days,
-                $context['accommodation_total_eur'], $context['meals_included'], $mealPlanSlug
+                $context['accommodation_total_eur'], $context['meals_included'], $mealPlanSlugs
             ),
             'estimate' => $context['estimate'],
             'accommodation_total_eur' => $context['accommodation_total_eur'],

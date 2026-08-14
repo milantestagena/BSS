@@ -147,10 +147,10 @@ class BudgetEstimationEngineTest extends TestCase
         $country->update(['meta' => [...$country->meta, 'meal_plan_coefficient' => 1.0]]);
         $engine = new BudgetEstimationEngine;
 
-        $this->assertSame('meal_plan', $engine->fitFor($country, 623, 2, 2, 7, mealPlanSlug: 'dorucak'));
-        $this->assertSame('insufficient', $engine->fitFor($country, 622, 2, 2, 7, mealPlanSlug: 'dorucak'));
-        $this->assertSame('meal_plan', $engine->fitFor($country, 623, 2, 2, 7, mealPlanSlug: 'sve_ukljuceno'));
-        $this->assertSame('insufficient', $engine->fitFor($country, 622, 2, 2, 7, mealPlanSlug: 'sve_ukljuceno'));
+        $this->assertSame('dorucak', $engine->fitFor($country, 623, 2, 2, 7, mealPlanSlugs: ['dorucak']));
+        $this->assertSame('insufficient', $engine->fitFor($country, 622, 2, 2, 7, mealPlanSlugs: ['dorucak']));
+        $this->assertSame('sve_ukljuceno', $engine->fitFor($country, 623, 2, 2, 7, mealPlanSlugs: ['sve_ukljuceno']));
+        $this->assertSame('insufficient', $engine->fitFor($country, 622, 2, 2, 7, mealPlanSlugs: ['sve_ukljuceno']));
     }
 
     public function test_meal_plan_slug_with_no_coefficient_set_uses_the_0_8_default(): void
@@ -163,12 +163,12 @@ class BudgetEstimationEngineTest extends TestCase
         $engine = new BudgetEstimationEngine;
 
         // dorucak: coveredFraction 0.12 -> 623 * (1 + 0.12*(0.8-1)) = 608.048
-        $this->assertSame('meal_plan', $engine->fitFor($country, 609, 2, 2, 7, mealPlanSlug: 'dorucak'));
-        $this->assertSame('insufficient', $engine->fitFor($country, 608, 2, 2, 7, mealPlanSlug: 'dorucak'));
+        $this->assertSame('dorucak', $engine->fitFor($country, 609, 2, 2, 7, mealPlanSlugs: ['dorucak']));
+        $this->assertSame('insufficient', $engine->fitFor($country, 608, 2, 2, 7, mealPlanSlugs: ['dorucak']));
 
         // sve_ukljuceno: coveredFraction 1.0 -> 623 * 0.8 = 498.4
-        $this->assertSame('meal_plan', $engine->fitFor($country, 499, 2, 2, 7, mealPlanSlug: 'sve_ukljuceno'));
-        $this->assertSame('insufficient', $engine->fitFor($country, 498, 2, 2, 7, mealPlanSlug: 'sve_ukljuceno'));
+        $this->assertSame('sve_ukljuceno', $engine->fitFor($country, 499, 2, 2, 7, mealPlanSlugs: ['sve_ukljuceno']));
+        $this->assertSame('insufficient', $engine->fitFor($country, 498, 2, 2, 7, mealPlanSlugs: ['sve_ukljuceno']));
     }
 
     public function test_all_inclusive_costs_more_than_eating_out_when_coefficient_above_one(): void
@@ -178,8 +178,8 @@ class BudgetEstimationEngineTest extends TestCase
         $engine = new BudgetEstimationEngine;
 
         // sve_ukljuceno covers the FULL 2.5 ratio, so its total is exactly eatingOutTotal * 1.5 = 934.5.
-        $this->assertSame('meal_plan', $engine->fitFor($country, 935, 2, 2, 7, mealPlanSlug: 'sve_ukljuceno'));
-        $this->assertSame('insufficient', $engine->fitFor($country, 934, 2, 2, 7, mealPlanSlug: 'sve_ukljuceno'));
+        $this->assertSame('sve_ukljuceno', $engine->fitFor($country, 935, 2, 2, 7, mealPlanSlugs: ['sve_ukljuceno']));
+        $this->assertSame('insufficient', $engine->fitFor($country, 934, 2, 2, 7, mealPlanSlugs: ['sve_ukljuceno']));
     }
 
     public function test_a_lighter_meal_plan_costs_less_than_all_inclusive_under_the_same_coefficient(): void
@@ -192,8 +192,8 @@ class BudgetEstimationEngineTest extends TestCase
         $engine = new BudgetEstimationEngine;
 
         // eating_out total 623; dorucak covers 0.3/2.5 of it -> 623 * (1 + 0.12*0.5) = 660.38
-        $this->assertSame('meal_plan', $engine->fitFor($country, 661, 2, 2, 7, mealPlanSlug: 'dorucak'));
-        $this->assertSame('insufficient', $engine->fitFor($country, 660, 2, 2, 7, mealPlanSlug: 'dorucak'));
+        $this->assertSame('dorucak', $engine->fitFor($country, 661, 2, 2, 7, mealPlanSlugs: ['dorucak']));
+        $this->assertSame('insufficient', $engine->fitFor($country, 660, 2, 2, 7, mealPlanSlugs: ['dorucak']));
     }
 
     public function test_samostalno_kuvanje_meal_plan_slug_uses_the_existing_self_catering_path(): void
@@ -205,19 +205,27 @@ class BudgetEstimationEngineTest extends TestCase
         $country = $this->countryWithPrices(meal: 10, coffee: 2); // eating_out 623, self_catering ~178
         $engine = new BudgetEstimationEngine;
 
-        $this->assertSame('self_catering', $engine->fitFor($country, 200, 2, 2, 7, mealPlanSlug: 'samostalno_kuvanje'));
-        $this->assertSame('insufficient', $engine->fitFor($country, 50, 2, 2, 7, mealPlanSlug: 'samostalno_kuvanje'));
+        $this->assertSame('samostalno_kuvanje', $engine->fitFor($country, 200, 2, 2, 7, mealPlanSlugs: ['samostalno_kuvanje']));
+        $this->assertSame('insufficient', $engine->fitFor($country, 50, 2, 2, 7, mealPlanSlugs: ['samostalno_kuvanje']));
     }
 
-    public function test_strongest_meal_plan_slug_picks_the_most_demanding_pick(): void
+    public function test_multiple_meal_plan_picks_are_a_priority_list_not_a_contradiction(): void
     {
-        $this->assertSame('sve_ukljuceno', BudgetEstimationEngine::strongestMealPlanSlug(['dorucak', 'sve_ukljuceno']));
-        $this->assertSame('dorucak_rucak', BudgetEstimationEngine::strongestMealPlanSlug(['dorucak_rucak', 'dorucak_vecera']));
-        // samostalno_kuvanje ranks lowest — only wins if it's the only thing picked, since
-        // picking it alongside a real hotel meal tier is a contradiction and the pricier one is
-        // the honest bar to test against.
-        $this->assertSame('samostalno_kuvanje', BudgetEstimationEngine::strongestMealPlanSlug(['samostalno_kuvanje']));
-        $this->assertSame('dorucak', BudgetEstimationEngine::strongestMealPlanSlug(['samostalno_kuvanje', 'dorucak']));
-        $this->assertNull(BudgetEstimationEngine::strongestMealPlanSlug([]));
+        // Owner's own framing, 2026-08-14: picking BOTH all-inclusive and self-catering means
+        // "all-inclusive if it fits, self-catering if that's what it takes" — "teo bih da se
+        // uklopim u all inclusive negde, al ako nema, pa mogu i da przim pomfrit iz kese na
+        // terasi." Every pick is checked; the BEST one that actually fits wins, returned as its
+        // own real slug — this is what lets a caller say "Egypt: all-inclusive, Greece: self-
+        // catering" for the same session.
+        $country = $this->countryWithPrices(meal: 10, coffee: 2); // eating_out 623, self_catering 178, sve_ukljuceno@0.8 coefficient = 498.4
+        $engine = new BudgetEstimationEngine;
+        $picks = ['sve_ukljuceno', 'samostalno_kuvanje'];
+
+        // Budget covers self-catering but not all-inclusive -> falls through to the one that fits.
+        $this->assertSame('samostalno_kuvanje', $engine->fitFor($country, 200, 2, 2, 7, mealPlanSlugs: $picks));
+        // Budget covers BOTH -> the more-preferred (all-inclusive) wins, not just whichever's cheapest.
+        $this->assertSame('sve_ukljuceno', $engine->fitFor($country, 500, 2, 2, 7, mealPlanSlugs: $picks));
+        // Budget covers neither.
+        $this->assertSame('insufficient', $engine->fitFor($country, 100, 2, 2, 7, mealPlanSlugs: $picks));
     }
 }

@@ -780,8 +780,14 @@ export class WizardComponent implements OnInit {
    *  every single card. */
   budgetNoteFor(node: TaxonomyNode): string | null {
     if (node.budgetCaveat) return this.i18n.t('budgetNoteCaveat');
-    if (node.budgetFit === 'self_catering') return this.i18n.t('budgetNoteSelfCatering');
-    if (node.budgetFit === 'meal_plan') return this.i18n.t('budgetNoteMealPlan');
+    // Owner's redesign, 2026-08-14: budgetFit is now the SPECIFIC winning meal_plan_preference
+    // slug (e.g. 'sve_ukljuceno', 'samostalno_kuvanje') when meal_plan_preference was answered
+    // — every pick is checked as a priority list, not collapsed to one before testing — rather
+    // than a generic 'meal_plan'/'self_catering' bucket. 'samostalno_kuvanje' still gets its
+    // own message (whether it came from that list or the old plain self_catering default path);
+    // any other real slug is "a specific meal plan matched," without naming which one yet.
+    if (node.budgetFit === 'self_catering' || node.budgetFit === 'samostalno_kuvanje') return this.i18n.t('budgetNoteSelfCatering');
+    if (node.budgetFit && node.budgetFit !== 'eating_out') return this.i18n.t('budgetNoteMealPlan');
     // priceRank <= 2 (cheapest/second-cheapest of what's currently shown) is the "you have real
     // headroom" signal — reusing the already-computed rank rather than adding a second budget
     // pass just to detect comfortable margin.
