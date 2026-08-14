@@ -110,7 +110,10 @@ class WizardSeeder extends Seeder
     {
         $items = [
             ['slug' => 'istrazivac', 'en' => 'Explorer', 'sr' => 'Istraživač'],
-            ['slug' => 'partijaner', 'en' => 'Partygoer', 'sr' => 'Partijaner'],
+            // "Partygoer" -> "Party animal" (owner's catch, 2026-08-14: "nikad nisam čuo izraz,
+            // boo mi oči") — matches the same playful, idiomatic register as the other personas
+            // (Explorer, Foodie, Chillseeker), not a stiffer/more journalistic word.
+            ['slug' => 'partijaner', 'en' => 'Party animal', 'sr' => 'Partijaner'],
             // Relations (Gurman/Foodie implies dobra_hrana) are wired up in seedRelations()
             // now that they live in the taxonomy_node_relations table, not in meta —
             // see wizard_architecture / admin-editability decision.
@@ -1909,7 +1912,7 @@ class WizardSeeder extends Seeder
             ],
             'persona' => [
                 'istrazivac' => 'Entdecker',
-                'partijaner' => 'Partygänger',
+                'partijaner' => 'Partytier',
                 'gurman' => 'Feinschmecker',
                 'flegma' => 'Genießer — einfach entspannen',
             ],
