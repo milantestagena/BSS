@@ -49,9 +49,9 @@ class BudgetEstimationEngine
      * eating-out day, per the same per-adult mealPrice this whole class already uses. Breakfast
      * is lighter than a full meal (~0.3), dinner a bit less than lunch (~0.65) — same "plain
      * reasoned constant, not measured" convention as everything else here. `sve_ukljuceno`
-     * (all-inclusive) covers the WHOLE 2.5 — nothing left to eat out.
-     * `samostalno_kuvanje` (self-catering) isn't in this map — it reuses the EXISTING
-     * self-catering path (the user is cooking, not the hotel feeding them).
+     * (all-inclusive) covers the WHOLE 2.5 — nothing left to eat out. Self-catering isn't in
+     * this map at all, 2026-08-14 — it's its own top-level meal_style ('sam_se_snalazim'), not
+     * a meal_plan_preference pick anymore (see fitFor's `$mealStyle` param).
      */
     private const MEAL_PLAN_COVERAGE_RATIOS = [
         'dorucak' => 0.3,
@@ -108,28 +108,36 @@ class BudgetEstimationEngine
      * elsewhere (SearchSessionQueryCompiler's `estimate` signal) — the fit result never
      * actually reflected the zeroing.
      *
-     * `$mealPlanSlugs` (2026-08-13, redesigned 2026-08-14): the session's requested
-     * meal_plan_preference picks, ONLY consulted when `$mealsIncluded` is false — i.e. we don't
-     * have a real bundled price for this destination, so estimate one instead of silently
-     * ignoring what was asked for (owner's catch: a 500€/8-day/all-inclusive session was
-     * passing Greece at a price that could never actually buy all-inclusive there).
+     * `$mealStyle` (2026-08-14, second redesign): the session's meal_style answer —
+     * 'jede_napolju' (Local restaurants), 'u_smestaju' (At the accommodation), or
+     * 'sam_se_snalazim' (I'll organize myself / cook). Checked FIRST and takes priority over
+     * everything below: 'jede_napolju' ONLY ever tries eating_out (no silent self_catering
+     * fallback), 'sam_se_snalazim' ONLY ever tries self_catering directly. Real bug this fixes,
+     * caught live: a session that explicitly said "I eat at restaurants" was still shown
+     * countries captioned "Fits if you cook for yourself" — the OLD no-mealPlanSlugs fallback
+     * tried self_catering as a second attempt regardless of what the user actually said, which
+     * made sense before meal_style existed as an explicit signal but is actively misleading now.
+     * 'u_smestaju' falls through to the `$mealPlanSlugs` branch below (nothing to check yet
+     * without a specific tier).
+     *
+     * `$mealPlanSlugs` (2026-08-13): the session's requested meal_plan_preference picks — hotel
+     * tiers only now (self-catering isn't one of these anymore, see MEAL_PLAN_COVERAGE_RATIOS'
+     * docblock), only ever populated when `$mealStyle === 'u_smestaju'` (see
+     * WizardService.isQuestionVisible). ONLY consulted when `$mealsIncluded` is false — i.e. we
+     * don't have a real bundled price for this destination, so estimate one instead of silently
+     * ignoring what was asked for (owner's catch: a 500€/8-day/all-inclusive session was passing
+     * Greece at a price that could never actually buy all-inclusive there).
      *
      * Multi-select here is NOT a contradiction to resolve down to one slug — owner's own
      * framing, 2026-08-14: "teo bih da se uklopim u all inclusive negde, al ako nema, pa mogu i
-     * da przim pomfrit iz kese na terasi" (picking both all-inclusive AND self-catering means
-     * "all-inclusive if it fits, self-catering if that's what it takes" — a priority list, not
-     * a mistake). So every pick is checked, from most-inclusive/preferred down to least, and the
+     * da przim pomfrit iz kese na terasi" (picking both all-inclusive AND a lighter tier means
+     * "all-inclusive if it fits, breakfast if that's what it takes" — a priority list, not a
+     * mistake). So every pick is checked, from most-inclusive/preferred down to least, and the
      * BEST one that actually fits wins — returned as ITS OWN slug (e.g. 'sve_ukljuceno',
-     * 'dorucak', 'samostalno_kuvanje'), not a generic 'meal_plan'/'self_catering' bucket, so a
-     * caller can say "Egypt: all-inclusive fits, Greece: only self-catering does." Only
-     * 'insufficient' when NONE of the picks fit. `samostalno_kuvanje` routes straight to the
-     * existing self_catering total; it's only ever a real pick here because meal_plan_preference
-     * is gated behind meal_style saying "at the accommodation" (2026-08-14 redesign — meal_style
-     * itself carries no budget logic of its own, it's a pure flow gate, see
-     * WizardService.isQuestionVisible). An empty array falls through to the original plain
-     * eating_out/self_catering behavior (no meal_plan_preference asked/answered at all).
+     * 'dorucak'), not a generic 'meal_plan' bucket, so a caller can say "Egypt: all-inclusive
+     * fits, Turkey: only breakfast does." Only 'insufficient' when NONE of the picks fit.
      */
-    public function fitFor(TaxonomyNode $country, float $totalBudget, int $adults, int $children, int $days, float $accommodationTotal = 0.0, bool $mealsIncluded = false, array $mealPlanSlugs = []): ?string
+    public function fitFor(TaxonomyNode $country, float $totalBudget, int $adults, int $children, int $days, float $accommodationTotal = 0.0, bool $mealsIncluded = false, array $mealPlanSlugs = [], ?string $mealStyle = null): ?string
     {
         if ($mealsIncluded) {
             return $totalBudget >= $accommodationTotal ? 'eating_out' : 'insufficient';
@@ -146,20 +154,20 @@ class BudgetEstimationEngine
             return 'insufficient';
         }
 
+        if ($mealStyle === 'jede_napolju') {
+            return $disposableBudget >= $estimate['eating_out_total_eur'] ? 'eating_out' : 'insufficient';
+        }
+
+        if ($mealStyle === 'sam_se_snalazim') {
+            return $disposableBudget >= $estimate['self_catering_total_eur'] ? 'self_catering' : 'insufficient';
+        }
+
         if (! empty($mealPlanSlugs)) {
             $ranked = collect($mealPlanSlugs)
-                ->filter(fn (string $slug) => $slug === 'samostalno_kuvanje' || isset(self::MEAL_PLAN_COVERAGE_RATIOS[$slug]))
-                ->sortByDesc(fn (string $slug) => self::MEAL_PLAN_COVERAGE_RATIOS[$slug] ?? -1);
+                ->filter(fn (string $slug) => isset(self::MEAL_PLAN_COVERAGE_RATIOS[$slug]))
+                ->sortByDesc(fn (string $slug) => self::MEAL_PLAN_COVERAGE_RATIOS[$slug]);
 
             foreach ($ranked as $slug) {
-                if ($slug === 'samostalno_kuvanje') {
-                    if ($disposableBudget >= $estimate['self_catering_total_eur']) {
-                        return 'samostalno_kuvanje';
-                    }
-
-                    continue;
-                }
-
                 if ($disposableBudget >= $this->mealPlanTotalFor($country, $slug, $estimate['eating_out_total_eur'])) {
                     return $slug;
                 }
@@ -168,6 +176,8 @@ class BudgetEstimationEngine
             return 'insufficient';
         }
 
+        // Defensive only — meal_style is mandatory, so this should be unreachable once a
+        // session has actually finished the broj_putnika step.
         if ($disposableBudget >= $estimate['eating_out_total_eur']) {
             return 'eating_out';
         }
@@ -222,17 +232,17 @@ class BudgetEstimationEngine
      * fitFor()'s parameter. Kept decoupled from campaign/session specifics on purpose — this
      * engine only ever deals in plain numbers, the caller supplies how to get them.
      *
-     * `$mealPlanSlugs` (2026-08-13): threaded straight into fitFor() for every candidate — see
-     * that method's docblock.
+     * `$mealPlanSlugs` / `$mealStyle` (2026-08-13 / 2026-08-14): threaded straight into fitFor()
+     * for every candidate — see that method's docblock.
      *
      * @param  Collection<int, TaxonomyNode>  $countries
      * @param  string[]  $mealPlanSlugs
      * @return Collection<int, array{country: TaxonomyNode, estimate: array, accommodation_total_eur: float, fit: string, caveat: bool}>
      */
-    public function narrowCandidates(Collection $countries, float $totalBudget, int $adults, int $children, int $days, ?callable $accommodationTotalFor = null, array $mealPlanSlugs = []): Collection
+    public function narrowCandidates(Collection $countries, float $totalBudget, int $adults, int $children, int $days, ?callable $accommodationTotalFor = null, array $mealPlanSlugs = [], ?string $mealStyle = null): Collection
     {
         $evaluated = $countries
-            ->map(function (TaxonomyNode $country) use ($totalBudget, $adults, $children, $days, $accommodationTotalFor, $mealPlanSlugs) {
+            ->map(function (TaxonomyNode $country) use ($totalBudget, $adults, $children, $days, $accommodationTotalFor, $mealPlanSlugs, $mealStyle) {
                 $estimate = $this->estimate($country, $adults, $children, $days);
                 if ($estimate === null) {
                     return null;
@@ -244,7 +254,7 @@ class BudgetEstimationEngine
                     'country' => $country,
                     'estimate' => $estimate,
                     'accommodation_total_eur' => $accommodationTotal,
-                    'fit' => $this->fitFor($country, $totalBudget, $adults, $children, $days, $accommodationTotal, false, $mealPlanSlugs),
+                    'fit' => $this->fitFor($country, $totalBudget, $adults, $children, $days, $accommodationTotal, false, $mealPlanSlugs, $mealStyle),
                     'caveat' => false,
                 ];
             })

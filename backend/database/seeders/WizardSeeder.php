@@ -154,18 +154,36 @@ class WizardSeeder extends Seeder
      * Booking filter behind either slug — pure wizard-side budget logic, same category as
      * group_type/relationship_type.
      */
+    /**
+     * Redesigned 2026-08-14 (owner's catch, second pass) — three top-level options now, each
+     * mapping to one of BudgetEstimationEngine's three real spending styles directly:
+     * - jede_napolju (Local restaurants) -> pure eating_out budget path.
+     * - u_smestaju (At the accommodation) -> reveals meal_plan_preference's hotel-tier picker
+     *   (breakfast/half-board/full-board/all-inclusive — self-catering pulled back OUT of that
+     *   list, see seedAmenities' $mealPlans, since it's its own top-level option again now).
+     * - sam_se_snalazim (I'll organize myself / cook) -> pure self_catering budget path
+     *   directly, no follow-up question (nothing to ask — there's no "tier" of self-catering).
+     *
+     * Why the earlier "At the accommodation" design (2026-08-14, first pass) bundling self-
+     * catering INTO the hotel-tier list was wrong: owner's own catch — "kaže ješću tamo gde
+     * odsedam... a tamo je i hotelski restoran i opcija kupiću kačkavalj i praviću sendviče" —
+     * both technically happen "at the accommodation," but self-catering isn't a hotel AMENITY
+     * the way a meal-plan tier is, so it read as an odd fit inside that list. Splitting it back
+     * out as its own top-level choice also fixes a real budget-fit bug: the OLD 2-option design
+     * meant an eating_out-only session (jede_napolju) still silently fell back to a self_catering
+     * fit when eating_out didn't fit some country's budget — showing "Fits if you cook for
+     * yourself" to someone who explicitly said they'd eat at restaurants. With 3 clean options,
+     * BudgetEstimationEngine::fitFor() can gate the fallback by the ACTUAL stated style instead
+     * of guessing (see its updated docblock).
+     */
     private function seedMealStyles(): void
     {
-        // Redesigned 2026-08-14 (owner's catch) — this is now a pure FLOW GATE, not a budget
-        // signal of its own: "Local restaurants" skips meal_plan_preference entirely (fast
-        // path, matches the question's own "...or eat out?" wording without repeating it in the
-        // pill). "At the accommodation" reveals meal_plan_preference's full picker — breakfast/
-        // half-board/full-board/all-inclusive/self-catering all live there now (self-catering
-        // moved back in, see seedAmenities' $mealPlans — this question no longer decides
-        // self-catering vs a hotel meal plan by itself, it just decides whether to ask at all).
         $items = [
             ['slug' => 'jede_napolju', 'en' => 'Local restaurants', 'sr' => 'Lokalni restorani'],
             ['slug' => 'u_smestaju', 'en' => 'At the accommodation', 'sr' => 'U okviru smeštaja'],
+            // Carries the real Booking `mealplan=999` (Self catering) filter ID directly, same
+            // as it did on the old separate 'samostalno_kuvanje' meal_plan node.
+            ['slug' => 'sam_se_snalazim', 'en' => "I'll organize myself (cook)", 'sr' => 'Sam ću da se snalazim (spremam)', 'meta' => ['booking_meal_plan_id' => 999]],
         ];
 
         foreach ($items as $i => $item) {
@@ -381,19 +399,18 @@ class WizardSeeder extends Seeder
 
         // mealplan — filters.meal_plan (verified real 2026-07-30; expanded 2026-08-13 with the
         // rest of Booking's real "Meals" filter group, owner's own export — all_inclusive/
-        // pun_pansion/self-catering IDs were previously left out rather than guessed, now
-        // confirmed real). 'Self catering' briefly lived on a separate meal_style node
-        // (2026-08-13), moved back here 2026-08-14 (owner's catch) — meal_style is now a pure
-        // flow gate ("Local restaurants" vs "At the accommodation"), every actual food
-        // arrangement (including self-catering) lives in this one list, only asked at all once
-        // "At the accommodation" is picked.
+        // pun_pansion IDs were previously left out rather than guessed, now confirmed real).
+        // 'Self catering' does NOT live here, 2026-08-14 (owner's second catch) — it's the
+        // 'sam_se_snalazim' meal_style node instead (see seedMealStyles), its own top-level
+        // choice rather than one pill inside this hotel-tier list — self-catering isn't a hotel
+        // amenity the way these are, it just happened to physically occur at the accommodation
+        // too, which read as a confusing fit alongside real meal-plan tiers.
         $mealPlans = [
             ['slug' => 'dorucak', 'en' => 'Breakfast included', 'sr' => 'Doručak uključen', 'id' => 1],
             ['slug' => 'dorucak_rucak', 'en' => 'Breakfast & lunch included', 'sr' => 'Doručak i ručak uključeni', 'id' => 8],
             ['slug' => 'dorucak_vecera', 'en' => 'Breakfast & dinner included', 'sr' => 'Doručak i večera uključeni', 'id' => 9],
             ['slug' => 'pun_pansion', 'en' => 'All meals included', 'sr' => 'Svi obroci uključeni', 'id' => 3],
             ['slug' => 'sve_ukljuceno', 'en' => 'All-inclusive', 'sr' => 'Sve uključeno', 'id' => 4],
-            ['slug' => 'samostalno_kuvanje', 'en' => 'Self catering', 'sr' => 'Samostalno kuvanje', 'id' => 999],
         ];
         foreach ($mealPlans as $i => $item) {
             $this->node('meal_plan', $item['slug'], $item['en'], $item['sr'], $i, [
@@ -1976,11 +1993,11 @@ class WizardSeeder extends Seeder
                 'dorucak_vecera' => 'Frühstück & Abendessen inklusive',
                 'pun_pansion' => 'Alle Mahlzeiten inklusive',
                 'sve_ukljuceno' => 'All-inclusive',
-                'samostalno_kuvanje' => 'Selbstverpflegung',
             ],
             'meal_style' => [
                 'jede_napolju' => 'Lokale Restaurants',
                 'u_smestaju' => 'In der Unterkunft',
+                'sam_se_snalazim' => 'Ich organisiere mich selbst (Selbstverpflegung)',
             ],
             'cost_category' => [
                 'hospitality' => 'Gastronomie (Essen/Trinken auswärts)',

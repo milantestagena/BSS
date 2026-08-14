@@ -338,10 +338,15 @@ class GeographyResolver
         // meal_plan_preference (and therefore this) is only ever answered at all once meal_style
         // says "at the accommodation" — see WizardService.isQuestionVisible, 2026-08-14 redesign.
         // Owner's call, 2026-08-14: the raw multi-select array is passed straight through now,
-        // NOT collapsed to one "strongest" slug first — picking both all-inclusive AND
-        // self-catering means "all-inclusive if it fits, self-catering if that's what it takes,"
-        // so every candidate gets checked against ALL picks (see fitFor's docblock).
+        // NOT collapsed to one "strongest" slug first — picking both all-inclusive AND a lighter
+        // tier means "all-inclusive if it fits, breakfast if that's what it takes," so every
+        // candidate gets checked against ALL picks (see fitFor's docblock).
         $mealPlanSlugs = $session->free_text_answers['meal_plan_preference'] ?? [];
+        // Owner's second catch, 2026-08-14: meal_style itself (not just meal_plan_preference)
+        // must reach fitFor() too — an eating_out-only session was silently falling back to a
+        // self_catering fit when eating_out alone didn't cover a country, showing "Fits if you
+        // cook for yourself" to someone who explicitly said they'd eat at restaurants.
+        $mealStyle = $session->free_text_answers['meal_style'] ?? null;
 
         $result = (new BudgetEstimationEngine)->narrowCandidates(
             $countries,
@@ -350,7 +355,8 @@ class GeographyResolver
             count($session->children_ages ?? []),
             $foodDays,
             fn (TaxonomyNode $country) => $this->cheapestAccommodationTotal($country, $session, $totalTravelers, $nights),
-            $mealPlanSlugs
+            $mealPlanSlugs,
+            $mealStyle
         );
 
         $narrowed = $result->pluck('country')->values();

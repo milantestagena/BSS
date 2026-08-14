@@ -196,35 +196,56 @@ class BudgetEstimationEngineTest extends TestCase
         $this->assertSame('insufficient', $engine->fitFor($country, 660, 2, 2, 7, mealPlanSlugs: ['dorucak']));
     }
 
-    public function test_samostalno_kuvanje_meal_plan_slug_uses_the_existing_self_catering_path(): void
+    public function test_meal_style_jede_napolju_only_ever_tries_eating_out(): void
     {
-        // Redesigned 2026-08-14 (owner's catch): meal_style is a pure flow gate now ("Local
-        // restaurants" vs "At the accommodation"), no budget logic of its own — self-catering
-        // moved back into meal_plan_preference as a real slug, only ever reachable once "At the
-        // accommodation" was picked.
-        $country = $this->countryWithPrices(meal: 10, coffee: 2); // eating_out 623, self_catering ~178
+        // Real bug caught live, 2026-08-14: a session that explicitly said "I eat at
+        // restaurants" was still shown countries captioned "Fits if you cook for yourself" —
+        // the plain no-mealStyle fallback tried self_catering as a second attempt regardless of
+        // what was actually said. With mealStyle='jede_napolju', it must NEVER fall back to
+        // self_catering, even though the budget would technically cover it.
+        $country = $this->countryWithPrices(meal: 10, coffee: 2); // eating_out 623, self_catering 178
         $engine = new BudgetEstimationEngine;
 
-        $this->assertSame('samostalno_kuvanje', $engine->fitFor($country, 200, 2, 2, 7, mealPlanSlugs: ['samostalno_kuvanje']));
-        $this->assertSame('insufficient', $engine->fitFor($country, 50, 2, 2, 7, mealPlanSlugs: ['samostalno_kuvanje']));
+        $this->assertSame('eating_out', $engine->fitFor($country, 623, 2, 2, 7, mealStyle: 'jede_napolju'));
+        // Budget only covers self_catering (200 < 623 but > 178) — must be 'insufficient', NOT
+        // silently fall back to self_catering just because the number happens to cover it.
+        $this->assertSame('insufficient', $engine->fitFor($country, 200, 2, 2, 7, mealStyle: 'jede_napolju'));
+    }
+
+    public function test_meal_style_sam_se_snalazim_uses_the_self_catering_path_directly(): void
+    {
+        // 'sam_se_snalazim' ("I'll organize myself / cook") — its own top-level meal_style,
+        // 2026-08-14 second redesign, no longer a meal_plan_preference pick.
+        $country = $this->countryWithPrices(meal: 10, coffee: 2); // eating_out 623, self_catering 178
+        $engine = new BudgetEstimationEngine;
+
+        $this->assertSame('self_catering', $engine->fitFor($country, 200, 2, 2, 7, mealStyle: 'sam_se_snalazim'));
+        $this->assertSame('insufficient', $engine->fitFor($country, 50, 2, 2, 7, mealStyle: 'sam_se_snalazim'));
     }
 
     public function test_multiple_meal_plan_picks_are_a_priority_list_not_a_contradiction(): void
     {
-        // Owner's own framing, 2026-08-14: picking BOTH all-inclusive and self-catering means
-        // "all-inclusive if it fits, self-catering if that's what it takes" — "teo bih da se
-        // uklopim u all inclusive negde, al ako nema, pa mogu i da przim pomfrit iz kese na
-        // terasi." Every pick is checked; the BEST one that actually fits wins, returned as its
-        // own real slug — this is what lets a caller say "Egypt: all-inclusive, Greece: self-
-        // catering" for the same session.
-        $country = $this->countryWithPrices(meal: 10, coffee: 2); // eating_out 623, self_catering 178, sve_ukljuceno@0.8 coefficient = 498.4
+        // Owner's own framing, 2026-08-14: picking BOTH all-inclusive and a lighter tier means
+        // "all-inclusive if it fits, breakfast if that's what it takes" — "teo bih da se uklopim
+        // u all inclusive negde, al ako nema, pa mogu i da przim pomfrit iz kese na terasi."
+        // Every pick is checked; the BEST one that actually fits wins, returned as its own real
+        // slug — this is what lets a caller say "Egypt: all-inclusive, Turkey: only breakfast."
+        //
+        // Needs coefficient > 1 (a markup, not the default 0.8 discount) to even construct this
+        // scenario — under the default discount, MORE coverage is always CHEAPER (more-inclusive
+        // plans win the volume discount harder), so a budget that covers a lighter pick always
+        // covers all-inclusive too; there's no way for the preferred pick to be the one that
+        // DOESN'T fit unless coverage costs extra instead of less.
+        $country = $this->countryWithPrices(meal: 10, coffee: 2); // eating_out 623
+        $country->update(['meta' => [...$country->meta, 'meal_plan_coefficient' => 1.5]]);
         $engine = new BudgetEstimationEngine;
-        $picks = ['sve_ukljuceno', 'samostalno_kuvanje'];
+        $picks = ['sve_ukljuceno', 'dorucak'];
+        // dorucak@1.5 coefficient = 660.38; sve_ukljuceno@1.5 = 934.5 (see other tests for the math).
 
-        // Budget covers self-catering but not all-inclusive -> falls through to the one that fits.
-        $this->assertSame('samostalno_kuvanje', $engine->fitFor($country, 200, 2, 2, 7, mealPlanSlugs: $picks));
+        // Budget covers breakfast but not all-inclusive -> falls through to the one that fits.
+        $this->assertSame('dorucak', $engine->fitFor($country, 661, 2, 2, 7, mealPlanSlugs: $picks));
         // Budget covers BOTH -> the more-preferred (all-inclusive) wins, not just whichever's cheapest.
-        $this->assertSame('sve_ukljuceno', $engine->fitFor($country, 500, 2, 2, 7, mealPlanSlugs: $picks));
+        $this->assertSame('sve_ukljuceno', $engine->fitFor($country, 935, 2, 2, 7, mealPlanSlugs: $picks));
         // Budget covers neither.
         $this->assertSame('insufficient', $engine->fitFor($country, 100, 2, 2, 7, mealPlanSlugs: $picks));
     }
