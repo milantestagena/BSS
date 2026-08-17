@@ -891,26 +891,15 @@ export class WizardComponent implements OnInit {
     return groups;
   }
 
-  /** Owner's ask, 2026-08-17: a "soft" alternative to a hard AND/OR toggle for preference_tags —
-   *  instead of filtering anything out (real AND would too often collide with this campaign's
-   *  sparse per-city tag coverage and return nothing), a destination that matched EVERY selected
-   *  vibe tag gets called out visually within its existing tier (gold ring + star), while
-   *  partial matches still show normally. Only counts VIBE tags (meta.atmosphere/drinks/food/
-   *  budget) against the total — cultural-availability picks (alcohol/halal/vegan/lgbt, see
-   *  question-input's culturalOptions split) are a hard requirement handled separately and never
-   *  appear in matchedTags at all, so including them here would make "perfect match" almost
-   *  never fire once a session has any of those selected. */
-  private selectedVibeTagCount(): number {
-    const selected = (this.wizard.getAnswer('preference_tags') as string[] | undefined) ?? [];
-    const options = this.geographyOptions()['preference_tags'] ?? [];
-    const optionBySlug = new Map(options.map((o) => [o.slug, o]));
-
-    return selected.filter((slug) => !optionBySlug.get(slug)?.meta?.['cultural_category']).length;
-  }
-
+  /** "Superstar" badge — owner's ask, 2026-08-17: a soft alternative to a hard AND/OR toggle for
+   *  preference_tags (a real AND would too often collide with this campaign's sparse per-city
+   *  tag coverage and return nothing). Backend-computed (see GeographyResolver::isPerfectMatch)
+   *  since it needs the SAME explicit+implied tag total the resolver already uses for matching,
+   *  and — for type=country — has to check child cities too (a country only qualifies if at
+   *  least one of its own cities would also qualify, so the star is never a promise the City
+   *  step can't actually keep; owner caught this live, 2026-08-17, on Turkey). */
   isPerfectMatch(node: TaxonomyNode): boolean {
-    const total = this.selectedVibeTagCount();
-    return total > 0 && (node.matchedTags?.length ?? 0) === total;
+    return !!node.perfectMatch;
   }
 
   /** True if ANY node within this specific group has a priceRank — the legend line renders per

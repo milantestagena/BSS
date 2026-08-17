@@ -110,6 +110,8 @@ type TaxonomyNode {
     budgetFit: String @rename(attribute: "budget_fit")
     "Populated only when returned from `suggestedGeography` for type=country, when budget data exists — true if an all-inclusive meal plan would ALSO fit this country for the session's budget, regardless of the session's actual meal_style (see BudgetEstimationEngine::allInclusiveFits). Purely informational, e.g. 'all-inclusive available here too' — never affects budgetFit/inclusion/sorting."
     allInclusiveFits: Boolean @rename(attribute: "all_inclusive_fits")
+    "Populated only when returned from `suggestedGeography` for type=country/city — true if this destination matched EVERY selected vibe preference_tag (not just some). For type=country, also requires at least one child city to independently match all of them too, so a country never shows this without a real bookable city to back it up (see GeographyResolver::isPerfectMatch)."
+    perfectMatch: Boolean @rename(attribute: "perfect_match")
     "Populated only when returned from `suggestedGeography` — true if forced on by an `implies` relation from an already-selected answer (e.g. Foodie -> Great food). Shown selected-and-locked in the UI rather than hidden, so the reason is visible instead of the option silently vanishing."
     implied: Boolean
     "Populated only when returned from `suggestedGeography` for type=country/city — preference_tag slugs this node matched against the session's selected preferences. Frontend groups results by shared matched_tags rather than showing a flat ranked list."

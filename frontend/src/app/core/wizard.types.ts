@@ -29,6 +29,12 @@ export interface TaxonomyNode {
    *  2026-08-14: "mozemo mu kazemo negde imas all inclusive za te pare") — never affects
    *  budgetFit/inclusion/sorting. See WizardComponent.budgetNoteFor(). */
   allInclusiveFits?: boolean | null;
+  /** Populated only when returned from suggestedGeography for type=country/city — true if this
+   *  destination matched EVERY selected vibe preference_tag (not just some). For type=country,
+   *  the backend also requires at least one child city to independently match all of them too,
+   *  so a country never shows this without a real bookable city to back it up — see
+   *  GeographyResolver::isPerfectMatch. See WizardComponent.isPerfectMatch(). */
+  perfectMatch?: boolean | null;
   /** Populated only when returned from suggestedGeography for type=city — the parent country's
    *  label (+ meta, for the iso_code badge — see wizard.ts's countryCodeFor), so a mixed-country
    *  city grid (multi-select Country/region, 2026-08-13) can show which country each card

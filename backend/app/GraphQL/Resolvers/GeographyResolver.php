@@ -83,6 +83,17 @@ class GeographyResolver
             ->merge($session->free_text_answers['implied_preference_tags'] ?? [])
             ->unique();
 
+        // "Superstar" denominator (see matchesEveryVibeTag below) — only VIBE tags count toward
+        // a perfect match, not cultural-availability picks (alcohol/halal/vegan/lgbt), which
+        // never appear in nodeTags at all (they're a hard filter, not a vibe attribute — see
+        // filterByCulturalAvailability) and would make a perfect match nearly impossible to ever
+        // reach once one is selected.
+        $vibeTagCount = TaxonomyNode::where('type', 'preference_tag')
+            ->whereIn('slug', $preferenceTags)
+            ->get()
+            ->filter(fn (TaxonomyNode $tag) => empty($tag->meta['cultural_category']))
+            ->count();
+
         $isGeoType = in_array($args['type'], ['country', 'city'], true);
 
         $priceTotals = [];
@@ -92,14 +103,8 @@ class GeographyResolver
             }
         }
 
-        $mapped = $nodes->map(function (TaxonomyNode $node) use ($preferenceTags, $budgetCaveatIds, $budgetFitById, $allInclusiveById, $impliedIds) {
-            $meta = $node->meta ?? [];
-
-            $nodeTags = collect($meta['drinks'] ?? [])
-                ->merge($meta['atmosphere'] ?? [])
-                ->merge($meta['food'] ?? [])
-                ->merge($meta['budget'] ?? []);
-
+        $mapped = $nodes->map(function (TaxonomyNode $node) use ($args, $preferenceTags, $vibeTagCount, $budgetCaveatIds, $budgetFitById, $allInclusiveById, $impliedIds) {
+            $nodeTags = $this->resolveNodeTags($node);
             $matchedTags = $preferenceTags->intersect($nodeTags)->values();
 
             $node->setAttribute('implied', $impliedIds->contains($node->id));
@@ -108,6 +113,7 @@ class GeographyResolver
             $node->setAttribute('budget_caveat', $budgetCaveatIds->contains($node->id));
             $node->setAttribute('budget_fit', $budgetFitById->get($node->id));
             $node->setAttribute('all_inclusive_fits', $allInclusiveById->get($node->id, false));
+            $node->setAttribute('perfect_match', $this->isPerfectMatch($node, $args['type'], $matchedTags, $vibeTagCount, $preferenceTags));
 
             return $node;
         });
@@ -196,6 +202,56 @@ class GeographyResolver
         }
 
         return $mapped->sortByDesc('match_score')->values();
+    }
+
+    /** The same vibe-tag pool (drinks/atmosphere/food/budget meta) every matched_tags/match_score
+     *  computation in this file reads from — extracted so isPerfectMatch can run it again for a
+     *  COUNTRY's child cities, not just the node currently being mapped. */
+    private function resolveNodeTags(TaxonomyNode $node): Collection
+    {
+        $meta = $node->meta ?? [];
+
+        return collect($meta['drinks'] ?? [])
+            ->merge($meta['atmosphere'] ?? [])
+            ->merge($meta['food'] ?? [])
+            ->merge($meta['budget'] ?? []);
+    }
+
+    /**
+     * "Superstar" — owner's ask, 2026-08-17: a soft alternative to a hard AND/OR filter on
+     * preference_tags (a real AND would too often collide with this campaign's sparse per-city
+     * tag coverage and return nothing). A destination that matched EVERY selected vibe tag, not
+     * just some.
+     *
+     * For type=city: straightforward — this city's own matchedTags covers every vibe tag asked
+     * for.
+     *
+     * For type=country: deliberately NOT "the country's own aggregate meta matches everything" —
+     * owner caught this live, 2026-08-17: Turkey (Lively nightlife + Great food + Great beaches)
+     * showed a country-level star, but not one of its actual bookable cities could deliver all
+     * three at once (Marmaris has nightlife, Ölüdeniz has beaches, no single city had all three) —
+     * a country-level star the traveler can never actually reach at the city step reads as a
+     * broken promise. So a country only earns the star if AT LEAST ONE of its child cities
+     * independently earns it too ("ako ti neki grad ima zvezdicu - onda tek zemlja moze da je
+     * dobije").
+     */
+    private function isPerfectMatch(TaxonomyNode $node, string $type, Collection $matchedTags, int $vibeTagCount, Collection $preferenceTags): bool
+    {
+        if ($vibeTagCount === 0) {
+            return false;
+        }
+
+        if ($type === 'city') {
+            return $matchedTags->count() === $vibeTagCount;
+        }
+
+        if ($type === 'country') {
+            return $node->children()->get()->contains(
+                fn (TaxonomyNode $city) => $preferenceTags->intersect($this->resolveNodeTags($city))->count() === $vibeTagCount
+            );
+        }
+
+        return false;
     }
 
     /**

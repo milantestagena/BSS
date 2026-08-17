@@ -141,6 +141,61 @@ class GeographyResolverTest extends TestCase
         $this->assertNull($results->firstWhere('id', $belgija->id));
     }
 
+    /** "Superstar" — see GeographyResolver::isPerfectMatch docblock. */
+    public function test_perfect_match_is_true_only_when_every_selected_vibe_tag_is_matched(): void
+    {
+        $this->node('preference_tag', 'lepe_plaze');
+        $this->node('preference_tag', 'dobra_hrana');
+
+        $parent = $this->node('country', 'parentland');
+        $bothTags = $this->node('city', 'both_tags', ['atmosphere' => ['lepe_plaze'], 'food' => ['dobra_hrana']]);
+        $bothTags->update(['parent_id' => $parent->id]);
+        $onlyOneTag = $this->node('city', 'one_tag', ['atmosphere' => ['lepe_plaze']]);
+        $onlyOneTag->update(['parent_id' => $parent->id]);
+
+        $session = SearchSession::create([
+            'status' => 'in_progress',
+            'free_text_answers' => ['preference_tags' => ['lepe_plaze', 'dobra_hrana']],
+        ]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'city']);
+
+        $this->assertTrue($results->firstWhere('id', $bothTags->id)->perfect_match);
+        $this->assertFalse($results->firstWhere('id', $onlyOneTag->id)->perfect_match);
+    }
+
+    /** Owner's catch, 2026-08-17: a country's own aggregate meta matching everything isn't
+     *  enough — if the traveler can't actually find one real bookable CITY that also matches
+     *  everything, showing the star on the country is a promise the City step can't keep. */
+    public function test_perfect_match_for_a_country_requires_at_least_one_child_city_to_also_match(): void
+    {
+        $this->node('preference_tag', 'lepe_plaze');
+        $this->node('preference_tag', 'dobra_hrana');
+
+        // Country's own meta matches everything, but neither child city individually does.
+        $noBackingCountry = $this->node('country', 'nobacking', ['atmosphere' => ['lepe_plaze'], 'food' => ['dobra_hrana']]);
+        $cityA = $this->node('city', 'city_a', ['atmosphere' => ['lepe_plaze']]);
+        $cityA->update(['parent_id' => $noBackingCountry->id]);
+        $cityB = $this->node('city', 'city_b', ['food' => ['dobra_hrana']]);
+        $cityB->update(['parent_id' => $noBackingCountry->id]);
+
+        // Country only partially matches on its own (avoids the zero-match hide-entirely filter
+        // below), but one of its real cities matches everything.
+        $backedCountry = $this->node('country', 'backed', ['atmosphere' => ['lepe_plaze']]);
+        $backedCity = $this->node('city', 'backed_city', ['atmosphere' => ['lepe_plaze'], 'food' => ['dobra_hrana']]);
+        $backedCity->update(['parent_id' => $backedCountry->id]);
+
+        $session = SearchSession::create([
+            'status' => 'in_progress',
+            'free_text_answers' => ['preference_tags' => ['lepe_plaze', 'dobra_hrana']],
+        ]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'country']);
+
+        $this->assertFalse($results->firstWhere('id', $noBackingCountry->id)->perfect_match);
+        $this->assertTrue($results->firstWhere('id', $backedCountry->id)->perfect_match);
+    }
+
     public function test_zero_match_filter_falls_back_to_full_list_when_nothing_matches_at_all(): void
     {
         // If a region's atmosphere/drinks/food tags simply aren't seeded yet, hiding every
