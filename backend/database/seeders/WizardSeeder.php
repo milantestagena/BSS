@@ -1251,7 +1251,10 @@ class WizardSeeder extends Seeder
             // Cyprus
             'pafos' => [3, 1], 'ajia_napa' => [0, 2], 'larnaka' => [1, 1],
             // Malta
-            'melieha' => [0, 2], 'sliema' => [1, 0], 'st_julians' => [0, 0],
+            // Mellieħa corrected 2026-08-17 (owner's ground-truth): best beach ON Malta, but that's
+            // a low bar — average by the campaign's cross-country "great beaches" standard. Real
+            // draw is its actual history (Popeye Village, WWII-era Red Tower, the Sanctuary).
+            'melieha' => [2, 1], 'sliema' => [1, 0], 'st_julians' => [0, 0],
             // Tunisia
             'susa' => [2, 1], 'djerba' => [2, 1], 'monastir' => [1, 1], 'mahdija' => [1, 1],
             'tabarka' => [1, 0], 'bizerta' => [1, 0], 'hamamet' => [1, 1], 'nabel' => [1, 0],
