@@ -39,6 +39,7 @@ class WizardSeeder extends Seeder
         $this->seedSwimCountryProfiles();
         $this->seedCityAndCountryVibeProfiles();
         $this->seedSwimAtmosphereTags();
+        $this->propagateCountryDrinksToCities();
         $this->seedExplorationAndBeachTags();
         $this->seedRomanticTags();
         $this->seedFamilyAndQuietTags();
@@ -1168,6 +1169,40 @@ class WizardSeeder extends Seeder
                 $meta[$key] = array_unique([...($meta[$key] ?? []), ...$values]);
             }
             $country->update(['meta' => $meta]);
+        }
+    }
+
+    /**
+     * Owner's ask, 2026-08-17: `pivo`/`vino` at country level (see $countryAtmosphere above)
+     * describe plain AVAILABILITY ("you can buy this here"), not a curated reputation claim like
+     * `dobra_hrana` — beer and wine are sold in any corner store across a whole country, so if
+     * Malta as a whole has `pivo`, then Sliema/St. Julian's/Mellieħa all genuinely have it too,
+     * not just whichever city happened to seed it directly. Deliberately does NOT include
+     * `dobra_hrana` — that stays independently curated per level on purpose (a country's food
+     * reputation doesn't mean literally every city in it earned it), same reasoning
+     * propagateCityAtmosphereToCountry's docblock already gives for the upward direction.
+     *
+     * This existing straight-copy pattern (idempotent seeder pass, not a live query join or a
+     * cron) matches propagateCityAtmosphereToCountry below — re-running `db:seed` is already the
+     * established way to fix/refresh any of this taxonomy, no new mechanism needed.
+     */
+    private function propagateCountryDrinksToCities(): void
+    {
+        $propagatedTags = ['pivo', 'vino'];
+
+        $countries = TaxonomyNode::where('type', 'country')->with('children')->get();
+
+        foreach ($countries as $country) {
+            $toAdd = collect($country->meta['drinks'] ?? [])->intersect($propagatedTags);
+            if ($toAdd->isEmpty()) {
+                continue;
+            }
+
+            foreach ($country->children as $city) {
+                $meta = $city->meta ?? [];
+                $meta['drinks'] = array_unique([...($meta['drinks'] ?? []), ...$toAdd->values()->all()]);
+                $city->update(['meta' => $meta]);
+            }
         }
     }
 

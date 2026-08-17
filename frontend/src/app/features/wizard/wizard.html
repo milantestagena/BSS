@@ -392,6 +392,8 @@
                                 [class.border-sky-500]="isDestinationSelected(question, node)"
                                 [class.bg-sky-50]="isDestinationSelected(question, node)"
                                 [class.border-slate-400]="!isDestinationSelected(question, node)"
+                                [class.ring-2]="isPerfectMatch(node)"
+                                [class.ring-amber-400]="isPerfectMatch(node)"
                                 [ngClass]="priceRankClass(node)"
                                 (click)="onDestinationCardSelect(question, node)"
                               >
@@ -407,7 +409,17 @@
                                     countryCodeFor(parent)
                                   }}</span>
                                 }
-                                <span class="block px-8">{{ node.label }}</span>
+                                <span class="block px-8">
+                                  <!-- "Superstar" — owner's ask, 2026-08-17: a soft alternative
+                                       to a hard AND/OR filter on preference_tags (a real AND
+                                       would too often collide with sparse per-city tag coverage
+                                       and return nothing). Every selected vibe tag matched, not
+                                       just some — see isPerfectMatch's docblock. -->
+                                  @if (isPerfectMatch(node)) {
+                                    <span class="mr-1">⭐</span>
+                                  }
+                                  {{ node.label }}
+                                </span>
                                 @if (matchedTagLabelsFor(node); as matched) {
                                   <span class="mt-0.5 block text-xs font-normal text-slate-500">{{ matched }}</span>
                                 }

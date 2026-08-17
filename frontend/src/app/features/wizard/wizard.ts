@@ -891,6 +891,28 @@ export class WizardComponent implements OnInit {
     return groups;
   }
 
+  /** Owner's ask, 2026-08-17: a "soft" alternative to a hard AND/OR toggle for preference_tags —
+   *  instead of filtering anything out (real AND would too often collide with this campaign's
+   *  sparse per-city tag coverage and return nothing), a destination that matched EVERY selected
+   *  vibe tag gets called out visually within its existing tier (gold ring + star), while
+   *  partial matches still show normally. Only counts VIBE tags (meta.atmosphere/drinks/food/
+   *  budget) against the total — cultural-availability picks (alcohol/halal/vegan/lgbt, see
+   *  question-input's culturalOptions split) are a hard requirement handled separately and never
+   *  appear in matchedTags at all, so including them here would make "perfect match" almost
+   *  never fire once a session has any of those selected. */
+  private selectedVibeTagCount(): number {
+    const selected = (this.wizard.getAnswer('preference_tags') as string[] | undefined) ?? [];
+    const options = this.geographyOptions()['preference_tags'] ?? [];
+    const optionBySlug = new Map(options.map((o) => [o.slug, o]));
+
+    return selected.filter((slug) => !optionBySlug.get(slug)?.meta?.['cultural_category']).length;
+  }
+
+  isPerfectMatch(node: TaxonomyNode): boolean {
+    const total = this.selectedVibeTagCount();
+    return total > 0 && (node.matchedTags?.length ?? 0) === total;
+  }
+
   /** True if ANY node within this specific group has a priceRank — the legend line renders per
    *  group (owner's ask, 2026-08-12: "ispod opisa" — right under that group's header, since a
    *  single legend way at the bottom of a long, undifferentiated group read as disconnected
