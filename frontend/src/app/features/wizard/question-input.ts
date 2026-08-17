@@ -28,6 +28,21 @@ export class QuestionInputComponent {
     return this.options ?? this.question.options ?? [];
   }
 
+  /** Owner's ask, 2026-08-17: on preference_tags specifically, plain vibe/atmosphere picks
+   *  ("Great beaches") and cultural-availability REQUIREMENTS ("Want easy access to alcohol",
+   *  meta.cultural_category + max_tier — see WizardSeeder) were rendered in one flat pill row,
+   *  reading as one undifferentiated list even though they mean different things (a preference
+   *  vs. a hard need). Split generically off meta.cultural_category so this works for any
+   *  taxonomy_multi_choice question that happens to mix the two, not just preference_tags —
+   *  a no-op divider for any question where nothing carries that key. */
+  get vibeOptions(): TaxonomyNode[] {
+    return this.resolvedOptions.filter((n) => !n.meta?.['cultural_category']);
+  }
+
+  get culturalOptions(): TaxonomyNode[] {
+    return this.resolvedOptions.filter((n) => !!n.meta?.['cultural_category']);
+  }
+
   /** Splits a trailing "(...)" hint off the main label so it can be styled apart from it —
    *  owner's ask, 2026-08-06: the "(...will get its own checklist soon)" aside on
    *  smestaj_preference should read as a lighter side-note, not part of the question itself. */

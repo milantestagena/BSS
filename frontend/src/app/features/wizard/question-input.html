@@ -70,7 +70,7 @@
 
     @case ('taxonomy_multi_choice') {
       <div class="flex flex-wrap gap-2">
-        @for (node of resolvedOptions; track node.id) {
+        @for (node of vibeOptions; track node.id) {
           <ui-choice
             [selected]="isMultiSelected(node) || !!node.implied"
             [disabled]="!!node.implied"
@@ -80,6 +80,28 @@
           </ui-choice>
         }
       </div>
+
+      <!-- Separates plain vibe/atmosphere picks from cultural-availability REQUIREMENTS (a
+           different kind of answer — see resolvedOptions/culturalOptions docblock). Only
+           renders when there's actually something to separate. -->
+      @if (culturalOptions.length > 0) {
+        <div class="my-3 flex items-center gap-2">
+          <div class="h-px flex-1 bg-slate-200"></div>
+          <span class="text-xs font-medium uppercase tracking-wide text-slate-400">{{ i18n.t('culturalTagsIntro') }}</span>
+          <div class="h-px flex-1 bg-slate-200"></div>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          @for (node of culturalOptions; track node.id) {
+            <ui-choice
+              [selected]="isMultiSelected(node) || !!node.implied"
+              [disabled]="!!node.implied"
+              (toggled)="onMultiChoiceToggle(node)"
+            >
+              {{ node.label }}
+            </ui-choice>
+          }
+        </div>
+      }
     }
   }
 
