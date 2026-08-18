@@ -82,6 +82,65 @@ class SearchSessionQueryCompiler
     }
 
     /**
+     * A REAL, working public booking.com/searchresults.html URL — no API key, no partner
+     * approval, no `Location`/`booking_dest_id` lookup needed. Deliberately does NOT use
+     * `dest_id`/`dest_type` (what toBookingParams()['location'] carries): those `Location` rows
+     * were seeded as `test_*_city` placeholders back in the pre-swim-campaign city-break era
+     * (2026-07-13, "our best guess... NOT yet verified against a real sandbox response") and
+     * were never replaced with real Booking dest_ids — using them here would silently produce a
+     * broken link. Booking's own site accepts a plain `ss` (destination search string) and runs
+     * its own intent parser server-side instead — same as a person typing a city name into the
+     * search box, confirmed via developers.booking.com's own search-URL examples, so this needs
+     * no dest_id at all. This is the actual outbound/affiliate redirect target once a CJ deep
+     * link wrapper goes around it later — not the Partner/Demand API request toBookingParams()
+     * feeds today.
+     *
+     * Null whenever there isn't yet a chosen destination or resolvable dates — same "absent, not
+     * an error" convention as the rest of this compiler.
+     */
+    public function toBookingUrl(): ?string
+    {
+        $destination = $this->destinationNode();
+        if (! $destination) {
+            return null;
+        }
+
+        [$checkin, $checkout] = $this->resolveDates();
+        if (! $checkin) {
+            return null;
+        }
+
+        $searchTerm = $destination->parent ? "{$destination->label}, {$destination->parent->label}" : $destination->label;
+
+        $params = [
+            'ss' => $searchTerm,
+            'checkin' => $checkin->toDateString(),
+            'checkout' => $checkout->toDateString(),
+            'group_adults' => $this->session->adults_count ?: 1,
+            'no_rooms' => $this->session->number_of_rooms ?: 1,
+            'selected_currency' => 'EUR',
+        ];
+
+        $childrenAges = $this->session->children_ages ?? [];
+        if (! empty($childrenAges)) {
+            $params['group_children'] = count($childrenAges);
+        }
+
+        $query = [];
+        foreach ($params as $key => $value) {
+            $query[] = $key.'='.rawurlencode((string) $value);
+        }
+        // Booking's site expects one repeated bare `age=` param per child, not PHP's default
+        // `age[0]=`/`age[1]=` array-bracket encoding — http_build_query() can't produce that
+        // shape, so these are appended by hand instead of folded into $params above.
+        foreach ($childrenAges as $age) {
+            $query[] = 'age='.rawurlencode((string) $age);
+        }
+
+        return 'https://www.booking.com/searchresults.html?'.implode('&', $query);
+    }
+
+    /**
      * meal_style=kuva_sam ("I'll cook for myself") -> Booking's real `mealplan=999` (Self
      * catering) filter. Split off from applyMealPlanPreferenceFilter, 2026-08-13, alongside
      * meal_style becoming its own mandatory question — the `kuva_sam` taxonomy node itself

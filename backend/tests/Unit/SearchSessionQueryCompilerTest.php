@@ -92,6 +92,61 @@ class SearchSessionQueryCompilerTest extends TestCase
         $this->assertSame('test_123', $params['location']);
     }
 
+    public function test_booking_url_is_null_without_a_destination_or_dates(): void
+    {
+        $session = SearchSession::create(['status' => 'in_progress']);
+
+        $this->assertNull((new SearchSessionQueryCompiler($session))->toBookingUrl());
+    }
+
+    /** Bug fixed 2026-08-18: this used to be at risk of reusing toBookingParams()['location'],
+     *  which reads Location::booking_dest_id — seeded as placeholder `test_*_city` strings back
+     *  in the pre-swim-campaign era, never replaced with real Booking dest_ids. `ss=` (plain
+     *  destination search string) needs no dest_id lookup at all. */
+    public function test_booking_url_uses_ss_search_string_not_a_dest_id(): void
+    {
+        $country = TaxonomyNode::create(['type' => 'country', 'slug' => 'turska', 'label' => 'Turkey', 'sort_order' => 0]);
+        $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'antalija', 'label' => 'Antalya', 'sort_order' => 0, 'parent_id' => $country->id]);
+
+        $session = SearchSession::create([
+            'status' => 'in_progress',
+            'city_id' => $city->id,
+            'date_from' => '2026-09-20',
+            'date_to' => '2026-09-27',
+            'adults_count' => 2,
+            'number_of_rooms' => 1,
+        ]);
+
+        $url = (new SearchSessionQueryCompiler($session))->toBookingUrl();
+
+        $this->assertStringStartsWith('https://www.booking.com/searchresults.html?', $url);
+        $this->assertStringContainsString('ss='.rawurlencode('Antalya, Turkey'), $url);
+        $this->assertStringContainsString('checkin=2026-09-20', $url);
+        $this->assertStringContainsString('checkout=2026-09-27', $url);
+        $this->assertStringContainsString('group_adults=2', $url);
+        $this->assertStringContainsString('no_rooms=1', $url);
+        $this->assertStringNotContainsString('dest_id', $url);
+    }
+
+    public function test_booking_url_includes_repeated_age_params_for_each_child(): void
+    {
+        $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'antalija2', 'label' => 'Antalya', 'sort_order' => 0]);
+        $session = SearchSession::create([
+            'status' => 'in_progress',
+            'city_id' => $city->id,
+            'date_from' => '2026-09-20',
+            'date_to' => '2026-09-27',
+            'adults_count' => 2,
+            'children_ages' => [5, 9],
+        ]);
+
+        $url = (new SearchSessionQueryCompiler($session))->toBookingUrl();
+
+        $this->assertStringContainsString('group_children=2', $url);
+        $this->assertStringContainsString('age=5', $url);
+        $this->assertStringContainsString('age=9', $url);
+    }
+
     public function test_booking_params_apply_family_friendly_filter_when_porodicna_atmosfera_selected(): void
     {
         $session = SearchSession::create([
