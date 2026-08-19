@@ -322,6 +322,24 @@ class TaxonomyNode extends Model
     }
 
     /**
+     * Optional deep-dive guide content per (campaign, destination) — see DestinationGuide,
+     * 2026-08-19. Unlike campaignPriceFor() above, deliberately NO parent-chain fallback: a
+     * city never silently inherits its country's guide (or vice versa) — each is independently
+     * authored, since a country's multi-stop itinerary has nothing meaningful to say about one
+     * specific resort town within it, and a city's costs+tips aren't a substitute for the
+     * country's broader guide either.
+     */
+    public function guides(): HasMany
+    {
+        return $this->hasMany(DestinationGuide::class);
+    }
+
+    public function guideFor(int $wizardCampaignId): ?DestinationGuide
+    {
+        return $this->guides()->where('wizard_campaign_id', $wizardCampaignId)->first();
+    }
+
+    /**
      * Great-circle distance in km to another geography node, via `meta.lat`/`meta.lng` on both
      * sides (convention, not a schema column — see wizard_architecture's distance-as-its-own-
      * wizard-step decision). Returns null if either node is missing coordinates, so callers

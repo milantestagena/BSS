@@ -2,6 +2,7 @@
 
 namespace App\GraphQL\Resolvers;
 
+use App\Models\DestinationGuide;
 use App\Models\SearchSession;
 use App\Models\TaxonomyNode;
 use App\Services\BudgetEstimationEngine;
@@ -120,7 +121,16 @@ class GeographyResolver
             }
         }
 
-        $mapped = $nodes->map(function (TaxonomyNode $node) use ($args, $preferenceTags, $vibeTagCount, $budgetCaveatIds, $budgetFitById, $allInclusiveById, $impliedIds) {
+        // hasGuide, 2026-08-19 — one query for the whole result set (not N+1), same shape as
+        // every other bulk-computed attribute here. Campaign-scoped since DestinationGuide rows
+        // are (campaign, destination) pairs, not just per-destination.
+        $guidedIds = ($isGeoType && $session->wizard_campaign_id)
+            ? DestinationGuide::where('wizard_campaign_id', $session->wizard_campaign_id)
+                ->whereIn('taxonomy_node_id', $nodes->pluck('id'))
+                ->pluck('taxonomy_node_id')
+            : collect();
+
+        $mapped = $nodes->map(function (TaxonomyNode $node) use ($args, $preferenceTags, $vibeTagCount, $budgetCaveatIds, $budgetFitById, $allInclusiveById, $impliedIds, $guidedIds) {
             $nodeTags = $this->resolveNodeTags($node);
             $matchedTags = $preferenceTags->intersect($nodeTags)->values();
 
@@ -131,6 +141,7 @@ class GeographyResolver
             $node->setAttribute('budget_fit', $budgetFitById->get($node->id));
             $node->setAttribute('all_inclusive_fits', $allInclusiveById->get($node->id, false));
             $node->setAttribute('perfect_match', $this->isPerfectMatch($node, $args['type'], $matchedTags, $vibeTagCount, $preferenceTags));
+            $node->setAttribute('has_guide', $guidedIds->contains($node->id));
 
             return $node;
         });

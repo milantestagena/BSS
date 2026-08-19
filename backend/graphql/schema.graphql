@@ -42,6 +42,10 @@ type Query {
     compiledSearchQuery(sessionId: ID!): JSON!
         @field(resolver: "App\\GraphQL\\Resolvers\\SearchSessionQueryResolver@compiled")
 
+    "Static, campaign-scoped deep-dive guide content for one destination — see DestinationGuide model. Keyed by sessionId (not a separate campaignId arg) so the resolver can derive campaign context the same way suggestedGeography/compiledSearchQuery already do. Null if the session has no campaign, or no guide row exists yet for this node."
+    destinationGuide(sessionId: ID!, taxonomyNodeId: ID!): DestinationGuide
+        @field(resolver: "App\\GraphQL\\Resolvers\\DestinationGuideResolver@show")
+
     "A themed wizard campaign by key (e.g. 'kasno-letovanje'), with its questions in campaign order."
     wizardCampaign(key: String! @eq): WizardCampaign @find
 
@@ -118,6 +122,8 @@ type TaxonomyNode {
     matchedTags: [String!] @rename(attribute: "matched_tags")
     "Populated only when returned from `suggestedGeography` for type=country/city, when accommodation price data exists for the session's dates: 1 (cheapest of the currently-shown candidates) to 5 (priciest), for relative price display. Null when there isn't enough price data yet to rank."
     priceRank: Int @rename(attribute: "price_rank")
+    "Populated only when returned from `suggestedGeography` for type=country/city, campaign mode only — true if a DestinationGuide row exists for this node + the session's campaign. Frontend uses this to decide whether to even show the optional 'see full guide' link at all."
+    hasGuide: Boolean @rename(attribute: "has_guide")
 }
 
 "One page of the wizard, admin-orderable and toggleable."
@@ -142,6 +148,45 @@ type WizardCampaign {
     questions: [WizardQuestion!]! @belongsToMany
     "Admin-editable per-campaign tunables (e.g. defaultBudgetPerAdultEur/defaultBudgetPerChildEur) — see WizardSeeder's kasno-letovanje entry. Not hardcoded in frontend/backend logic so a future campaign can set its own values."
     meta: JSON
+}
+
+"One stop within a DestinationGuide's country-level itinerary."
+type DestinationGuideStop {
+    location: String!
+    nights: Int!
+    highlight: String
+}
+
+"One curated photo within a DestinationGuide — Unsplash/Pexels only, see DestinationGuide's docblock for why."
+type DestinationGuideImage {
+    url: String!
+    attribution: String
+}
+
+"A country-level accommodation price range, computed live from a country's priced child cities — see DestinationGuide::accommodationPriceRangeEur."
+type DestinationGuidePriceRange {
+    min: Float!
+    max: Float!
+}
+
+"Optional 'deep-dive' destination content (itinerary/costs/tips/photos) for one (campaign, destination) pair — see DestinationGuide model's docblock for the full refresh checklist. Static/researched-and-stored, never generated live per request."
+type DestinationGuide {
+    id: ID!
+    campaign: WizardCampaign! @belongsTo
+    destination: TaxonomyNode! @belongsTo
+    "Country-level only — null for city-level guides (a single resort town has nothing to itinerary-ize)."
+    itinerary: [DestinationGuideStop!]
+    "Qualitative only — the real € figure is read live via accommodationPriceEur/accommodationPriceRangeEur below, never stored here."
+    accommodationCostNotes: String @rename(attribute: "accommodation_cost_notes")
+    "2-4 destination-specific tips NOT already covered by cultural_availability/hospitality data (those are composed client-side instead of duplicated here)."
+    extraTips: [String!] @rename(attribute: "extra_tips")
+    images: [DestinationGuideImage!]
+    researchedAt: Date @rename(attribute: "researched_at")
+    source: String
+    "City-level real price, read live off wizard_campaign_destination_prices — null for country-level guides."
+    accommodationPriceEur: Float @method
+    "Country-level real price range across the country's priced child cities — null for city-level guides."
+    accommodationPriceRangeEur: DestinationGuidePriceRange @method
 }
 
 "A single question within a wizard step."

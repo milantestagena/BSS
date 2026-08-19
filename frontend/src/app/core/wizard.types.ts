@@ -35,11 +35,29 @@ export interface TaxonomyNode {
    *  so a country never shows this without a real bookable city to back it up — see
    *  GeographyResolver::isPerfectMatch. See WizardComponent.isPerfectMatch(). */
   perfectMatch?: boolean | null;
+  /** Populated only when returned from suggestedGeography for type=country/city, campaign mode
+   *  only — true if a DestinationGuide row exists for this node + the session's campaign.
+   *  Gates whether the optional "see full guide" link even shows — see
+   *  DestinationGuideModalComponent. */
+  hasGuide?: boolean | null;
   /** Populated only when returned from suggestedGeography for type=city — the parent country's
    *  label (+ meta, for the iso_code badge — see wizard.ts's countryCodeFor), so a mixed-country
    *  city grid (multi-select Country/region, 2026-08-13) can show which country each card
    *  belongs to. */
   parent?: { label: string; meta?: Record<string, unknown> | null } | null;
+}
+
+/** Optional "deep-dive" destination content — see DestinationGuide (backend) and
+ *  DestinationGuideModalComponent (frontend). Fetched on demand, only when the modal opens,
+ *  not preloaded per card. */
+export interface DestinationGuide {
+  id: string;
+  itinerary?: { location: string; nights: number; highlight?: string | null }[] | null;
+  accommodationCostNotes?: string | null;
+  extraTips?: string[] | null;
+  images?: { url: string; attribution?: string | null }[] | null;
+  accommodationPriceEur?: number | null;
+  accommodationPriceRangeEur?: { min: number; max: number } | null;
 }
 
 export type WizardInputType =

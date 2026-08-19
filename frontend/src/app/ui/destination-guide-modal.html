@@ -1,0 +1,105 @@
+<dialog
+  #dialogEl
+  (close)="onNativeClose()"
+  class="w-[min(90vw,40rem)] max-h-[85vh] overflow-y-auto rounded-2xl border-0 p-0 backdrop:bg-black/40"
+>
+  @if (node(); as node) {
+    <div class="relative">
+      <button
+        type="button"
+        (click)="close()"
+        class="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-lg text-slate-500 shadow hover:text-slate-700"
+        [attr.aria-label]="i18n.t('guideClose')"
+      >
+        &times;
+      </button>
+
+      @if (loading()) {
+        <div class="flex items-center justify-center gap-2 p-16 text-sm text-slate-500">
+          <ui-spinner size="sm" />
+          <span>{{ i18n.t('guideLoading') }}</span>
+        </div>
+      } @else if (guide(); as guide) {
+        <!-- Cover -->
+        <div class="relative">
+          @if (guide.images && guide.images.length > 0) {
+            <img [src]="guide.images[0].url" [alt]="node.label" class="h-48 w-full object-cover" />
+            <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent"></div>
+          } @else {
+            <div class="h-24 bg-slate-100"></div>
+          }
+          <div class="absolute bottom-3 left-4 right-4" [class.text-white]="guide.images && guide.images.length > 0">
+            <h2 class="text-2xl font-bold">{{ node.label }}</h2>
+            @if (checkin() && checkout()) {
+              <p class="text-sm opacity-90">{{ checkin() }} — {{ checkout() }}</p>
+            }
+            @if (homeCityLabel()) {
+              <p class="text-xs opacity-75">{{ i18n.t('guideDepartureFrom') }} {{ homeCityLabel() }}</p>
+            }
+          </div>
+        </div>
+
+        <div class="space-y-6 p-5">
+          <!-- Itinerary — country-level guides only, naturally absent for a single resort town. -->
+          @if (guide.itinerary && guide.itinerary.length > 0) {
+            <div>
+              <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{{ i18n.t('guideItineraryTitle') }}</h3>
+              <ol class="space-y-2">
+                @for (stop of guide.itinerary; track stop.location) {
+                  <li class="flex items-baseline gap-2 text-sm">
+                    <span class="font-semibold text-slate-800">{{ stop.location }}</span>
+                    <span class="text-slate-400">— {{ stop.nights }} {{ stop.nights === 1 ? i18n.t('guideNightSingular') : i18n.t('guideNightPlural') }}</span>
+                    @if (stop.highlight) {
+                      <span class="text-slate-500">({{ stop.highlight }})</span>
+                    }
+                  </li>
+                }
+              </ol>
+            </div>
+          }
+
+          <!-- Costs -->
+          @if (guide.accommodationPriceEur || guide.accommodationPriceRangeEur || guide.accommodationCostNotes) {
+            <div>
+              <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{{ i18n.t('guideCostsTitle') }}</h3>
+              @if (guide.accommodationPriceEur) {
+                <p class="text-sm font-semibold text-slate-800">{{ i18n.t('guideFromPrefix') }} €{{ guide.accommodationPriceEur }} {{ i18n.t('guidePerPersonPerNight') }}</p>
+              } @else if (guide.accommodationPriceRangeEur) {
+                <p class="text-sm font-semibold text-slate-800">
+                  €{{ guide.accommodationPriceRangeEur.min }}–€{{ guide.accommodationPriceRangeEur.max }} {{ i18n.t('guidePerPersonPerNight') }}
+                </p>
+              }
+              @if (guide.accommodationCostNotes) {
+                <p class="mt-1 text-sm text-slate-600">{{ guide.accommodationCostNotes }}</p>
+              }
+            </div>
+          }
+
+          <!-- Tips -->
+          @if (guide.extraTips && guide.extraTips.length > 0) {
+            <div>
+              <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{{ i18n.t('guideTipsTitle') }}</h3>
+              <ul class="list-disc space-y-1 pl-5 text-sm text-slate-600">
+                @for (tip of guide.extraTips; track tip) {
+                  <li>{{ tip }}</li>
+                }
+              </ul>
+            </div>
+          }
+
+          <!-- Photos -->
+          @if (guide.images && guide.images.length > 0) {
+            <div>
+              <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{{ i18n.t('guidePhotosTitle') }}</h3>
+              <div class="flex gap-2 overflow-x-auto">
+                @for (image of guide.images; track image.url) {
+                  <img [src]="image.url" [alt]="image.attribution ?? node.label" class="h-24 w-32 shrink-0 rounded-lg object-cover" />
+                }
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
+</dialog>

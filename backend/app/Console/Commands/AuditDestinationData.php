@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\DestinationGuide;
 use App\Models\TaxonomyNode;
 use App\Models\WizardCampaign;
 use Illuminate\Console\Command;
@@ -57,9 +58,10 @@ class AuditDestinationData extends Command
                 $hospitality['avg_restaurant_meal_eur'] ?? null ? '✓' : '✗ MISSING',
                 $hospitality['avg_cafe_coffee_eur'] ?? null ? '✓' : '✗ MISSING',
                 $coefficient !== null ? (string) $coefficient : '— (0.8 default)',
+                $this->hasRealGuideContent($country, $campaign) ? '✓' : '—',
             ];
         }
-        $this->table(['Country', 'Meal price', 'Coffee price', 'Meal-plan coefficient'], $countryRows);
+        $this->table(['Country', 'Meal price', 'Coffee price', 'Meal-plan coefficient', 'Guide'], $countryRows);
 
         $this->newLine();
         $this->info('=== Per-city: vibe_profile, campaign price, climate ===');
@@ -118,6 +120,35 @@ class AuditDestinationData extends Command
         $this->newLine();
         $this->info("Totals across {$totalCities} cities: {$missingVibe} missing vibe_profile, {$missingPrice} missing a real price, {$missingClimate} missing climate data.");
 
+        // Guide content, 2026-08-19 — a separate lightweight summary, not folded into the gap
+        // table above: guides are optional enrichment (only ever written for already-priced
+        // destinations, see SeedDestinationGuideRows), so treating "no guide yet" the same as a
+        // real gap would flood the punch list with rows that don't need fixing before launch.
+        $pricedCities = TaxonomyNode::where('type', 'city')
+            ->whereIn('parent_id', $countries->pluck('id'))
+            ->whereHas('campaignDestinationPrices', fn ($q) => $q->where('wizard_campaign_id', $campaign->id)->whereNotNull('price_per_person_eur'))
+            ->get();
+        $guidedCount = $pricedCities->concat($countries)
+            ->filter(fn (TaxonomyNode $node) => $this->hasRealGuideContent($node, $campaign))
+            ->count();
+        $this->info("Guides: {$guidedCount} of ".($pricedCities->count() + $countries->count())." priced destinations (cities + countries) have a written guide.");
+
         return self::SUCCESS;
+    }
+
+    /** A scaffolded-but-empty DestinationGuide row doesn't count — same "row exists vs. row has
+     *  real content" distinction already applied to price/vibe_profile checks above. */
+    private function hasRealGuideContent(TaxonomyNode $node, WizardCampaign $campaign): bool
+    {
+        $guide = DestinationGuide::where('wizard_campaign_id', $campaign->id)
+            ->where('taxonomy_node_id', $node->id)
+            ->first();
+
+        return $guide !== null && (
+            ! empty($guide->itinerary)
+            || ! empty($guide->accommodation_cost_notes)
+            || ! empty($guide->extra_tips)
+            || ! empty($guide->images)
+        );
     }
 }

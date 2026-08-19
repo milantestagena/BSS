@@ -196,6 +196,23 @@ class GeographyResolverTest extends TestCase
         $this->assertTrue($results->pluck('id')->contains($tag->id));
     }
 
+    /** hasGuide — one bulk-computed flag per result set, see GeographyResolver::suggested,
+     *  2026-08-19. Only meaningful once a session actually has a campaign. */
+    public function test_has_guide_flag_reflects_existing_destination_guide_row(): void
+    {
+        $campaign = \App\Models\WizardCampaign::create(['key' => 'kasno-letovanje', 'label' => 'Test']);
+        $guided = $this->node('country', 'guided');
+        $unguided = $this->node('country', 'unguided');
+        \App\Models\DestinationGuide::create(['wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $guided->id]);
+
+        $session = SearchSession::create(['status' => 'in_progress', 'wizard_campaign_id' => $campaign->id]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'country']);
+
+        $this->assertTrue($results->firstWhere('id', $guided->id)->has_guide);
+        $this->assertFalse($results->firstWhere('id', $unguided->id)->has_guide);
+    }
+
     /** "Superstar" — see GeographyResolver::isPerfectMatch docblock. */
     public function test_perfect_match_is_true_only_when_every_selected_vibe_tag_is_matched(): void
     {

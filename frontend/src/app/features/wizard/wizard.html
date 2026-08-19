@@ -447,6 +447,19 @@
                                 <ui-info-popover>
                                   <h3 class="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">{{ node.label }}</h3>
                                   <p class="whitespace-pre-line">{{ vibeDescription(node) ?? i18n.t('destinationInfoNotDescribed') }}</p>
+                                  <!-- Owner's ask, 2026-08-19: optional "deep-dive" guide, strictly
+                                       side-of-flow — gated by hasGuide so it only ever appears for
+                                       destinations that actually have one (see
+                                       DestinationGuideModalComponent). -->
+                                  @if (node.hasGuide) {
+                                    <button
+                                      type="button"
+                                      class="mt-3 text-sm font-medium text-sky-700 underline decoration-dotted hover:text-sky-900"
+                                      (click)="guideModalNode.set(node)"
+                                    >
+                                      {{ i18n.t('seeFullGuide') }}
+                                    </button>
+                                  }
                                 </ui-info-popover>
                               </div>
                               <!-- "Superstar" — owner's ask, 2026-08-17: a soft alternative to a
@@ -566,3 +579,12 @@
     </div>
   }
 </div>
+
+<!-- Single reusable instance, not one per card — see guideModalNode/DestinationGuideModalComponent. -->
+<app-destination-guide-modal
+  [node]="guideModalNode()"
+  [checkin]="guideCheckin"
+  [checkout]="guideCheckout"
+  [homeCityLabel]="homeCityLabel()"
+  (closed)="guideModalNode.set(null)"
+/>

@@ -13,6 +13,7 @@ import { AmenityPickerComponent } from './amenity-picker';
 import { ButtonComponent } from '../../ui/button';
 import { SpinnerComponent } from '../../ui/spinner';
 import { InfoPopoverComponent } from '../../ui/info-popover';
+import { DestinationGuideModalComponent } from '../../ui/destination-guide-modal';
 
 /** Questions rendered by the combined <app-travelers-input> widget instead of individually —
  *  see travelers-input.ts. */
@@ -313,6 +314,7 @@ function computeHotelHighlight(hotel: MockHotel, all: MockHotel[], claimed: Set<
     ButtonComponent,
     SpinnerComponent,
     InfoPopoverComponent,
+    DestinationGuideModalComponent,
   ],
   templateUrl: './wizard.html',
 })
@@ -537,6 +539,22 @@ export class WizardComponent implements OnInit {
   /** Locally-selected chip on the results screen, defaulting to whatever city the session is
    *  currently on — not yet committed until switchResultsCity() actually runs. */
   readonly selectedResultsCityId = signal<string | null>(null);
+
+  /** Which destination's deep-dive guide modal is open, if any — see wizard.html's single
+   *  reusable app-destination-guide-modal instance and DestinationGuideModalComponent. Null
+   *  keeps the dialog closed; set by a card's "see full guide" click, nulled again when the
+   *  modal's own (closed) event fires (Esc/backdrop/close button all route through that). */
+  readonly guideModalNode = signal<TaxonomyNode | null>(null);
+
+  /** Same compiledQuery read as prefillRecommendedDates — real checkin/checkout for the guide
+   *  modal's cover slide, once resolvable. */
+  get guideCheckin(): string | null {
+    return (this.wizard.compiledQuery()?.['bookingParams'] as { checkin?: string } | undefined)?.checkin ?? null;
+  }
+
+  get guideCheckout(): string | null {
+    return (this.wizard.compiledQuery()?.['bookingParams'] as { checkout?: string } | undefined)?.checkout ?? null;
+  }
 
   isResultsCitySelected(node: TaxonomyNode): boolean {
     return (this.selectedResultsCityId() ?? (this.wizard.getAnswer('city') as string | undefined)) === node.id;

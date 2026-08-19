@@ -1,6 +1,6 @@
 import { Injectable, computed, signal } from '@angular/core';
 import { GraphqlService } from './graphql.service';
-import { SearchSession, TaxonomyNode, WizardAnswers, WizardCampaign, WizardQuestion, WizardStep } from './wizard.types';
+import { DestinationGuide, SearchSession, TaxonomyNode, WizardAnswers, WizardCampaign, WizardQuestion, WizardStep } from './wizard.types';
 
 const WIZARD_STEPS_QUERY = `
   query WizardSteps {
@@ -106,8 +106,24 @@ const UPDATE_SESSION_MUTATION = `
 const SUGGESTED_GEOGRAPHY_QUERY = `
   query SuggestedGeography($sessionId: ID!, $type: String!, $parentId: ID, $parentIds: [ID!]) {
     suggestedGeography(sessionId: $sessionId, type: $type, parentId: $parentId, parentIds: $parentIds) {
-      id slug label matchScore meta implied matchedTags priceRank budgetFit budgetCaveat allInclusiveFits perfectMatch
+      id slug label matchScore meta implied matchedTags priceRank budgetFit budgetCaveat allInclusiveFits perfectMatch hasGuide
       parent { label meta }
+    }
+  }
+`;
+
+/** Owner's ask, 2026-08-19 — optional deep-dive content, fetched on demand only when the
+ *  modal actually opens (see DestinationGuideModalComponent), never preloaded per card. */
+const DESTINATION_GUIDE_QUERY = `
+  query DestinationGuide($sessionId: ID!, $taxonomyNodeId: ID!) {
+    destinationGuide(sessionId: $sessionId, taxonomyNodeId: $taxonomyNodeId) {
+      id
+      itinerary { location nights highlight }
+      accommodationCostNotes
+      extraTips
+      images { url attribution }
+      accommodationPriceEur
+      accommodationPriceRangeEur { min max }
     }
   }
 `;
@@ -463,6 +479,19 @@ export class WizardService {
       parentIds: parentIds?.length ? parentIds : null,
     });
     return data.suggestedGeography;
+  }
+
+  /** Owner's ask, 2026-08-19 — optional deep-dive destination content, fetched on demand only
+   *  when DestinationGuideModalComponent actually opens. Null if the session has no campaign,
+   *  or no guide row exists yet for this node (see DestinationGuideResolver). */
+  async loadDestinationGuide(taxonomyNodeId: string): Promise<DestinationGuide | null> {
+    const sessionId = this.sessionId();
+    if (!sessionId) return null;
+    const data = await this.gql.request<{ destinationGuide: DestinationGuide | null }>(DESTINATION_GUIDE_QUERY, {
+      sessionId,
+      taxonomyNodeId,
+    });
+    return data.destinationGuide;
   }
 
   /** Persist the current step's collected answers to the session, then advance. */
