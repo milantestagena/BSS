@@ -98,6 +98,13 @@ const STRINGS: Record<'en' | 'de', Record<string, string>> = {
     guideTipsTitle: 'Good to know',
     guidePhotosTitle: 'Photos',
     guideDepartureFrom: 'Departing from',
+    guidePreviousSlide: 'Previous',
+    guideNextSlide: 'Next',
+    guideAccommodationLabel: 'Accommodation',
+    guideFoodLabel: 'Food',
+    guideEatingOutLabel: 'Eating out',
+    guideSelfCateringLabel: 'Cooking for yourself',
+    guidePerPersonPerDay: 'per person / day',
   },
   de: {
     back: 'Zurück',
@@ -188,6 +195,13 @@ const STRINGS: Record<'en' | 'de', Record<string, string>> = {
     guideTipsTitle: 'Gut zu wissen',
     guidePhotosTitle: 'Fotos',
     guideDepartureFrom: 'Abflug ab',
+    guidePreviousSlide: 'Zurück',
+    guideNextSlide: 'Weiter',
+    guideAccommodationLabel: 'Unterkunft',
+    guideFoodLabel: 'Essen',
+    guideEatingOutLabel: 'Auswärts essen',
+    guideSelfCateringLabel: 'Selbst kochen',
+    guidePerPersonPerDay: 'pro Person / Tag',
   },
 };
 

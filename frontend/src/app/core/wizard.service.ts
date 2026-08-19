@@ -124,6 +124,8 @@ const DESTINATION_GUIDE_QUERY = `
       images { url attribution }
       accommodationPriceEur
       accommodationPriceRangeEur { min max }
+      foodCostEatingOutPerAdultPerDayEur
+      foodCostSelfCateringPerAdultPerDayEur
     }
   }
 `;

@@ -178,7 +178,7 @@ type DestinationGuide {
     itinerary: [DestinationGuideStop!]
     "Qualitative only — the real € figure is read live via accommodationPriceEur/accommodationPriceRangeEur below, never stored here."
     accommodationCostNotes: String @rename(attribute: "accommodation_cost_notes")
-    "2-4 destination-specific tips NOT already covered by cultural_availability/hospitality data (those are composed client-side instead of duplicated here)."
+    "2-4 destination-specific tips not already covered by cultural_availability/climate/vibe_profile data (see the model's refresh checklist — those get folded in at write time, not duplicated here)."
     extraTips: [String!] @rename(attribute: "extra_tips")
     images: [DestinationGuideImage!]
     researchedAt: Date @rename(attribute: "researched_at")
@@ -187,6 +187,10 @@ type DestinationGuide {
     accommodationPriceEur: Float @method
     "Country-level real price range across the country's priced child cities — null for city-level guides."
     accommodationPriceRangeEur: DestinationGuidePriceRange @method
+    "Per-adult, per-day estimate if eating at restaurants — live off BudgetEstimationEngine. Shown alongside foodCostSelfCateringPerAdultPerDayEur regardless of the session's own meal_style pick."
+    foodCostEatingOutPerAdultPerDayEur: Float @method
+    "Same per-adult/day estimate, self-catering style."
+    foodCostSelfCateringPerAdultPerDayEur: Float @method
 }
 
 "A single question within a wizard step."

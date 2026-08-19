@@ -58,6 +58,10 @@ export interface DestinationGuide {
   images?: { url: string; attribution?: string | null }[] | null;
   accommodationPriceEur?: number | null;
   accommodationPriceRangeEur?: { min: number; max: number } | null;
+  /** Both shown regardless of the session's own meal_style pick — owner's call, 2026-08-19,
+   *  a browsing visitor hasn't committed to a style yet. */
+  foodCostEatingOutPerAdultPerDayEur?: number | null;
+  foodCostSelfCateringPerAdultPerDayEur?: number | null;
 }
 
 export type WizardInputType =

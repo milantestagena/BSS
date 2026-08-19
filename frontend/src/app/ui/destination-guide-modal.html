@@ -1,14 +1,19 @@
+<!-- Bug fixed 2026-08-19: <dialog>'s own default UA-stylesheet centering doesn't survive
+     Tailwind's preflight reset here (owner caught it live — rendered top-left, no dim/blur
+     behind it) — positioned explicitly instead, same fixed+translate centering ui-info-popover
+     already uses, plus the same backdrop-blur treatment as the wizard's "calculating" transition
+     overlay, so this reads as the same family of overlay as the rest of the app. -->
 <dialog
   #dialogEl
   (close)="onNativeClose()"
-  class="w-[min(90vw,40rem)] max-h-[85vh] overflow-y-auto rounded-2xl border-0 p-0 backdrop:bg-black/40"
+  class="fixed left-1/2 top-1/2 m-0 w-[min(90vw,40rem)] max-h-[85vh] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border-0 p-0 shadow-xl shadow-black/20 backdrop:bg-black/30 backdrop:backdrop-blur-sm"
 >
   @if (node(); as node) {
     <div class="relative">
       <button
         type="button"
         (click)="close()"
-        class="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-lg text-slate-500 shadow hover:text-slate-700"
+        class="absolute right-3 top-3 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-lg text-slate-500 shadow hover:text-slate-700"
         [attr.aria-label]="i18n.t('guideClose')"
       >
         &times;
@@ -20,31 +25,54 @@
           <span>{{ i18n.t('guideLoading') }}</span>
         </div>
       } @else if (guide(); as guide) {
-        <!-- Cover -->
-        <div class="relative">
-          @if (guide.images && guide.images.length > 0) {
-            <img [src]="guide.images[0].url" [alt]="node.label" class="h-48 w-full object-cover" />
-            <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent"></div>
-          } @else {
-            <div class="h-24 bg-slate-100"></div>
-          }
-          <div class="absolute bottom-3 left-4 right-4" [class.text-white]="guide.images && guide.images.length > 0">
-            <h2 class="text-2xl font-bold">{{ node.label }}</h2>
-            @if (checkin() && checkout()) {
-              <p class="text-sm opacity-90">{{ checkin() }} — {{ checkout() }}</p>
-            }
-            @if (homeCityLabel()) {
-              <p class="text-xs opacity-75">{{ i18n.t('guideDepartureFrom') }} {{ homeCityLabel() }}</p>
-            }
-          </div>
-        </div>
+        <!-- Owner's ask, 2026-08-19: page-by-page like the real Instagram carousel, not one
+             long scroll — see slides()/currentSlide. -->
+        @if (currentSlideIndex() > 0) {
+          <button
+            type="button"
+            (click)="previousSlide()"
+            class="absolute left-2 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-xl text-slate-600 shadow hover:text-slate-900"
+            [attr.aria-label]="i18n.t('guidePreviousSlide')"
+          >
+            &lsaquo;
+          </button>
+        }
+        @if (currentSlideIndex() < slides().length - 1) {
+          <button
+            type="button"
+            (click)="nextSlide()"
+            class="absolute right-2 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-xl text-slate-600 shadow hover:text-slate-900"
+            [attr.aria-label]="i18n.t('guideNextSlide')"
+          >
+            &rsaquo;
+          </button>
+        }
 
-        <div class="space-y-6 p-5">
-          <!-- Itinerary — country-level guides only, naturally absent for a single resort town. -->
-          @if (guide.itinerary && guide.itinerary.length > 0) {
-            <div>
-              <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{{ i18n.t('guideItineraryTitle') }}</h3>
-              <ol class="space-y-2">
+        @switch (currentSlide()) {
+          @case ('cover') {
+            <div class="relative">
+              @if (guide.images && guide.images.length > 0) {
+                <img [src]="guide.images[0].url" [alt]="node.label" class="h-56 w-full object-cover" />
+                <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent"></div>
+              } @else {
+                <div class="h-32 bg-slate-100"></div>
+              }
+              <div class="absolute bottom-4 left-5 right-5" [class.text-white]="guide.images && guide.images.length > 0">
+                <h2 class="text-2xl font-bold">{{ node.label }}</h2>
+                @if (checkin() && checkout()) {
+                  <p class="text-sm opacity-90">{{ checkin() }} — {{ checkout() }}</p>
+                }
+                @if (homeCityLabel()) {
+                  <p class="text-xs opacity-75">{{ i18n.t('guideDepartureFrom') }} {{ homeCityLabel() }}</p>
+                }
+              </div>
+            </div>
+          }
+
+          @case ('itinerary') {
+            <div class="min-h-[20rem] space-y-4 p-6 pt-14">
+              <h3 class="text-lg font-bold text-slate-900">{{ i18n.t('guideItineraryTitle') }}</h3>
+              <ol class="space-y-3">
                 @for (stop of guide.itinerary; track stop.location) {
                   <li class="flex items-baseline gap-2 text-sm">
                     <span class="font-semibold text-slate-800">{{ stop.location }}</span>
@@ -58,28 +86,52 @@
             </div>
           }
 
-          <!-- Costs -->
-          @if (guide.accommodationPriceEur || guide.accommodationPriceRangeEur || guide.accommodationCostNotes) {
-            <div>
-              <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{{ i18n.t('guideCostsTitle') }}</h3>
-              @if (guide.accommodationPriceEur) {
-                <p class="text-sm font-semibold text-slate-800">{{ i18n.t('guideFromPrefix') }} €{{ guide.accommodationPriceEur }} {{ i18n.t('guidePerPersonPerNight') }}</p>
-              } @else if (guide.accommodationPriceRangeEur) {
-                <p class="text-sm font-semibold text-slate-800">
-                  €{{ guide.accommodationPriceRangeEur.min }}–€{{ guide.accommodationPriceRangeEur.max }} {{ i18n.t('guidePerPersonPerNight') }}
-                </p>
+          @case ('costs') {
+            <div class="min-h-[20rem] space-y-5 p-6 pt-14">
+              <h3 class="text-lg font-bold text-slate-900">{{ i18n.t('guideCostsTitle') }}</h3>
+
+              @if (guide.accommodationPriceEur || guide.accommodationPriceRangeEur) {
+                <div>
+                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{{ i18n.t('guideAccommodationLabel') }}</p>
+                  @if (guide.accommodationPriceEur) {
+                    <p class="text-lg font-semibold text-slate-800">€{{ guide.accommodationPriceEur }} {{ i18n.t('guidePerPersonPerNight') }}</p>
+                  } @else if (guide.accommodationPriceRangeEur) {
+                    <p class="text-lg font-semibold text-slate-800">€{{ guide.accommodationPriceRangeEur.min }}–€{{ guide.accommodationPriceRangeEur.max }} {{ i18n.t('guidePerPersonPerNight') }}</p>
+                  }
+                </div>
               }
+
+              <!-- Owner's call, 2026-08-19: both eating-out AND self-catering shown, regardless
+                   of what the session's own meal_style answer was — a browsing visitor hasn't
+                   committed to a style yet. -->
+              @if (guide.foodCostEatingOutPerAdultPerDayEur || guide.foodCostSelfCateringPerAdultPerDayEur) {
+                <div>
+                  <p class="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">{{ i18n.t('guideFoodLabel') }}</p>
+                  @if (guide.foodCostEatingOutPerAdultPerDayEur; as eatingOut) {
+                    <p class="text-sm text-slate-700">
+                      {{ i18n.t('guideEatingOutLabel') }}:
+                      <span class="font-semibold text-slate-900">~€{{ eatingOut | number: '1.0-0' }} {{ i18n.t('guidePerPersonPerDay') }}</span>
+                    </p>
+                  }
+                  @if (guide.foodCostSelfCateringPerAdultPerDayEur; as selfCatering) {
+                    <p class="text-sm text-slate-700">
+                      {{ i18n.t('guideSelfCateringLabel') }}:
+                      <span class="font-semibold text-slate-900">~€{{ selfCatering | number: '1.0-0' }} {{ i18n.t('guidePerPersonPerDay') }}</span>
+                    </p>
+                  }
+                </div>
+              }
+
               @if (guide.accommodationCostNotes) {
-                <p class="mt-1 text-sm text-slate-600">{{ guide.accommodationCostNotes }}</p>
+                <p class="text-sm text-slate-600">{{ guide.accommodationCostNotes }}</p>
               }
             </div>
           }
 
-          <!-- Tips -->
-          @if (guide.extraTips && guide.extraTips.length > 0) {
-            <div>
-              <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{{ i18n.t('guideTipsTitle') }}</h3>
-              <ul class="list-disc space-y-1 pl-5 text-sm text-slate-600">
+          @case ('tips') {
+            <div class="min-h-[20rem] space-y-4 p-6 pt-14">
+              <h3 class="text-lg font-bold text-slate-900">{{ i18n.t('guideTipsTitle') }}</h3>
+              <ul class="list-disc space-y-2 pl-5 text-sm text-slate-600">
                 @for (tip of guide.extraTips; track tip) {
                   <li>{{ tip }}</li>
                 }
@@ -87,18 +139,25 @@
             </div>
           }
 
-          <!-- Photos -->
-          @if (guide.images && guide.images.length > 0) {
-            <div>
-              <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{{ i18n.t('guidePhotosTitle') }}</h3>
-              <div class="flex gap-2 overflow-x-auto">
+          @case ('photos') {
+            <div class="min-h-[20rem] space-y-4 p-6 pt-14">
+              <h3 class="text-lg font-bold text-slate-900">{{ i18n.t('guidePhotosTitle') }}</h3>
+              <div class="grid grid-cols-2 gap-2">
                 @for (image of guide.images; track image.url) {
-                  <img [src]="image.url" [alt]="image.attribution ?? node.label" class="h-24 w-32 shrink-0 rounded-lg object-cover" />
+                  <img [src]="image.url" [alt]="image.attribution ?? node.label" class="h-32 w-full rounded-lg object-cover" />
                 }
               </div>
             </div>
           }
-        </div>
+        }
+
+        @if (slides().length > 1) {
+          <div class="flex justify-center gap-1.5 pb-4">
+            @for (slide of slides(); track slide; let i = $index) {
+              <span class="h-1.5 w-1.5 rounded-full" [class.bg-slate-800]="i === currentSlideIndex()" [class.bg-slate-300]="i !== currentSlideIndex()"></span>
+            }
+          </div>
+        }
       }
     </div>
   }

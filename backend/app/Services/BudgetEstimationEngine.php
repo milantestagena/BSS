@@ -68,14 +68,13 @@ class BudgetEstimationEngine
      */
     public function estimate(TaxonomyNode $country, int $adults, int $children, int $days): ?array
     {
-        $mealPrice = $country->meta['hospitality']['avg_restaurant_meal_eur'] ?? null;
+        $adultDaily = $this->perAdultDailyEatingOutEur($country);
         $coffeePrice = $country->meta['hospitality']['avg_cafe_coffee_eur'] ?? null;
 
-        if ($mealPrice === null || $coffeePrice === null) {
+        if ($adultDaily === null || $coffeePrice === null) {
             return null;
         }
 
-        $adultDaily = self::MEALS_PER_DAY_PER_ADULT * $mealPrice + self::COFFEES_PER_DAY_PER_ADULT * $coffeePrice;
         $childDaily = $adultDaily * self::CHILD_MEAL_COST_RATIO
             + self::CHILD_TREATS_PER_DAY * ($coffeePrice * self::CHILD_TREAT_COST_AS_MULTIPLE_OF_COFFEE);
 
@@ -86,6 +85,31 @@ class BudgetEstimationEngine
             'eating_out_total_eur' => round($eatingOutTotal, 2),
             'self_catering_total_eur' => round($selfCateringTotal, 2),
         ];
+    }
+
+    /**
+     * Per-adult, per-day eating-out rate — extracted 2026-08-19 so DestinationGuide can show a
+     * plain "roughly €X/day if you eat out" line without duplicating this math. Null if the
+     * country has no `meta.hospitality` seeded.
+     */
+    public function perAdultDailyEatingOutEur(TaxonomyNode $country): ?float
+    {
+        $mealPrice = $country->meta['hospitality']['avg_restaurant_meal_eur'] ?? null;
+        $coffeePrice = $country->meta['hospitality']['avg_cafe_coffee_eur'] ?? null;
+
+        if ($mealPrice === null || $coffeePrice === null) {
+            return null;
+        }
+
+        return self::MEALS_PER_DAY_PER_ADULT * $mealPrice + self::COFFEES_PER_DAY_PER_ADULT * $coffeePrice;
+    }
+
+    /** Same per-adult/day rate, self-catering style — see EATING_OUT_TO_SELF_CATERING_RATIO. */
+    public function perAdultDailySelfCateringEur(TaxonomyNode $country): ?float
+    {
+        $eatingOut = $this->perAdultDailyEatingOutEur($country);
+
+        return $eatingOut === null ? null : $eatingOut / self::EATING_OUT_TO_SELF_CATERING_RATIO;
     }
 
     /**

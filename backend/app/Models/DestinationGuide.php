@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\BudgetEstimationEngine;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -16,14 +17,19 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *  - Climate/weather flavor      -> TaxonomyNode::climateFor()/climateMonths()
  *  - Water/dress-code/halal/etc  -> TaxonomyNode::culturalTierFor('tap_water'|'dress_code'|...)
  *                                    (tier >= 3 = genuinely tip-worthy, don't surface tier 1-2)
- *  - Cost color (meal/beer/etc.) -> $node->meta['hospitality'] / $node->meta['local_stores']
  *  - Vibe/character flavor text  -> $node->meta['vibe_profile']['description']
+ *  - Accommodation cost          -> accommodationPriceEur()/accommodationPriceRangeEur() below
+ *  - Food cost, BOTH styles      -> foodCostEatingOutPerAdultPerDayEur()/
+ *                                    foodCostSelfCateringPerAdultPerDayEur() below — shown
+ *                                    regardless of the session's own meal_style pick (owner's
+ *                                    call, 2026-08-19: "sto pa da nema dodatni info, mozda se
+ *                                    predomisli" — a browsing visitor hasn't committed yet).
  *
  * GENUINELY NEW research, every pass:
  *  1. itinerary (country-level only) — 3-6 stops {location, nights, highlight}. Only
  *     itinerary-ize cities that actually have a real campaign price on file.
- *  2. accommodation_cost_notes — qualitative only. NEVER hardcode a € figure here — the real
- *     number is read live via accommodationPriceEur()/accommodationPriceRangeEur() below.
+ *  2. accommodation_cost_notes — qualitative only (e.g. "book a private-bath room, check
+ *     reviews"). NEVER hardcode a € figure here — all real numbers above are read live.
  *  3. extra_tips — 2-4 bullets NOT already covered by the composed section above.
  *  4. images — 4-6 real Unsplash/Pexels CDN URLs + attribution. NEVER Booking.com's own
  *     images — same "automated means"/ToS risk already rejected for auto-pulling prices.
@@ -91,5 +97,26 @@ class DestinationGuide extends Model
             ->filter();
 
         return $prices->isEmpty() ? null : ['min' => $prices->min(), 'max' => $prices->max()];
+    }
+
+    /** Per-adult, per-day estimate if eating at restaurants — live off BudgetEstimationEngine,
+     *  same math the wizard's own budget-fit narrowing already uses. Shown alongside the
+     *  self-catering figure regardless of the session's own meal_style pick — see checklist. */
+    public function foodCostEatingOutPerAdultPerDayEur(): ?float
+    {
+        return (new BudgetEstimationEngine)->perAdultDailyEatingOutEur($this->hospitalityContext());
+    }
+
+    public function foodCostSelfCateringPerAdultPerDayEur(): ?float
+    {
+        return (new BudgetEstimationEngine)->perAdultDailySelfCateringEur($this->hospitalityContext());
+    }
+
+    /** hospitality meta is seeded at COUNTRY level only (see WizardSeeder::seedSwimCountryProfiles)
+     *  — a city-level guide reads its parent's, same parent-fallback spirit as
+     *  TaxonomyNode::campaignPriceFor/culturalTierFor elsewhere in this codebase. */
+    private function hospitalityContext(): TaxonomyNode
+    {
+        return $this->destination->type === 'city' ? $this->destination->parent : $this->destination;
     }
 }

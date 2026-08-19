@@ -1,13 +1,19 @@
-import { Component, ElementRef, ViewChild, effect, input, output, signal } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { Component, ElementRef, ViewChild, computed, effect, input, output, signal } from '@angular/core';
 import { DestinationGuide, TaxonomyNode } from '../core/wizard.types';
 import { WizardService } from '../core/wizard.service';
 import { I18nService } from '../core/i18n.service';
 import { SpinnerComponent } from './spinner';
 
+/** One "slide" of the guide — owner's ask, 2026-08-19: match the real Instagram carousel's
+ *  page-by-page feel (cover -> itinerary -> costs -> tips -> photos), not a single long
+ *  scroll. Only slides with real content for THIS guide are included — see slides(). */
+export type DestinationGuideSlide = 'cover' | 'itinerary' | 'costs' | 'tips' | 'photos';
+
 /**
- * Optional "deep-dive" destination guide — owner's ask, 2026-08-19, styled after a real
- * Instagram travel-carousel he shared (cover -> itinerary -> costs -> tips -> photos). Strictly
- * side-of-flow: reached via a link inside the existing ui-info-popover, never a wizard step.
+ * Optional "deep-dive" destination guide — styled after a real Instagram travel-carousel the
+ * owner shared. Strictly side-of-flow: reached via a link inside the existing ui-info-popover,
+ * never a wizard step.
  *
  * ONE instance lives at the wizard level (see wizard.html) — `node` is set/cleared by the
  * parent when a card's "see full guide" link is clicked, rather than one modal per card.
@@ -15,13 +21,13 @@ import { SpinnerComponent } from './spinner';
  *
  * Native `<dialog>` + showModal()/close() — a real DOM property (`[open]`, no `[attr.]`
  * workaround needed, unlike the `popover`/`popovertarget` attributes ui-info-popover uses),
- * appropriate here since this is a bigger scrollable overlay than that small anchored popover
- * is built for. Zero new dependencies, matches this project's "native HTML API first" style.
+ * appropriate here since this is a bigger overlay than that small anchored popover is built
+ * for. Zero new dependencies, matches this project's "native HTML API first" style.
  */
 @Component({
   selector: 'app-destination-guide-modal',
   standalone: true,
-  imports: [SpinnerComponent],
+  imports: [CommonModule, SpinnerComponent],
   templateUrl: './destination-guide-modal.html',
 })
 export class DestinationGuideModalComponent {
@@ -42,6 +48,32 @@ export class DestinationGuideModalComponent {
 
   readonly guide = signal<DestinationGuide | null>(null);
   readonly loading = signal(false);
+  readonly currentSlideIndex = signal(0);
+
+  /** Only slides this specific guide actually has content for — e.g. a city-level guide never
+   *  gets an "itinerary" slide, a guide with no photos never gets a "photos" slide. */
+  readonly slides = computed<DestinationGuideSlide[]>(() => {
+    const g = this.guide();
+    if (!g) return ['cover'];
+
+    const keys: DestinationGuideSlide[] = ['cover'];
+    if (g.itinerary?.length) keys.push('itinerary');
+    if (
+      g.accommodationPriceEur ||
+      g.accommodationPriceRangeEur ||
+      g.foodCostEatingOutPerAdultPerDayEur ||
+      g.foodCostSelfCateringPerAdultPerDayEur ||
+      g.accommodationCostNotes
+    ) {
+      keys.push('costs');
+    }
+    if (g.extraTips?.length) keys.push('tips');
+    if (g.images?.length) keys.push('photos');
+
+    return keys;
+  });
+
+  readonly currentSlide = computed<DestinationGuideSlide>(() => this.slides()[this.currentSlideIndex()] ?? 'cover');
 
   constructor(
     private wizard: WizardService,
@@ -59,6 +91,7 @@ export class DestinationGuideModalComponent {
 
   private async openFor(node: TaxonomyNode): Promise<void> {
     this.guide.set(null);
+    this.currentSlideIndex.set(0);
     this.loading.set(true);
     this.dialogRef?.nativeElement.showModal();
 
@@ -67,6 +100,14 @@ export class DestinationGuideModalComponent {
     } finally {
       this.loading.set(false);
     }
+  }
+
+  previousSlide(): void {
+    this.currentSlideIndex.update((i) => Math.max(0, i - 1));
+  }
+
+  nextSlide(): void {
+    this.currentSlideIndex.update((i) => Math.min(this.slides().length - 1, i + 1));
   }
 
   /** Bound to the native <dialog>'s (close) event — fires on Esc/backdrop-click too, not just
