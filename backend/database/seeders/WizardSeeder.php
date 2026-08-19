@@ -660,6 +660,13 @@ class WizardSeeder extends Seeder
             'turska' => ['en' => 'Turkey', 'sr' => 'Turska', 'iso' => 'TR'],
             'portugalija' => ['en' => 'Portugal', 'sr' => 'Portugalija', 'iso' => 'PT'],
             'hrvatska' => ['en' => 'Croatia', 'sr' => 'Hrvatska', 'iso' => 'HR'],
+            // Added 2026-08-19 (owner's ask, riding real World Cup-qualification interest in
+            // DACH — Cape Verde's own "Blue Sharks" made their first-ever World Cup). Genuine
+            // fit regardless of the hook: real direct DACH charter routes (TUIfly Köln, Condor
+            // München, Lufthansa Frankfurt -> Sal) confirmed via research, and it's a true
+            // winter-sun destination (stays ~25°C when the Mediterranean has cooled off) —
+            // exactly the "still warm" story this campaign already tells, just further out.
+            'zelenortska_ostrva' => ['en' => 'Cape Verde', 'sr' => 'Zelenortska ostrva', 'iso' => 'CV'],
         ];
 
         $countryNodes = [];
@@ -800,6 +807,14 @@ class WizardSeeder extends Seeder
             'split' => ['Split', 'Split', 'hrvatska', 43.5081, 16.4402, [10 => [19, 21], 11 => [13, 18], 12 => [8, 15]]],
             'dubrovnik' => ['Dubrovnik', 'Dubrovnik', 'hrvatska', 42.6507, 18.0944, [10 => [20, 21.5], 11 => [15, 19], 12 => [11, 16.5]]],
             'hvar' => ['Hvar', 'Hvar', 'hrvatska', 43.1729, 16.4414, [10 => [19.5, 21.5], 11 => [14, 18.5], 12 => [9, 16]]],
+
+            // Cape Verde — the only two islands with confirmed real direct DACH charter/
+            // scheduled routes (TUIfly/Condor/Lufthansa -> Sal; Boa Vista's own international
+            // airport serves the same charter market via Iberostar etc.), 2026-08-19. Placeholder
+            // climate below (Atlantic subtropical, stays warm nearly flat across the season, real
+            // draw is exactly THAT stability) — overwritten by climate:import right after seeding.
+            'santa_marija' => ['Santa Maria', 'Santa Marija', 'zelenortska_ostrva', 16.599, -22.904, [10 => [29, 26.5], 11 => [28, 26], 12 => [27, 25.5]]],
+            'sal_rej' => ['Sal Rei', 'Sal Rej', 'zelenortska_ostrva', 16.177, -22.918, [10 => [29, 26.5], 11 => [28, 26], 12 => [27, 25.5]]],
         ];
 
         foreach ($cities as $slug => [$en, $sr, $countrySlug, $lat, $lng, $climate]) {
@@ -868,6 +883,11 @@ class WizardSeeder extends Seeder
             'hrvatska' => ['meal' => 18, 'coffee' => 2.0, 'beer' => 3.5],
             'grcka' => ['meal' => 16, 'coffee' => 2.5, 'beer' => 3.5],
             'italija' => ['meal' => 20, 'coffee' => 1.3, 'beer' => 4.5],
+            // Added 2026-08-19 — researched (WebSearch, not pure guesswork): tourist-front beer
+            // ~EUR4-5/pint, tascas EUR4-8/meal, tourist-zone seafood EUR11-23, so this sits
+            // squarely in the Egypt/Tunisia tier despite island-import costs pushing it up
+            // slightly from mainland-Africa prices.
+            'zelenortska_ostrva' => ['meal' => 14, 'coffee' => 2.5, 'beer' => 4.5],
         ];
 
         // store beer / meat per kg / cigarettes pack, in EUR
@@ -882,6 +902,9 @@ class WizardSeeder extends Seeder
             'hrvatska' => ['beer' => 1.2, 'meat' => 10, 'cigarettes' => 4.0],
             'grcka' => ['beer' => 1.3, 'meat' => 10, 'cigarettes' => 4.5],
             'italija' => ['beer' => 1.3, 'meat' => 13, 'cigarettes' => 6.0],
+            // Store beer researched at ~150-200 CVE/25cl bottle (~EUR1.5-1.9); meat/cigarettes
+            // no direct source found, estimated at the same Egypt/Tunisia tier.
+            'zelenortska_ostrva' => ['beer' => 1.8, 'meat' => 9, 'cigarettes' => 4.5],
         ];
 
         // tier: 1=most free/available, 4=most restricted — see class docblock above
@@ -896,6 +919,16 @@ class WizardSeeder extends Seeder
             'hrvatska' => ['alcohol' => 1, 'pork' => 1, 'halal' => 3, 'vegan' => 2, 'organic' => 2, 'cannabis' => 3, 'dress_code' => 1, 'lgbtq_friendly' => 2, 'tap_water' => 1],
             'grcka' => ['alcohol' => 1, 'pork' => 1, 'halal' => 3, 'vegan' => 2, 'organic' => 2, 'cannabis' => 3, 'dress_code' => 1, 'lgbtq_friendly' => 1, 'tap_water' => 1],
             'italija' => ['alcohol' => 1, 'pork' => 1, 'halal' => 3, 'vegan' => 2, 'organic' => 1, 'cannabis' => 3, 'dress_code' => 1, 'lgbtq_friendly' => 2, 'tap_water' => 1],
+            // Researched (WebSearch), 2026-08-19: alcohol/pork freely available (Catholic-
+            // majority, real local beer/grogue culture) — halal tier 3, not 1: no dedicated halal
+            // butcher operates on Sal or Boa Vista specifically (the two islands actually seeded
+            // here), only in Praia. lgbtq_friendly tier 2: same-sex activity legal, employment
+            // discrimination banned since 2008, repeatedly surveyed as Africa's most tolerant —
+            // genuinely better than most of this list, capped at 2 (not 1) since it isn't an
+            // established LGBT-destination brand the way Spain/Malta/Portugal are. tap_water
+            // tier 4: desalinated seawater, real stomach-upset risk, same severity as Egypt.
+            // organic tier 4: small remote island economy, imports most food.
+            'zelenortska_ostrva' => ['alcohol' => 1, 'pork' => 1, 'halal' => 3, 'vegan' => 2, 'organic' => 4, 'cannabis' => 3, 'dress_code' => 1, 'lgbtq_friendly' => 2, 'tap_water' => 4],
         ];
 
         $labels = [
@@ -909,6 +942,7 @@ class WizardSeeder extends Seeder
         $isoCodes = [
             'egipat' => 'EG', 'kipar' => 'CY', 'malta' => 'MT', 'tunis' => 'TN', 'spanija' => 'ES',
             'turska' => 'TR', 'portugalija' => 'PT', 'hrvatska' => 'HR', 'grcka' => 'GR', 'italija' => 'IT',
+            'zelenortska_ostrva' => 'CV',
         ];
 
         foreach ($hospitality as $slug => $h) {
@@ -1048,6 +1082,11 @@ class WizardSeeder extends Seeder
             'split' => ['Living Roman palace as a city center — real bar scene at night, walkable, good food, popular with a younger crowd.', ['gurman', 'istrazivac'], []],
             'dubrovnik' => ['Iconic walled city, expensive, romantic and culture-tourism heavy — not primarily a nightlife or budget destination.', ['istrazivac'], []],
             'hvar' => ["Croatia's actual jet-set party island — yacht clubs, expensive bars, a real scene in summer. Not the place for a tight budget or a family trip.", ['partijaner', 'istrazivac'], ['porodica']],
+
+            // Added 2026-08-19, researched (WebSearch) rather than pure general knowledge —
+            // see seedSwimDestinations' Cape Verde comment for why these two specifically.
+            'santa_marija' => ["Sal's real town — restaurants, bars and dive shops line the main strip, genuinely one of the world's top kitesurfing/windsurfing spots, plus regular whale shark and manta ray diving trips. More going on than Boa Vista, but still resort-relaxed, not a club scene.", ['istrazivac'], []],
+            'sal_rej' => ["Boa Vista's main town — vast, near-empty desert-dune beaches, a famous shipwreck photo spot, and one of the world's most important loggerhead turtle nesting sites in summer. Wilder and quieter than Santa Maria, built for peace and long beach walks over nightlife.", ['istrazivac', 'flegma'], ['partijaner']],
         ];
 
         foreach ($cities as $slug => [$description, $goodFor, $avoidFor]) {
@@ -1075,6 +1114,7 @@ class WizardSeeder extends Seeder
             'hrvatska' => 'Coolest of the ten by late season — real historic cities (Split, Dubrovnik) alongside Hvar\'s expensive jet-set party scene.',
             'grcka' => 'The islands vary enormously — Santorini/Mykonos are upscale and pricey, Corfu/Rhodes/Crete each hide a famous party strip next to much calmer areas.',
             'italija' => 'Southern coastal Italy here — Taormina is romantic and expensive, Cagliari is a real working city with beaches attached.',
+            'zelenortska_ostrva' => 'Atlantic islands off West Africa, genuinely warm nearly year-round rather than seasonally — Sal (Santa Maria) is the livelier of the two real package-holiday islands, Boa Vista (Sal Rei) is wilder and quieter with vast empty beaches and a real turtle-nesting nature draw.',
         ];
 
         foreach ($countryDescriptions as $slug => $description) {
@@ -1267,6 +1307,12 @@ class WizardSeeder extends Seeder
             'lagos' => [2, 2], 'albufeira' => [0, 1], 'faro' => [1, 1],
             // Italy
             'taormina' => [3, 2], 'kaljari' => [2, 1], 'lampedusa' => [1, 3], 'linosa' => [1, 1],
+            // Cape Verde — Santa Maria: world-class kitesurfing/windsurfing + regular whale
+            // shark/manta ray diving (exploration 2), Praia de Santa Maria is genuinely
+            // world-famous (beach 3). Sal Rei: major loggerhead turtle nesting site + a famous
+            // shipwreck photo spot (exploration 2), vast beaches routinely on "world's best"
+            // lists (beach 3).
+            'santa_marija' => [2, 3], 'sal_rej' => [2, 3],
         ];
 
         foreach ($ratings as $slug => [$explorationTier, $beachTier]) {
@@ -1361,8 +1407,8 @@ class WizardSeeder extends Seeder
      */
     private function seedFamilyAndQuietTags(): void
     {
-        $quietSlugs = ['marsa_alam', 'larnaka', 'melieha', 'lansarote', 'fuerteventura', 'lampedusa', 'linosa', 'pafos', 'krf'];
-        $familySlugs = ['hurgada', 'sarm_el_seik', 'hamamet', 'monastir', 'antalija', 'kos', 'melieha', 'alanija', 'pafos'];
+        $quietSlugs = ['marsa_alam', 'larnaka', 'melieha', 'lansarote', 'fuerteventura', 'lampedusa', 'linosa', 'pafos', 'krf', 'sal_rej'];
+        $familySlugs = ['hurgada', 'sarm_el_seik', 'hamamet', 'monastir', 'antalija', 'kos', 'melieha', 'alanija', 'pafos', 'santa_marija', 'sal_rej'];
 
         $raveSlugs = TaxonomyNode::whereIn('type', ['city', 'country'])
             ->get()
@@ -1478,7 +1524,9 @@ class WizardSeeder extends Seeder
             'grcka' => 'standard_med', 'hrvatska' => 'standard_med', 'italija' => 'standard_med',
             'turska' => 'standard_med', 'portugalija' => 'standard_med',
             'kipar' => 'warm_med', 'malta' => 'warm_med', 'spanija' => 'warm_med', 'tunis' => 'warm_med',
-            'egipat' => 'winter_sun',
+            // Real peak season is Nov-Apr (~25C when Europe is cold) — same winter-sun shape as
+            // Egypt's Red Sea, confirmed via research 2026-08-19, not just assumed by geography.
+            'egipat' => 'winter_sun', 'zelenortska_ostrva' => 'winter_sun',
         ];
 
         foreach ($countryTemplate as $slug => $templateKey) {
@@ -2059,6 +2107,7 @@ class WizardSeeder extends Seeder
                 'italija' => 'Italien',
                 'grcka' => 'Griechenland',
                 'srbija' => 'Serbien',
+                'zelenortska_ostrva' => 'Kap Verde',
             ],
             // Only the handful with a real, well-known German exonym — everything else falls
             // back to its canonical English (== proper noun) label, see method docblock.
