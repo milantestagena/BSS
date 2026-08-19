@@ -81,7 +81,7 @@ Dogovoreno 2026-08-19. **Prioritet: tag on/off sistem, radimo uskoro** (ne "kad-
 - Ideja: kampanja bira svoj podskup AKTIVNIH `preference_tag`-ova (npr. `lepe_plaze` ima smisla za letovanje, nema za Jesenjovanje; božićna pijaca ima smisla za Jesenjovanje/Zimsko sunce oko decembra, nikako za letovanje)
 - Arhitektonski se prirodno nastavlja na već postojeći `wizard_campaign_questions` pivot obrazac (kampanja bira svoj podskup PITANJA) — isti princip, samo jedan nivo dublje, za TAGOVE unutar preference_tags pitanja
 - Nije nagađanje/novi koncept, čist produžetak postojećeg
-- Kad krenemo: verovatno nova pivot tabela (npr. `wizard_campaign_preference_tags`) ili prost `meta.campaign_keys` niz na `preference_tag` node-u — odlučiti kad se stvarno pređe na implementaciju
+- **Izgrađeno 2026-08-19**: `meta.campaign_keys` niz na `preference_tag` node-u (ne nova pivot tabela — jednostavnije, isti obrazac kao svaki drugi meta podatak u projektu). Odsutno = dostupno svuda (default, nijedan postojeći tag ne treba retag). Sesija bez kampanje vidi sve, bez isključivanja. 4 nova testa u `GeographyResolverTest`, svi prolaze.
 
 ### Vizni zahtevi — informativni flag (vezano za Zimsko sunce/egzotiku, manje hitno)
 
@@ -97,6 +97,7 @@ Dogovoreno 2026-08-19. **Prioritet: tag on/off sistem, radimo uskoro** (ne "kad-
 - **Podaci — bolje nego što izgleda**: već imamo realnu klimu po mesecu (Open-Meteo), realne cene (hospitality/local_stores meta), kulturne tier-ove (tap_water/dress_code/halal) — isti tip "saveti" sekcije kao u Šri Lanka primeru, samo treba sastaviti u čitljiv tekst, ne izmišljati od nule
 - Nijansa: višestanični itinerar (kao Šri Lanka) ima smisla na nivou ZEMLJE (velika/raznolika destinacija), ne po pojedinačnom letovalištu-gradu (Alanija/Marsa Alam nemaju "itinerar", samo su grad) — prvo probati na nivou zemlje
 - **Slike — NE sa Booking-a.** Isti rizik kao scraping odluka od 13.7 (tuđ sadržaj, automated means, pretnja affiliate odobrenju). Umesto toga: **Unsplash/Pexels API** — pravi besplatni, licencirani javni izvor namenjen baš za putničke fotografije, isti princip kao WhereNext za cene
+- **Statičan sadržaj, ne dinamički template** (dogovoreno 2026-08-19) — cene/podaci se ne menjaju svaki dan, pa Claude periodično (na zahtev, ili pred novi sezonski ciklus) prođe i osveži/upiše po kampanji, isti obrazac kao `vibe_profile`/hospitality (sačuvano jednom, prikazuje se besplatno). NE live-generisanje po pregledu stranice — skuplje, sporije, nepotrebno kad podaci ionako ne variraju iz sata u sat.
 
 ### GBP/London — rešeno, NE otvarati ponovo
 

@@ -141,6 +141,61 @@ class GeographyResolverTest extends TestCase
         $this->assertNull($results->firstWhere('id', $belgija->id));
     }
 
+    /**
+     * Per-campaign tag on/off — owner's ask, 2026-08-19. Same spirit as
+     * wizard_campaign_questions letting a campaign pick its own subset of QUESTIONS, one level
+     * deeper: which preference_tag options it actually offers.
+     */
+    public function test_preference_tag_with_no_campaign_keys_shows_for_any_campaign(): void
+    {
+        $campaign = \App\Models\WizardCampaign::create(['key' => 'kasno-letovanje', 'label' => 'Test']);
+        $tag = $this->node('preference_tag', 'lepe_plaze');
+
+        $session = SearchSession::create(['status' => 'in_progress', 'wizard_campaign_id' => $campaign->id]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'preference_tag']);
+
+        $this->assertTrue($results->pluck('id')->contains($tag->id));
+    }
+
+    public function test_preference_tag_scoped_to_another_campaign_is_hidden(): void
+    {
+        $campaign = \App\Models\WizardCampaign::create(['key' => 'kasno-letovanje', 'label' => 'Test']);
+        $tag = $this->node('preference_tag', 'bozicna_pijaca', ['campaign_keys' => ['jesenjovanje']]);
+
+        $session = SearchSession::create(['status' => 'in_progress', 'wizard_campaign_id' => $campaign->id]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'preference_tag']);
+
+        $this->assertFalse($results->pluck('id')->contains($tag->id));
+    }
+
+    public function test_preference_tag_scoped_to_the_current_campaign_still_shows(): void
+    {
+        $campaign = \App\Models\WizardCampaign::create(['key' => 'jesenjovanje', 'label' => 'Test']);
+        $tag = $this->node('preference_tag', 'bozicna_pijaca', ['campaign_keys' => ['jesenjovanje']]);
+
+        $session = SearchSession::create(['status' => 'in_progress', 'wizard_campaign_id' => $campaign->id]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'preference_tag']);
+
+        $this->assertTrue($results->pluck('id')->contains($tag->id));
+    }
+
+    /** A session with no campaign at all (generic/non-campaign flow) has no basis to exclude
+     *  anything — same "never over-narrow without a real signal" convention as the rest of this
+     *  resolver. */
+    public function test_preference_tag_scoped_to_a_campaign_still_shows_with_no_campaign_session(): void
+    {
+        $tag = $this->node('preference_tag', 'bozicna_pijaca', ['campaign_keys' => ['jesenjovanje']]);
+
+        $session = SearchSession::create(['status' => 'in_progress']);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'preference_tag']);
+
+        $this->assertTrue($results->pluck('id')->contains($tag->id));
+    }
+
     /** "Superstar" — see GeographyResolver::isPerfectMatch docblock. */
     public function test_perfect_match_is_true_only_when_every_selected_vibe_tag_is_matched(): void
     {

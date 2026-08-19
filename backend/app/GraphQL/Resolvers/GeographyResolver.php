@@ -61,6 +61,23 @@ class GeographyResolver
             $query->where('parent_id', $args['parentId']);
         }
 
+        // Per-campaign tag on/off, 2026-08-19 (owner's ask) — same spirit as
+        // wizard_campaign_questions letting a campaign pick its own subset of QUESTIONS, one
+        // level deeper: which preference_tag OPTIONS it actually offers (e.g. a future
+        // Christmas-market tag only makes sense for a city-break campaign, `lepe_plaze` only
+        // for a swim one). `meta.campaign_keys` absent (the default for every existing tag today)
+        // means "available everywhere" — nothing needs retagging just because this filter now
+        // exists. A session with no campaign at all (generic/non-campaign flow) also sees
+        // everything unrestricted, same "never over-narrow without a real signal" convention as
+        // the rest of this resolver.
+        if ($args['type'] === 'preference_tag' && $session->campaign) {
+            $campaignKey = $session->campaign->key;
+            $query->where(function ($q) use ($campaignKey) {
+                $q->whereNull('meta->campaign_keys')
+                    ->orWhereJsonContains('meta->campaign_keys', $campaignKey);
+            });
+        }
+
         $nodes = $query->get();
         $budgetCaveatIds = collect();
         $budgetFitById = collect();
