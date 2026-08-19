@@ -659,7 +659,15 @@ class WizardSeeder extends Seeder
             'spanija' => ['en' => 'Spain', 'sr' => 'Španija', 'iso' => 'ES'],
             'turska' => ['en' => 'Turkey', 'sr' => 'Turska', 'iso' => 'TR'],
             'portugalija' => ['en' => 'Portugal', 'sr' => 'Portugalija', 'iso' => 'PT'],
-            'hrvatska' => ['en' => 'Croatia', 'sr' => 'Hrvatska', 'iso' => 'HR'],
+            // Croatia removed from this loop 2026-08-19 (owner's ask) — it was already the
+            // weakest fit for a "still warm" late-season campaign (own vibe_profile comment
+            // below: "coolest of the ten by late season") and never got real prices entered.
+            // Deliberately NOT deleted, just detached from `mediteran` (see the one-off
+            // parent_id fix run alongside this change) — everything else (climate, hospitality/
+            // cultural meta, vibe_profile, DE translation, season template) stays untouched in
+            // the DB, ready to reattach for a future non-swim campaign without redoing any of
+            // it. Being absent from THIS array just means re-seeding no longer re-parents it
+            // back under `mediteran`.
             // Added 2026-08-19 (owner's ask, riding real World Cup-qualification interest in
             // DACH — Cape Verde's own "Blue Sharks" made their first-ever World Cup). Genuine
             // fit regardless of the hook: real direct DACH charter routes (TUIfly Köln, Condor
@@ -801,12 +809,10 @@ class WizardSeeder extends Seeder
             'albufeira' => ['Albufeira', 'Albufeira', 'portugalija', 37.0891, -8.2504, [10 => [22, 20], 11 => [18, 18], 12 => [15, 16.5]]],
             'lagos' => ['Lagos', 'Lagos', 'portugalija', 37.1021, -8.6742, [10 => [21, 19.5], 11 => [17, 17.5], 12 => [14, 16]]],
 
-            // Croatia — included for completeness, but noticeably the coolest by November
-            // (real signal for the "where's it ACTUALLY still warm" ranking, not everywhere
-            // Mediterranean-adjacent qualifies).
-            'split' => ['Split', 'Split', 'hrvatska', 43.5081, 16.4402, [10 => [19, 21], 11 => [13, 18], 12 => [8, 15]]],
-            'dubrovnik' => ['Dubrovnik', 'Dubrovnik', 'hrvatska', 42.6507, 18.0944, [10 => [20, 21.5], 11 => [15, 19], 12 => [11, 16.5]]],
-            'hvar' => ['Hvar', 'Hvar', 'hrvatska', 43.1729, 16.4414, [10 => [19.5, 21.5], 11 => [14, 18.5], 12 => [9, 16]]],
+            // Croatia's cities (split/dubrovnik/hvar) removed from this loop 2026-08-19 alongside
+            // the country itself, same reasoning — see the $countries array comment above. Their
+            // existing rows (climate, vibe_profile, tags) are untouched, just no longer visited
+            // by re-seeding; the country no longer has a country_node to parent them under here.
 
             // Cape Verde — the only two islands with confirmed real direct DACH charter/
             // scheduled routes (TUIfly/Condor/Lufthansa -> Sal; Boa Vista's own international
