@@ -90,7 +90,11 @@ Dogovoreno 2026-08-19. **Prioritet: tag on/off sistem, radimo uskoro** (ne "kad-
 - Isti obrazac kao avio-cena caveat — NE tvrditi tačna pravila (menjaju se, ne želimo lažnu preciznost), samo informativni flag + link na zvaničan izvor čim se izabere destinacija
 - Vezano za dodavanje egzotičnih destinacija (vidi Zimsko sunce sekciju) — istražiti vizne zahteve PO ZEMLJI kad se ta zemlja stvarno dodaje, ne unapred za sve odjednom
 
-### Opciona "duboka" destinacijska stranica (sa strane, ne u glavnom toku)
+### Opciona "duboka" destinacijska stranica (sa strane, ne u glavnom toku) — ✅ IZGRAĐENO 2026-08-19
+
+**Status: gotovo i deployovano.** Nova `destination_guides` tabela (isti `(campaign, destination)` oblik kao cene), `DestinationGuide` model, `campaign:seed-destination-guide-rows` (samo za već-pocenjene destinacije — 63 reda skafoldovana i lokalno i na produkciji), GraphQL `destinationGuide` query + `hasGuide` flag, `DestinationGuideModalComponent` (native `<dialog>`, jedna instanca za ceo wizard, sadržaj se učitava tek na klik). 152 backend testa prolazi, verifikovano end-to-end sa pravim Turska podacima pre čišćenja.
+
+**Sledeći korak: pisanje pravog sadržaja.** Prazni redovi postoje (63 destinacije), ali nijedan još nema stvaran itinerar/saveti/slike — checklist za to je docblock na `DestinationGuide` modelu (šta se sastavlja iz postojećih podataka vs. šta je stvarno novo istraživanje po destinaciji).
 
 - Ideja, 2026-08-19: link na kraju postojećeg `ui-info-popover` (kružić kod zemlje/grada) koji otvara bogatiju stranicu/karusel po uzoru na Šri Lanka post (hook → mapa/itinerar → realni troškovi → saveti → slike) — SAMO za onog ko hoće dublje, ne dodaje korak u glavni wizard flow
 - Vlasnikov stav: ne sme da uspori/zakomplikuje glavni tok, ali obogaćuje sajt za one koji žele — SLAŽEM SE, dobra granica
