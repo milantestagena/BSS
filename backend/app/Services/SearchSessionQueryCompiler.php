@@ -141,6 +141,76 @@ class SearchSessionQueryCompiler
     }
 
     /**
+     * A REAL, working public flights.booking.com search URL — same "no API key, no partner
+     * approval" spirit as toBookingUrl() above, but this scheme isn't publicly documented
+     * anywhere (checked, 2026-08-19) so it's built from a real captured example instead: the
+     * owner ran an actual search (Niš -> Malta, 2 adults + 3 children) and sent the resulting
+     * URL. Deliberately drops that URL's `aid`/`label` params — those read as Booking's own
+     * generic/session tracking values from browsing their site directly, not something safe to
+     * copy into every link we generate; the real affiliate wrapper goes on once CJ approves,
+     * same as toBookingUrl().
+     *
+     * Owner's own idea, 2026-08-19: flight price is FAR too volatile (yield management,
+     * personalized fares, 10x swings days before departure) to estimate ourselves and fold into
+     * the budget-fit math — same "false precision" lesson as the reverted budget_shortfall_eur
+     * feature, just a worse case of it. This just hands the traveler a live, real search instead
+     * of a number we'd get wrong.
+     *
+     * Destination is the COUNTRY (toCountryCode/toLocationName), not the specific city, matching
+     * how the owner's own captured example searched "Malta" rather than a specific airport —
+     * flights land at whichever airport serves the region, not literally at the resort town.
+     *
+     * Origin defaults to Frankfurt (the largest DACH hub) since we don't yet map home_city
+     * answers to a specific departure airport — a real known simplification, not an oversight;
+     * revisit if/when that mapping gets built.
+     */
+    public function toBookingFlightsUrl(): ?string
+    {
+        $destination = $this->destinationNode();
+        if (! $destination) {
+            return null;
+        }
+
+        [$checkin, $checkout] = $this->resolveDates();
+        if (! $checkin) {
+            return null;
+        }
+
+        $country = $destination->type === 'city' ? $destination->parent : $destination;
+        if (! $country) {
+            return null;
+        }
+
+        $params = [
+            'type' => 'ROUNDTRIP',
+            'adults' => $this->session->adults_count ?: 1,
+            'cabinClass' => 'ECONOMY',
+            'depart' => $checkin->toDateString(),
+            'return' => $checkout->toDateString(),
+            'from' => 'FRA.AIRPORT',
+            'fromCountry' => 'DE',
+            'fromLocationName' => 'Frankfurt Airport',
+            'to' => 'Anywhere',
+            'toCountryCode' => strtolower((string) ($country->meta['iso_code'] ?? '')),
+            'toLocationName' => $country->label,
+            'sort' => 'BEST',
+            'travelPurpose' => 'leisure',
+        ];
+
+        $childrenAges = $this->session->children_ages ?? [];
+        if (! empty($childrenAges)) {
+            $params['children'] = implode(',', $childrenAges);
+        }
+
+        $query = [];
+        foreach ($params as $key => $value) {
+            $query[] = $key.'='.rawurlencode((string) $value);
+        }
+
+        return 'https://flights.booking.com/fly-anywhere/?'.implode('&', $query);
+    }
+
+    /**
      * meal_style=kuva_sam ("I'll cook for myself") -> Booking's real `mealplan=999` (Self
      * catering) filter. Split off from applyMealPlanPreferenceFilter, 2026-08-13, alongside
      * meal_style becoming its own mandatory question — the `kuva_sam` taxonomy node itself

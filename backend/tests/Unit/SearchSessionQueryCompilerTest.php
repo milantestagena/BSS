@@ -147,6 +147,47 @@ class SearchSessionQueryCompilerTest extends TestCase
         $this->assertStringContainsString('age=9', $url);
     }
 
+    public function test_booking_flights_url_is_null_without_a_destination_or_dates(): void
+    {
+        $session = SearchSession::create(['status' => 'in_progress']);
+
+        $this->assertNull((new SearchSessionQueryCompiler($session))->toBookingFlightsUrl());
+    }
+
+    /** Shape matches a real captured example (owner ran an actual search, Niš -> Malta, 2026-08-
+     *  19) -- see toBookingFlightsUrl's docblock for why aid/label from that capture aren't
+     *  copied in. Destination resolves to the COUNTRY (toCountryCode/toLocationName) even when
+     *  the session has a specific CITY chosen, matching how the real example searched "Malta"
+     *  as a whole, not one airport within it. */
+    public function test_booking_flights_url_uses_country_level_destination_and_frankfurt_origin(): void
+    {
+        $country = TaxonomyNode::create(['type' => 'country', 'slug' => 'malta', 'label' => 'Malta', 'sort_order' => 0, 'meta' => ['iso_code' => 'MT']]);
+        $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'melieha', 'label' => 'Mellieha', 'sort_order' => 0, 'parent_id' => $country->id]);
+
+        $session = SearchSession::create([
+            'status' => 'in_progress',
+            'city_id' => $city->id,
+            'date_from' => '2026-09-19',
+            'date_to' => '2026-09-26',
+            'adults_count' => 2,
+            'children_ages' => [11, 9, 1],
+        ]);
+
+        $url = (new SearchSessionQueryCompiler($session))->toBookingFlightsUrl();
+
+        $this->assertStringStartsWith('https://flights.booking.com/fly-anywhere/?', $url);
+        $this->assertStringContainsString('type=ROUNDTRIP', $url);
+        $this->assertStringContainsString('adults=2', $url);
+        $this->assertStringContainsString('depart=2026-09-19', $url);
+        $this->assertStringContainsString('return=2026-09-26', $url);
+        $this->assertStringContainsString('from=FRA.AIRPORT', $url);
+        $this->assertStringContainsString('toCountryCode=mt', $url);
+        $this->assertStringContainsString('toLocationName='.rawurlencode('Malta'), $url);
+        $this->assertStringContainsString('children='.rawurlencode('11,9,1'), $url);
+        $this->assertStringNotContainsString('aid=', $url);
+        $this->assertStringNotContainsString('label=', $url);
+    }
+
     public function test_booking_params_apply_family_friendly_filter_when_porodicna_atmosfera_selected(): void
     {
         $session = SearchSession::create([
