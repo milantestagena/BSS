@@ -90,6 +90,14 @@ Dogovoreno 2026-08-19. **Prioritet: tag on/off sistem, radimo uskoro** (ne "kad-
 - Isti obrazac kao avio-cena caveat — NE tvrditi tačna pravila (menjaju se, ne želimo lažnu preciznost), samo informativni flag + link na zvaničan izvor čim se izabere destinacija
 - Vezano za dodavanje egzotičnih destinacija (vidi Zimsko sunce sekciju) — istražiti vizne zahteve PO ZEMLJI kad se ta zemlja stvarno dodaje, ne unapred za sve odjednom
 
+### Opciona "duboka" destinacijska stranica (sa strane, ne u glavnom toku)
+
+- Ideja, 2026-08-19: link na kraju postojećeg `ui-info-popover` (kružić kod zemlje/grada) koji otvara bogatiju stranicu/karusel po uzoru na Šri Lanka post (hook → mapa/itinerar → realni troškovi → saveti → slike) — SAMO za onog ko hoće dublje, ne dodaje korak u glavni wizard flow
+- Vlasnikov stav: ne sme da uspori/zakomplikuje glavni tok, ali obogaćuje sajt za one koji žele — SLAŽEM SE, dobra granica
+- **Podaci — bolje nego što izgleda**: već imamo realnu klimu po mesecu (Open-Meteo), realne cene (hospitality/local_stores meta), kulturne tier-ove (tap_water/dress_code/halal) — isti tip "saveti" sekcije kao u Šri Lanka primeru, samo treba sastaviti u čitljiv tekst, ne izmišljati od nule
+- Nijansa: višestanični itinerar (kao Šri Lanka) ima smisla na nivou ZEMLJE (velika/raznolika destinacija), ne po pojedinačnom letovalištu-gradu (Alanija/Marsa Alam nemaju "itinerar", samo su grad) — prvo probati na nivou zemlje
+- **Slike — NE sa Booking-a.** Isti rizik kao scraping odluka od 13.7 (tuđ sadržaj, automated means, pretnja affiliate odobrenju). Umesto toga: **Unsplash/Pexels API** — pravi besplatni, licencirani javni izvor namenjen baš za putničke fotografije, isti princip kao WhereNext za cene
+
 ### GBP/London — rešeno, NE otvarati ponovo
 
 - Vlasnikova odluka 2026-08-19: nema potrebe za multi-currency infrastrukturom. Mi unosimo SVOJU EUR procenu cene (isti ručni proces kao svugde), stvarna transakcija/valuta je Booking-ov problem. London ostaje kao kandidat za Jesenjovanje bez ikakve posebne obrade.
