@@ -101,13 +101,31 @@ Ovo je **konceptualno i arhitekturno odvojeno** od user-to-user referral sistema
 
 ## 8. Trenutni fokus / sledeći koraci
 
-**Status (2026-08-11 veče):** Live na tripinele.com. AI Honest Report, User/Credits/Wallet, Google
-OAuth, influencer/referral affiliate sistem (sekcija 6), user-to-user credit referral (+10/booking,
-odvojeno od sekcije 6), i **nemački jezik sa EN/DE switch-om** su izgrađeni i deployovani. Persona↔
-preference_tag implies/excludes veze (stavka 4 ranije liste) takođe gotove. Booking.com affiliate
-prijava podneta 2026-08-07, odgovor se očekuje do ~15. avgusta — ako stigne na vreme, lansiranje
-pomera sa 25. avgusta na **1. septembar** (i dalje solidno unutar "kasno letovanje" sezone, bez
-žurbe — "kad bude spremno, biće spremno").
+**Status (2026-08-19):** Live na tripinele.com. **Booking.com Affiliate (CJ) prijava i dalje
+Pending** — podneta 2026-08-07, prošao i 15.8 rok bez odgovora, ponovo proveren 17-19.8, i dalje
+čeka se. Ne blokira dalji razvoj (owner i dalje bez žurbe), samo pomera launch-datum odluku dalje
+u budućnost — ne pretpostavljati konkretan datum dok ID stvarno ne stigne.
+
+Cela punch-lista niže (stavke 1-7) je **gotova** — kampanja "kasno letovanje" je funkcionalno
+kompletna, sesija 12-19.8 je bila fokusirana na kvalitet/bagove/proširenje, ne na osnovnu
+funkcionalnost. Bitno iz tog perioda:
+
+- **Zelenortska ostrva dodata** (2026-08-19) — pravi winter-sun destinacija (more 23-25°C i u
+  januaru), realno istraženi DACH čarter podaci (Sal/Boa Vista, ne nagađano). **Hrvatska
+  isključena** iz kampanje (najhladnija, nikad nije dobila prave cene) — podaci NISU obrisani,
+  samo otkačeni od `mediteran` region_theme-a, spremni za buduću ne-swim kampanju.
+- **`toBookingUrl()`/`toBookingFlightsUrl()`** — pravi, javni, radni Booking.com linkovi (smeštaj
+  i let), bez API pristupa/odobrenja, bez `dest_id` (koji je lažni placeholder od 13.7). Avio cena
+  namerno NE ulazi u budžet proračun (previše promenljiva) — samo živi link na rezultat-ekranu.
+- **Price_rank kolizije ispravljene** — prosek umesto minimuma za boju kartice (odvojeno od
+  budget-fit odluke, koja i dalje koristi minimum), plus "Superstar" zvezdica za savršeno
+  poklapanje svih izabranih vibe tagova.
+- **Per-kampanja tag on/off** (`preference_tag.meta.campaign_keys`) — mehanizam da svaka kampanja
+  bira svoj podskup preference_tag opcija, bez retag-ovanja postojećih.
+- **`kampanje.md`** (repo root) — živ fajl za planiranje SLEDEĆIH kampanja (Zimsko sunce =
+  proširenje kasno-letovanje sa egzotičnim winter-sun destinacijama za nov/dec; Jesenjovanje =
+  nova city-break kampanja timovana na DACH Herbstferien) — proveriti tamo pre predlaganja
+  sledećih koraka, ne duplirati ovde.
 
 **Pre-launch punch lista (dogovoreno 2026-08-11, ažurirano isto veče):**
 
@@ -138,11 +156,9 @@ pomera sa 25. avgusta na **1. septembar** (i dalje solidno unutar "kasno letovan
    - **Ekstrakcija sa screenshot-a:** NE uzimati apsolutno najjeftiniju stavku sa vrha Order by
      Price ASC liste — česta anomalija (soba bez kupatila, pogrešan unos). Uzeti 3.-4. cenu sa
      liste kao realniji "pod" za tu nedelju/destinaciju.
-3. **Automatsko skraćivanje liste gradova po temperaturi mora** — sezona ide od ~150 gradova ka
-   ~15 do oktobra (kasno letovanje, NE party trip — to je posebna buduća kampanja). Real
-   `sea_temp_c` podaci već postoje u `TaxonomyNodeClimate`; implementacija je nova narrowing faza
-   u `GeographyResolver` (isti pattern kao `filterByBudget`/`filterByCulturalAvailability`),
-   računa se live protiv ciljanog meseca — ne treba scheduled job.
+3. ~~Automatsko skraćivanje liste gradova po temperaturi mora~~ — **gotovo.** `filterByClimate` u
+   `GeographyResolver`, računa se live protiv ciljanog meseca protiv stvarnih `TaxonomyNodeClimate`
+   podataka.
 4. ~~Persona↔preference_tag implies/excludes veze~~ — **gotovo 2026-08-11.**
 5. ~~Popuniti country-level taxonomy meta tagove~~ — **gotovo 2026-08-11.** Novi
    `seedSwimAtmosphereTags()` popunjava `meta.atmosphere`/`meta.drinks`/`meta.food` (jedina 3+1
@@ -160,9 +176,11 @@ pomera sa 25. avgusta na **1. septembar** (i dalje solidno unutar "kasno letovan
 7. **Kontinuirano**: testiranje search flow-a, štelovanje `weighted_toward`/`match_score`
    vrednosti na osnovu realnih rezultata.
 
-**Posle ove kampanje:** sajt je trajan posao, ne jednokratan projekat — sledeća kampanja (npr.
-zimovanje, "Dočekaj Novu godinu sa Orlovima") ponovo pokreće mehanizam razdvajanja/proširenja
-taksonomije, ali uvek kao iteracija na postojeće, ne redizajn.
+**Posle ove kampanje:** sajt je trajan posao, ne jednokratan projekat — svaka sledeća kampanja
+ponovo pokreće mehanizam razdvajanja/proširenja taksonomije, ali uvek kao iteracija na postojeće,
+ne redizajn. Konkretni planovi za sledeće kampanje (Zimsko sunce, Jesenjovanje) žive u
+`kampanje.md`, ne ovde — stariji "Dočekaj Novu godinu sa Orlovima" koncept (Turneja četiri
+skakaonice) je i dalje čuvan u Claude memoriji za kad dođe na red, ali nije aktivan plan.
 
 ---
 
