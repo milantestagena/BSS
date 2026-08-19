@@ -510,6 +510,14 @@ export class WizardComponent implements OnInit {
     return wishlist.trim() !== '' || avoidNotes.trim() !== '' || avoidPicks.length > 0;
   }
 
+  /** Owner's ask, 2026-08-19: real, live flight-search link — never a price we'd estimate
+   *  ourselves (see SearchSessionQueryCompiler::toBookingFlightsUrl's docblock). Reads off
+   *  WizardService.compiledQuery, which already refreshes after every answer (previously just a
+   *  debug aid) — null until a destination + dates are actually resolvable. */
+  get bookingFlightsUrl(): string | null {
+    return (this.wizard.compiledQuery()?.['bookingFlightsUrl'] as string | undefined) ?? null;
+  }
+
   /**
    * Top-10 "Best choices" cities from the wizard's own City step (now possibly spanning several
    * selected countries, see selectedCountryIds), re-surfaced on the results screen so the

@@ -126,6 +126,21 @@
             }
           </div>
         }
+        <!-- Owner's ask, 2026-08-19: now that a destination + dates are actually known, this is
+             the first point in the flow a real flight search is even possible (see
+             SearchSessionQueryCompiler::toBookingFlightsUrl's docblock for why there's no price
+             shown, just a live link) — same box as the other "session-level, not per-hotel"
+             actions below it. -->
+        @if (bookingFlightsUrl; as flightsUrl) {
+          <a
+            [href]="flightsUrl"
+            target="_blank"
+            rel="noopener"
+            class="mb-2 block text-xs font-medium text-slate-500 underline decoration-dotted hover:text-slate-700"
+          >
+            {{ i18n.t('checkFlightPrices') }}
+          </a>
+        }
         <!-- Owner's ask, 2026-08-12: not every tweak is "pick a different city" — sometimes
              it's one small answer somewhere earlier. Back to the chat, not a new destination. -->
         <button
@@ -463,6 +478,15 @@
                     [disabled]="question.key === 'smestaj_preference' && !aiSearchEnabled"
                     (valueChange)="onAnswerChange(question, $event)"
                   />
+                  <!-- Owner's ask, 2026-08-19: flight price is too volatile (yield management,
+                       10x swings days before departure) to fold into this number honestly — see
+                       SearchSessionQueryCompiler::toBookingFlightsUrl's docblock. Plain text
+                       here, no link yet — destination isn't chosen at this step, so there's
+                       nothing to link to; the real flight-search link lives on the results
+                       screen instead, once we actually know where. -->
+                  @if (question.key === 'total_budget') {
+                    <p class="-mt-4 mb-6 text-xs text-slate-400">{{ i18n.t('budgetExcludesFlightNote') }}</p>
+                  }
                 }
               }
 

@@ -38,7 +38,7 @@ type Query {
         parentIds: [ID!]
     ): [TaxonomyNode!]! @field(resolver: "App\\GraphQL\\Resolvers\\GeographyResolver@suggested")
 
-    "Compiles a session (which should already have a destination city chosen) into real Booking.com request parameters plus Honest Report signals for the AI layer. Shape: { bookingParams: JSON, honestReportSignals: JSON } — kept as JSON since both shapes are still evolving; see wizard_architecture memory."
+    "Compiles a session (which should already have a destination city chosen) into real Booking.com request parameters plus Honest Report signals for the AI layer. Shape: { bookingParams: JSON, honestReportSignals: JSON, bookingUrl: String|null, bookingFlightsUrl: String|null } — kept as JSON since both shapes are still evolving; see wizard_architecture memory. bookingUrl/bookingFlightsUrl are real public booking.com links (accommodation search / flights search), null until a destination + dates are resolvable — see SearchSessionQueryCompiler."
     compiledSearchQuery(sessionId: ID!): JSON!
         @field(resolver: "App\\GraphQL\\Resolvers\\SearchSessionQueryResolver@compiled")
 

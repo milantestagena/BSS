@@ -21,6 +21,8 @@ class SearchSessionQueryResolver
         return [
             'bookingParams' => $compiler->toBookingParams(),
             'honestReportSignals' => $compiler->toHonestReportSignals(),
+            'bookingUrl' => $compiler->toBookingUrl(),
+            'bookingFlightsUrl' => $compiler->toBookingFlightsUrl(),
         ];
     }
 }
