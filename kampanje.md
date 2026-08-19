@@ -69,3 +69,27 @@ Ideja vlasnika, 2026-08-19 (naziv = jesen + letovanje, isti duh kao "kasno-letov
 
 - Mnogo ranija faza od Zimskog sunca — nema svoje `wizard_campaign` reda, nema city-break specifičnog flow-a, nema roster-a destinacija van Atine/Rima
 - Target lansiranje/marketing guranje: oko sredine oktobra, poklapa se sa Herbstferien prozorom
+
+---
+
+## Arhitektura — ideje koje važe za VIŠE kampanja (ne specifično za jednu)
+
+Dogovoreno 2026-08-19. **Prioritet: tag on/off sistem, radimo uskoro** (ne "kad-tad", stavka za sledeću sesiju odmah).
+
+### Tag on/off po kampanji (prioritet — sledeći korak)
+
+- Ideja: kampanja bira svoj podskup AKTIVNIH `preference_tag`-ova (npr. `lepe_plaze` ima smisla za letovanje, nema za Jesenjovanje; božićna pijaca ima smisla za Jesenjovanje/Zimsko sunce oko decembra, nikako za letovanje)
+- Arhitektonski se prirodno nastavlja na već postojeći `wizard_campaign_questions` pivot obrazac (kampanja bira svoj podskup PITANJA) — isti princip, samo jedan nivo dublje, za TAGOVE unutar preference_tags pitanja
+- Nije nagađanje/novi koncept, čist produžetak postojećeg
+- Kad krenemo: verovatno nova pivot tabela (npr. `wizard_campaign_preference_tags`) ili prost `meta.campaign_keys` niz na `preference_tag` node-u — odlučiti kad se stvarno pređe na implementaciju
+
+### Vizni zahtevi — informativni flag (vezano za Zimsko sunce/egzotiku, manje hitno)
+
+- Iskra ideje: Šri Lanka post koji je vlasnik podelio (dobar format sam po sebi — hook cena+destinacija → mapa/itinerar → troškovi → saveti → slike, vredi kao template za budući marketing content)
+- Realan problem: van EU/lakih destinacija (Egipat/Turska/Tunis/Zelenortska verovatno jednostavni za DACH pasoše, Šri Lanka/Tajland i slično često traže e-visa sa rokom unapred) korisnik može da se iznenadi u zadnji čas
+- Isti obrazac kao avio-cena caveat — NE tvrditi tačna pravila (menjaju se, ne želimo lažnu preciznost), samo informativni flag + link na zvaničan izvor čim se izabere destinacija
+- Vezano za dodavanje egzotičnih destinacija (vidi Zimsko sunce sekciju) — istražiti vizne zahteve PO ZEMLJI kad se ta zemlja stvarno dodaje, ne unapred za sve odjednom
+
+### GBP/London — rešeno, NE otvarati ponovo
+
+- Vlasnikova odluka 2026-08-19: nema potrebe za multi-currency infrastrukturom. Mi unosimo SVOJU EUR procenu cene (isti ručni proces kao svugde), stvarna transakcija/valuta je Booking-ov problem. London ostaje kao kandidat za Jesenjovanje bez ikakve posebne obrade.
