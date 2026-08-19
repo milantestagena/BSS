@@ -1787,10 +1787,21 @@ class WizardSeeder extends Seeder
                 'season_start_date' => '2026-08-29',
                 'season_end_date' => '2026-11-01',
                 // Owner's ask, 2026-08-13: default the budget field instead of forcing everyone
-                // to type — "ljudi ne vole da kucaju... vise da tipkaju". 400€/adult, 300€/child,
-                // per-campaign so a future campaign (different season, different typical spend)
-                // isn't stuck with these same numbers.
-                'meta' => ['default_budget_per_adult_eur' => 400, 'default_budget_per_child_eur' => 300],
+                // to type — "ljudi ne vole da kucaju... vise da tipkaju". Per-campaign so a
+                // future campaign (different season, different typical spend) isn't stuck with
+                // these same numbers.
+                //
+                // Adult raised 400 -> 500, 2026-08-19 (owner's reasoning): a solo adult is going
+                // out to enjoy themselves, that number stands as-is; with a child along the
+                // parent typically spends LESS on themselves and MORE on the kid, so the flat
+                // 2*500 + 2*300 math for a family of 4 doesn't need per-composition juggling on
+                // top of it — "bilo bi bezveze da zongliramo podatke". This is a comfortable-
+                // AVERAGE default, not a bare-minimum one ("ovo jeste za prosek, ne za
+                // sirotinju") — DACH (this campaign's actual audience) has a higher cost-of-
+                // living baseline than our own, and even a modest DACH trip needs numbers in
+                // this range as a floor, not a ceiling. Always just a starting point anyway — the
+                // user can freely dial it down via the +/- stepper if it reads as too generous.
+                'meta' => ['default_budget_per_adult_eur' => 500, 'default_budget_per_child_eur' => 300],
             ],
         );
 
