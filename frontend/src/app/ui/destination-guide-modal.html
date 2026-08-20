@@ -70,7 +70,7 @@
           }
 
           @case ('itinerary') {
-            <div class="min-h-[20rem] space-y-4 p-6 pt-14">
+            <div class="min-h-[20rem] space-y-4 px-12 pb-6 pt-14">
               <h3 class="text-lg font-bold text-slate-900">{{ i18n.t('guideItineraryTitle') }}</h3>
               <ol class="space-y-3">
                 @for (stop of guide.itinerary; track stop.location) {
@@ -87,7 +87,7 @@
           }
 
           @case ('costs') {
-            <div class="min-h-[20rem] space-y-5 p-6 pt-14">
+            <div class="min-h-[20rem] space-y-5 px-12 pb-6 pt-14">
               <h3 class="text-lg font-bold text-slate-900">{{ i18n.t('guideCostsTitle') }}</h3>
 
               @if (guide.accommodationPriceEur || guide.accommodationPriceRangeEur) {
@@ -129,7 +129,7 @@
           }
 
           @case ('tips') {
-            <div class="min-h-[20rem] space-y-4 p-6 pt-14">
+            <div class="min-h-[20rem] space-y-4 px-12 pb-6 pt-14">
               <h3 class="text-lg font-bold text-slate-900">{{ i18n.t('guideTipsTitle') }}</h3>
               <ul class="list-disc space-y-2 pl-5 text-sm text-slate-600">
                 @for (tip of guide.extraTips; track tip) {
@@ -140,7 +140,7 @@
           }
 
           @case ('photos') {
-            <div class="min-h-[20rem] space-y-4 p-6 pt-14">
+            <div class="min-h-[20rem] space-y-4 px-12 pb-6 pt-14">
               <h3 class="text-lg font-bold text-slate-900">{{ i18n.t('guidePhotosTitle') }}</h3>
               <div class="grid grid-cols-2 gap-2">
                 @for (image of guide.images; track image.url) {
