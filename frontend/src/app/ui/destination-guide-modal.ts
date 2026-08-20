@@ -49,6 +49,10 @@ export class DestinationGuideModalComponent {
   readonly guide = signal<DestinationGuide | null>(null);
   readonly loading = signal(false);
   readonly currentSlideIndex = signal(0);
+  /** Position within the CURRENT slide's own images — separate from currentSlideIndex, since
+   *  the photos slide steps through its own images one at a time rather than showing them all
+   *  at once (owner's ask, 2026-08-20: the old 2x2 thumbnail grid was "presitno"/too small). */
+  readonly currentPhotoIndex = signal(0);
 
   /** Only slides this specific guide actually has content for — e.g. a city-level guide never
    *  gets an "itinerary" slide, a guide with no photos never gets a "photos" slide. */
@@ -92,6 +96,7 @@ export class DestinationGuideModalComponent {
   private async openFor(node: TaxonomyNode): Promise<void> {
     this.guide.set(null);
     this.currentSlideIndex.set(0);
+    this.currentPhotoIndex.set(0);
     this.loading.set(true);
     this.dialogRef?.nativeElement.showModal();
 
@@ -104,10 +109,21 @@ export class DestinationGuideModalComponent {
 
   previousSlide(): void {
     this.currentSlideIndex.update((i) => Math.max(0, i - 1));
+    this.currentPhotoIndex.set(0);
   }
 
   nextSlide(): void {
     this.currentSlideIndex.update((i) => Math.min(this.slides().length - 1, i + 1));
+    this.currentPhotoIndex.set(0);
+  }
+
+  previousPhoto(): void {
+    this.currentPhotoIndex.update((i) => Math.max(0, i - 1));
+  }
+
+  nextPhoto(): void {
+    const count = this.guide()?.images?.length ?? 0;
+    this.currentPhotoIndex.update((i) => Math.min(count - 1, i + 1));
   }
 
   /** Bound to the native <dialog>'s (close) event — fires on Esc/backdrop-click too, not just

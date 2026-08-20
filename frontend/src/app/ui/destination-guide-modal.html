@@ -140,13 +140,44 @@
           }
 
           @case ('photos') {
-            <div class="min-h-[20rem] space-y-4 px-12 pb-6 pt-14">
+            <div class="min-h-[20rem] space-y-3 px-12 pb-6 pt-14">
               <h3 class="text-lg font-bold text-slate-900">{{ i18n.t('guidePhotosTitle') }}</h3>
-              <div class="grid grid-cols-2 gap-2">
-                @for (image of guide.images; track image.url) {
-                  <img [src]="image.url" [alt]="image.attribution ?? node.label" class="h-32 w-full rounded-lg object-cover" />
+              @if (guide.images; as images) {
+                <div class="relative">
+                  <img
+                    [src]="images[currentPhotoIndex()].url"
+                    [alt]="images[currentPhotoIndex()].attribution ?? node.label"
+                    class="h-64 w-full rounded-lg object-cover"
+                  />
+                  @if (currentPhotoIndex() > 0) {
+                    <button
+                      type="button"
+                      (click)="previousPhoto()"
+                      class="absolute left-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-base text-slate-600 shadow hover:text-slate-900"
+                      [attr.aria-label]="i18n.t('guidePreviousSlide')"
+                    >
+                      &lsaquo;
+                    </button>
+                  }
+                  @if (currentPhotoIndex() < images.length - 1) {
+                    <button
+                      type="button"
+                      (click)="nextPhoto()"
+                      class="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-base text-slate-600 shadow hover:text-slate-900"
+                      [attr.aria-label]="i18n.t('guideNextSlide')"
+                    >
+                      &rsaquo;
+                    </button>
+                  }
+                </div>
+                @if (images.length > 1) {
+                  <div class="flex justify-center gap-2">
+                    @for (image of images; track image.url; let i = $index) {
+                      <span class="h-1.5 w-1.5 rounded-full" [class.bg-slate-800]="i === currentPhotoIndex()" [class.bg-slate-300]="i !== currentPhotoIndex()"></span>
+                    }
+                  </div>
                 }
-              </div>
+              }
             </div>
           }
         }
