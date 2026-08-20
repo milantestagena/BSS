@@ -152,9 +152,9 @@
         }
 
         @if (slides().length > 1) {
-          <div class="flex justify-center gap-1.5 pb-4">
+          <div class="flex justify-center gap-2 pt-3 pb-4">
             @for (slide of slides(); track slide; let i = $index) {
-              <span class="h-1.5 w-1.5 rounded-full" [class.bg-slate-800]="i === currentSlideIndex()" [class.bg-slate-300]="i !== currentSlideIndex()"></span>
+              <span class="h-2 w-2 rounded-full" [class.bg-slate-800]="i === currentSlideIndex()" [class.bg-slate-300]="i !== currentSlideIndex()"></span>
             }
           </div>
         }
