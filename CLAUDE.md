@@ -97,14 +97,35 @@ Ovo je **konceptualno i arhitekturno odvojeno** od user-to-user referral sistema
 - Organski kanali u planu: Facebook parent grupe (community seeding), SEO content (dugoročno, bez troška)
 - Attribution cookie window kod Booking.com/Airbnb je kratak → jake CTA odmah posle Honest Report-a su kritične za hvatanje konverzije pre isteka attribution-a
 
+**Geografska strategija (odluka 2026-08-20):** Originalni plan je bio EU generalno, ali
+odbačen — previše jaka konkurencija lokalnih turoperatera na domaćem/Adria tržištu. Umesto
+toga: **jedno tržište odjednom**, redom. Nemačka (DACH) je prvo, po tome je i i18n (nemački,
+2026-08-11) i cela "kasno letovanje" kampanja tempirana. Sledeći redosled širenja, **ako Booking
+affiliate program to dozvoli po tržištu** — ne pretpostavljati odobrenje unapred:
+1. Skandinavija
+2. Benelux
+3. UK
+4. Francuska
+5. Španija
+
+Adria region (Megabon, Thermana, Air Serbia, LOT, Esky i slični affiliate programi, predloženo
+od CJ/VIVnetworks BD managera Marine Kostkove 2026-08-21) je **eksplicitno NIJE prioritet** —
+van scope-a dok DACH ne proradi, ista logika kao "CAC je usko grlo, ne engineering" (vidi §9).
+App je namerno građen lako proširiv/podesiv po tržištu (postojeći `Translation`/`HasTranslations`
+i18n sloj) upravo zbog ovog plana — širenje na novo tržište je pre svega prevod+kampanja posao,
+ne redizajn.
+
 ---
 
 ## 8. Trenutni fokus / sledeći koraci
 
-**Status (2026-08-19):** Live na tripinele.com. **Booking.com Affiliate (CJ) prijava i dalje
-Pending** — podneta 2026-08-07, prošao i 15.8 rok bez odgovora, ponovo proveren 17-19.8, i dalje
-čeka se. Ne blokira dalji razvoj (owner i dalje bez žurbe), samo pomera launch-datum odluku dalje
-u budućnost — ne pretpostavljati konkretan datum dok ID stvarno ne stigne.
+**Status (2026-08-21):** Live na tripinele.com. **Booking.com Affiliate (CJ) prijava — pomak.**
+CJ.com publisher nalog aktiviran 2026-08-20 (CID 8039749, VIVnetworks/CJ mreža) — to je sam
+network nalog, NE potvrda za Booking.com specifično (odvojen korak po advertiser-u unutar CJ-a).
+BD manager Marina Kostkova je 2026-08-21 potvrdila da je originalna Booking.com prijava (podneta
+07.08, DACH program) eskalirana Booking timu na review. I dalje nema finalnog odobrenja — ne
+pretpostavljati konkretan datum dok ID stvarno ne stigne. Ne blokira dalji razvoj (owner i dalje
+bez žurbe).
 
 Cela punch-lista niže (stavke 1-7) je **gotova** — kampanja "kasno letovanje" je funkcionalno
 kompletna, sesija 12-19.8 je bila fokusirana na kvalitet/bagove/proširenje, ne na osnovnu
