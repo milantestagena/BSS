@@ -267,6 +267,15 @@ class WizardSeeder extends Seeder
             ['slug' => 'pivo', 'en' => 'Good beer', 'sr' => 'Dobro pivo'],
             ['slug' => 'vino', 'en' => 'Good wine', 'sr' => 'Dobro vino'],
             ['slug' => 'dobra_hrana', 'en' => 'Great food', 'sr' => 'Odlična hrana'],
+            // Owner's ask, 2026-08-21 — split from the general "Great food" axis: a real
+            // coffee-vs-tea distinction that lands differently by nationality (an Italian
+            // traveler cares about espresso quality, an English one about tea availability).
+            // Same `drinks` meta key as pivo/vino, deliberately NOT auto-propagated everywhere
+            // like those two (see propagateCountryDrinksToCities) — this is a curated national
+            // REPUTATION claim (same spirit as dobra_hrana), not blanket "sold in every corner
+            // store" availability.
+            ['slug' => 'kafa', 'en' => 'Coffee Culture', 'sr' => 'Kultura kafe'],
+            ['slug' => 'caj', 'en' => 'Tea Culture', 'sr' => 'Kultura čaja'],
             // Genuine atmosphere/vibe axis, added 2026-08-04 alongside the question's relabel
             // to "Atmosphere / Vibe of this trip" — deliberately distinct from persona (these
             // describe the PLACE's mood, persona describes the TRAVELER).
@@ -296,6 +305,18 @@ class WizardSeeder extends Seeder
 
         foreach ($items as $i => $item) {
             $this->node('preference_tag', $item['slug'], $item['en'], $item['sr'], $i, $item['meta'] ?? null);
+        }
+
+        // German isn't auto-translated (see TranslateDirective's docblock — no live AI-trigger
+        // pipeline, Claude translates on request) — added directly here since DE is currently
+        // the only live market (see CLAUDE.md §7 market-expansion-sequence memory).
+        $germanLabels = ['kafa' => 'Kaffeekultur', 'caj' => 'Teekultur'];
+        foreach ($germanLabels as $slug => $labelDe) {
+            $node = TaxonomyNode::where('type', 'preference_tag')->where('slug', $slug)->first();
+            $node->translations()->updateOrCreate(
+                ['translatable_type' => TaxonomyNode::class, 'translatable_id' => $node->id, 'field' => 'label', 'locale' => 'de'],
+                ['value' => $labelDe, 'source_hash' => hash('crc32', $node->label), 'status' => 'human'],
+            );
         }
     }
 
@@ -1179,7 +1200,7 @@ class WizardSeeder extends Seeder
             }
             $meta = $city->meta ?? [];
             foreach ($tags as $key => $values) {
-                $meta[$key] = array_unique([...($meta[$key] ?? []), ...$values]);
+                $meta[$key] = array_values(array_unique([...($meta[$key] ?? []), ...$values]));
             }
             $city->update(['meta' => $meta]);
         }
@@ -1189,10 +1210,17 @@ class WizardSeeder extends Seeder
         // wizard step (country-type suggestions) also differentiates, not just city picking.
         $countryAtmosphere = [
             'malta' => ['drinks' => ['pivo']],
-            'kipar' => ['drinks' => ['pivo']],
-            'grcka' => ['food' => ['dobra_hrana'], 'drinks' => ['vino']],
-            'italija' => ['food' => ['dobra_hrana'], 'drinks' => ['vino']],
-            'turska' => ['food' => ['dobra_hrana']],
+            'kipar' => ['drinks' => ['pivo', 'kafa']],
+            'grcka' => ['food' => ['dobra_hrana'], 'drinks' => ['vino', 'kafa']],
+            'italija' => ['food' => ['dobra_hrana'], 'drinks' => ['vino', 'kafa']],
+            'turska' => ['food' => ['dobra_hrana'], 'drinks' => ['kafa', 'caj']],
+            // Coffee/Tea Culture, 2026-08-21 — Turkish coffee (UNESCO-listed) and çay both
+            // genuinely iconic there, hence both tags on turska above. Egypt/Tunisia get tea
+            // only (shai and mint tea respectively are the defining daily-life drink, not
+            // coffee specifically) — deliberately as short/strict a list as Rave above, not
+            // "every country has cafes so everyone qualifies".
+            'egipat' => ['drinks' => ['caj']],
+            'tunis' => ['drinks' => ['caj']],
             // 2026-08-12 additions, same tier>=2 standard: Spain/Portugal's globally-recognized
             // food reputations, Croatia's real (if smaller-scale) Dalmatian wine culture.
             // Owner's catch, 2026-08-13: Spain's own real wine reputation (Rioja, Ribera del
@@ -1212,7 +1240,7 @@ class WizardSeeder extends Seeder
             }
             $meta = $country->meta ?? [];
             foreach ($tags as $key => $values) {
-                $meta[$key] = array_unique([...($meta[$key] ?? []), ...$values]);
+                $meta[$key] = array_values(array_unique([...($meta[$key] ?? []), ...$values]));
             }
             $country->update(['meta' => $meta]);
         }
@@ -1234,7 +1262,10 @@ class WizardSeeder extends Seeder
      */
     private function propagateCountryDrinksToCities(): void
     {
-        $propagatedTags = ['pivo', 'vino'];
+        // kafa/caj added 2026-08-21 — same reasoning as pivo/vino: Coffee/Tea Culture, once
+        // it's a genuine national trait, holds true in every resort town in that country too,
+        // not just wherever happened to be curated first.
+        $propagatedTags = ['pivo', 'vino', 'kafa', 'caj'];
 
         $countries = TaxonomyNode::where('type', 'country')->with('children')->get();
 
@@ -1246,7 +1277,7 @@ class WizardSeeder extends Seeder
 
             foreach ($country->children as $city) {
                 $meta = $city->meta ?? [];
-                $meta['drinks'] = array_unique([...($meta['drinks'] ?? []), ...$toAdd->values()->all()]);
+                $meta['drinks'] = array_values(array_unique([...($meta['drinks'] ?? []), ...$toAdd->values()->all()]));
                 $city->update(['meta' => $meta]);
             }
         }
@@ -1339,7 +1370,7 @@ class WizardSeeder extends Seeder
             }
 
             $meta = $city->meta ?? [];
-            $meta['atmosphere'] = array_unique([...($meta['atmosphere'] ?? []), ...$newTags]);
+            $meta['atmosphere'] = array_values(array_unique([...($meta['atmosphere'] ?? []), ...$newTags]));
             $city->update(['meta' => $meta]);
         }
     }
@@ -1379,7 +1410,7 @@ class WizardSeeder extends Seeder
             }
 
             $meta = $city->meta ?? [];
-            $meta['atmosphere'] = array_unique([...($meta['atmosphere'] ?? []), 'romanticno']);
+            $meta['atmosphere'] = array_values(array_unique([...($meta['atmosphere'] ?? []), 'romanticno']));
             $city->update(['meta' => $meta]);
         }
     }
@@ -1440,7 +1471,7 @@ class WizardSeeder extends Seeder
             }
 
             $meta = $city->meta ?? [];
-            $meta['atmosphere'] = array_unique([...($meta['atmosphere'] ?? []), ...$tags]);
+            $meta['atmosphere'] = array_values(array_unique([...($meta['atmosphere'] ?? []), ...$tags]));
             $city->update(['meta' => $meta]);
         }
     }
@@ -1485,7 +1516,7 @@ class WizardSeeder extends Seeder
             }
 
             $meta = $country->meta ?? [];
-            $meta['atmosphere'] = array_unique([...($meta['atmosphere'] ?? []), ...$toAdd->values()->all()]);
+            $meta['atmosphere'] = array_values(array_unique([...($meta['atmosphere'] ?? []), ...$toAdd->values()->all()]));
             $country->update(['meta' => $meta]);
         }
     }
