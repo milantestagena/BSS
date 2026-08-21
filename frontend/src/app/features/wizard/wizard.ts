@@ -940,12 +940,16 @@ export class WizardComponent implements OnInit {
    *  currently-shown options) through red (5, priciest). Empty string (no coloring) when
    *  priceRank is null — not enough price data yet to rank. */
   priceRankClass(node: TaxonomyNode): string {
+    // Thinned from 10px and tier 3 shifted off amber-500, 2026-08-21 (design pass) — that
+    // exact color/weight combo read as "this card IS the primary action", the same visual
+    // language as the amber-500 Proceed/CTA button elsewhere in this app. 4px is enough to
+    // read as an accent, not a warning label.
     const classes: Record<number, string> = {
-      1: 'border-l-[10px] border-l-emerald-500',
-      2: 'border-l-[10px] border-l-lime-500',
-      3: 'border-l-[10px] border-l-amber-500',
-      4: 'border-l-[10px] border-l-orange-500',
-      5: 'border-l-[10px] border-l-red-500',
+      1: 'border-l-4 border-l-emerald-500',
+      2: 'border-l-4 border-l-lime-500',
+      3: 'border-l-4 border-l-yellow-500',
+      4: 'border-l-4 border-l-orange-500',
+      5: 'border-l-4 border-l-red-500',
     };
 
     return node.priceRank ? classes[node.priceRank] : '';
@@ -1280,11 +1284,34 @@ export class WizardComponent implements OnInit {
     if (question.inputType === 'taxonomy_multi_choice' && Array.isArray(value)) {
       return value.map((v) => this.optionLabel(question.key, v)).join(', ');
     }
+    // Bug fixed 2026-08-21 (owner caught it live, design pass): this used to fall through to
+    // the generic Array.isArray join below, showing the raw ISO pair ("2026-09-19, 2026-09-27")
+    // verbatim in the chat bubble instead of a formatted range.
+    if (question.inputType === 'date_range' && Array.isArray(value)) {
+      return this.formatDateRange(value as string[]);
+    }
     if (Array.isArray(value)) return value.join(', ');
     // Owner's ask, 2026-08-11: the chat-bubble summary showed a bare number ("800") for the
     // budget question — needs the currency unit, all amounts in this app are EUR.
     if (question.key === 'total_budget') return `${value} EUR`;
     return String(value);
+  }
+
+  /** [fromIso, toIso] -> "Sep 19 – Sep 27, 2026" (en) / "19. Sep. – 27. Sep. 2026" (de) — locale-
+   *  aware via Intl.DateTimeFormat, matching every other locale-driven bit of copy here rather
+   *  than hardcoding one format. Empty/partial pairs fall back to whatever raw parts exist. */
+  private formatDateRange(value: string[]): string {
+    const [from, to] = value;
+    if (!from && !to) return '';
+
+    const bcp47: Record<AppLocale, string> = { en: 'en-GB', de: 'de-DE' };
+    const formatter = new Intl.DateTimeFormat(bcp47[this.locale.locale()], { day: 'numeric', month: 'short', year: 'numeric' });
+
+    const fromDate = from ? new Date(from) : null;
+    const toDate = to ? new Date(to) : null;
+    if (fromDate && toDate) return `${formatter.format(fromDate)} – ${formatter.format(toDate)}`;
+
+    return formatter.format((fromDate ?? toDate)!);
   }
 
   /**

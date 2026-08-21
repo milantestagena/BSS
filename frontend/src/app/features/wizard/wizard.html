@@ -255,9 +255,13 @@
                 >
                   {{ stepSummary(step) }}
                 </div>
+                <!-- Bug fixed 2026-08-21 (design pass): text-slate-400 sits directly on the photo
+                     backdrop here (no card of its own), same "bare text over a bright/busy sky"
+                     legibility problem this file's own docblock (top) already solved for the
+                     intro heading — same drop-shadow fix applies here. -->
                 <button
                   type="button"
-                  class="text-xs font-medium text-slate-400 hover:text-sky-600 hover:underline"
+                  class="text-xs font-medium text-white/80 drop-shadow hover:text-white hover:underline"
                   (click)="editStep(index)"
                 >
                   {{ i18n.t('change') }}
@@ -313,8 +317,11 @@
                    own, unlike the chat bubbles — needed once the photo backdrop went from
                    intro/results-only to every step (owner's call: "nema slike na chatu"), so
                    those bare text elements stay readable over a bright sky instead of relying
-                   on per-widget contrast fixes. -->
-              <div class="rounded-2xl bg-white/85 p-5 shadow-sm backdrop-blur-sm">
+                   on per-widget contrast fixes. Border/ring/shadow-lg matches the same "card
+                   floating on the photo" treatment used elsewhere on this screen (the results
+                   header/box above, the left-column info box) — this panel was the one outlier
+                   still on the older bg-white/85+shadow-sm-only styling (design pass, 2026-08-21). -->
+              <div class="rounded-2xl border border-white/50 bg-white/90 p-5 shadow-lg shadow-black/10 ring-1 ring-black/5 backdrop-blur-sm">
 
               @if (showTravelersWidget) {
                 <app-travelers-input
