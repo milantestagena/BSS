@@ -322,14 +322,14 @@
               <!-- Frosted panel, 2026-08-06 — the actual interactive controls (choices, text
                    fields, nav buttons), deliberately outside the chat bubble above. Most of
                    what's inside here (question labels, helper text) has no background of its
-                   own, unlike the chat bubbles — needed once the photo backdrop went from
-                   intro/results-only to every step (owner's call: "nema slike na chatu"), so
-                   those bare text elements stay readable over a bright sky instead of relying
-                   on per-widget contrast fixes. Border/ring/shadow-lg matches the same "card
-                   floating on the photo" treatment used elsewhere on this screen (the results
-                   header/box above, the left-column info box) — this panel was the one outlier
-                   still on the older bg-white/85+shadow-sm-only styling (design pass, 2026-08-21). -->
-              <div class="rounded-2xl border border-white/50 bg-white/90 p-5 shadow-lg shadow-black/10 ring-1 ring-black/5 backdrop-blur-sm">
+                   own, unlike the chat bubbles. Owner's catch, 2026-08-21: once the warm panel
+                   (above) went in behind the whole Q&A stretch, a separate opaque white box on
+                   top of it read as one color too many ("da nije 1 boja suvisna"). Now the same
+                   bg-slate-100 as the question chat-bubble instead of white — visually reads as
+                   "the system's own surface", same idea as the bubble, one fewer distinct tone
+                   on screen. backdrop-blur/white-border dropped too — those were for sitting
+                   directly on the photo, meaningless over a solid panel. -->
+              <div class="rounded-2xl bg-slate-100 p-5 shadow-lg shadow-black/10 ring-1 ring-black/5">
 
               @if (showTravelersWidget) {
                 <app-travelers-input
