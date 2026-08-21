@@ -128,6 +128,30 @@ class SearchSessionQueryCompilerTest extends TestCase
         $this->assertStringNotContainsString('dest_id', $url);
     }
 
+    /** Confirmed live 2026-08-21 — see config/services.php's 'cj' block docblock for how pid/
+     *  link_id were obtained (CJ dashboard's link-builder, Destination Url override, clicked
+     *  through to a real Booking.com search-results page). Every OTHER test in this file runs
+     *  with no CJ config set, so they already cover the unwrapped fallback path. */
+    public function test_booking_url_wraps_with_cj_affiliate_tracking_when_configured(): void
+    {
+        config(['services.cj.pid' => '101857480', 'services.cj.link_id' => '15734849']);
+
+        $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'antalija3', 'label' => 'Antalya', 'sort_order' => 0]);
+        $session = SearchSession::create([
+            'status' => 'in_progress',
+            'city_id' => $city->id,
+            'date_from' => '2026-09-20',
+            'date_to' => '2026-09-27',
+            'adults_count' => 2,
+        ]);
+
+        $url = (new SearchSessionQueryCompiler($session))->toBookingUrl();
+
+        $this->assertStringStartsWith('https://www.dpbolvw.net/click-101857480-15734849?url=', $url);
+        $this->assertStringContainsString(rawurlencode('https://www.booking.com/searchresults.html?'), $url);
+        $this->assertStringContainsString(rawurlencode('ss=Antalya'), $url);
+    }
+
     public function test_booking_url_includes_repeated_age_params_for_each_child(): void
     {
         $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'antalija2', 'label' => 'Antalya', 'sort_order' => 0]);
@@ -186,6 +210,25 @@ class SearchSessionQueryCompilerTest extends TestCase
         $this->assertStringContainsString('children='.rawurlencode('11,9,1'), $url);
         $this->assertStringNotContainsString('aid=', $url);
         $this->assertStringNotContainsString('label=', $url);
+    }
+
+    public function test_booking_flights_url_wraps_with_cj_affiliate_tracking_when_configured(): void
+    {
+        config(['services.cj.pid' => '101857480', 'services.cj.link_id' => '15734849']);
+
+        $country = TaxonomyNode::create(['type' => 'country', 'slug' => 'malta2', 'label' => 'Malta', 'sort_order' => 0, 'meta' => ['iso_code' => 'MT']]);
+        $session = SearchSession::create([
+            'status' => 'in_progress',
+            'city_id' => $country->id,
+            'date_from' => '2026-09-19',
+            'date_to' => '2026-09-26',
+            'adults_count' => 2,
+        ]);
+
+        $url = (new SearchSessionQueryCompiler($session))->toBookingFlightsUrl();
+
+        $this->assertStringStartsWith('https://www.dpbolvw.net/click-101857480-15734849?url=', $url);
+        $this->assertStringContainsString(rawurlencode('https://flights.booking.com/fly-anywhere/?'), $url);
     }
 
     public function test_booking_params_apply_family_friendly_filter_when_porodicna_atmosfera_selected(): void

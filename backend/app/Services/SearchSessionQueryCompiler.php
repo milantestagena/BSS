@@ -137,7 +137,7 @@ class SearchSessionQueryCompiler
             $query[] = 'age='.rawurlencode((string) $age);
         }
 
-        return 'https://www.booking.com/searchresults.html?'.implode('&', $query);
+        return $this->wrapWithAffiliateTracking('https://www.booking.com/searchresults.html?'.implode('&', $query));
     }
 
     /**
@@ -207,7 +207,26 @@ class SearchSessionQueryCompiler
             $query[] = $key.'='.rawurlencode((string) $value);
         }
 
-        return 'https://flights.booking.com/fly-anywhere/?'.implode('&', $query);
+        return $this->wrapWithAffiliateTracking('https://flights.booking.com/fly-anywhere/?'.implode('&', $query));
+    }
+
+    /**
+     * Wraps a public Booking.com URL in the CJ (Commission Junction) deep-link redirect so a
+     * resulting booking actually earns commission — see config/services.php's 'cj' block
+     * docblock for how pid/link_id were obtained and confirmed live. Falls back to the plain
+     * unwrapped URL when either is unset (local/dev, or if the affiliate relationship ever
+     * lapses) — never breaks the link, just stops tracking it.
+     */
+    private function wrapWithAffiliateTracking(string $url): string
+    {
+        $pid = config('services.cj.pid');
+        $linkId = config('services.cj.link_id');
+
+        if (! $pid || ! $linkId) {
+            return $url;
+        }
+
+        return "https://www.dpbolvw.net/click-{$pid}-{$linkId}?url=".rawurlencode($url);
     }
 
     /**

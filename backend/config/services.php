@@ -47,4 +47,18 @@ return [
         'redirect' => env('GOOGLE_REDIRECT_URI', env('APP_URL') . '/auth/google/callback'),
     ],
 
+    // Booking.com DACH affiliate program via CJ (Commission Junction), approved 2026-08-21 —
+    // see CLAUDE.md section 8. `pid` is CJ's Publisher/Property ID for this specific site
+    // ("TripInele — Travel Recommendation Wizard"); `link_id` is a CJ "Evergreen Link" product
+    // (deep-linking enabled) confirmed live 2026-08-21 by manually appending a Destination Url
+    // in the CJ dashboard's link-builder and clicking through to a real, working Booking.com
+    // search-results page. Used by SearchSessionQueryCompiler::wrapWithAffiliateTracking() to
+    // wrap the existing public toBookingUrl()/toBookingFlightsUrl() output — falls back to the
+    // unwrapped public URL if either is unset (e.g. local/dev), same "never break, just don't
+    // track" spirit as the rest of this codebase's optional-integration fallbacks.
+    'cj' => [
+        'pid' => env('CJ_AFFILIATE_PID'),
+        'link_id' => env('CJ_AFFILIATE_LINK_ID'),
+    ],
+
 ];
