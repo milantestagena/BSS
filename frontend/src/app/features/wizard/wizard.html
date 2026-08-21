@@ -228,6 +228,14 @@
         }
       </div>
     } @else {
+      <!-- Warm panel, 2026-08-21 (owner's call: the direct photo behind the whole Q&A stretch
+           read as noisy — "bode oci"). Landing/results screens keep the full photo (that
+           2026-08-06 decision stands for those two); this middle chat stretch instead sits on a
+           solid panel in the photo's own palette (sampled from its sunset/sand tones), with the
+           actual photo still visible in the reserved side gutters at the lg breakpoint (neither
+           grid column has a background of its own) — "photo-framed" rather than "form pasted on
+           a busy photo". Owner's own framing: an intentionally old-fashioned two-tone layout. -->
+      <div class="rounded-3xl bg-gradient-to-b from-orange-50 via-amber-50 to-rose-50 p-4 shadow-xl shadow-black/10 sm:p-6">
       <!-- Chat-scroll: every visited step stays on the page — collapsed/read-only once passed,
            the last one active/editable. See wizard_architecture memory, 2026-08-04. -->
       @for (index of wizard.visitedStepIndices(); track index; let isLast = $last) {
@@ -255,13 +263,13 @@
                 >
                   {{ stepSummary(step) }}
                 </div>
-                <!-- Bug fixed 2026-08-21 (design pass): text-slate-400 sits directly on the photo
-                     backdrop here (no card of its own), same "bare text over a bright/busy sky"
-                     legibility problem this file's own docblock (top) already solved for the
-                     intro heading — same drop-shadow fix applies here. -->
+                <!-- Back to plain slate-on-warm-panel, 2026-08-21 — now that the whole Q&A
+                     stretch sits on its own warm panel (see the wrapping div above) instead of
+                     directly on the photo, the earlier white/drop-shadow treatment (needed only
+                     for bare text on a busy image) would be low-contrast here instead. -->
                 <button
                   type="button"
-                  class="text-xs font-medium text-white/80 drop-shadow hover:text-white hover:underline"
+                  class="text-xs font-medium text-slate-500 hover:text-sky-600 hover:underline"
                   (click)="editStep(index)"
                 >
                   {{ i18n.t('change') }}
@@ -566,6 +574,7 @@
           }
         }
       }
+      </div>
     }
   </div>
 

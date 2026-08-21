@@ -23,6 +23,7 @@ import { FormsModule } from '@angular/forms';
                focus:border-slate-400 [&::-webkit-inner-spin-button]:appearance-none
                [&::-webkit-outer-spin-button]:appearance-none
                disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+        [class.text-center]="type() === 'number'"
         [type]="type()"
         [step]="step()"
         [placeholder]="placeholder()"
