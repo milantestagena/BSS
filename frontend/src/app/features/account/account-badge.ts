@@ -25,7 +25,10 @@ import { LocaleService } from '../../core/locale.service';
   selector: 'app-account-badge',
   standalone: true,
   template: `
-    <div class="fixed inset-x-0 top-0 z-30 flex items-center justify-end gap-2 border-b border-white/10 bg-slate-900/70 px-4 py-2.5 backdrop-blur-md">
+    <!-- bg-stone-900 (warm dark neutral), not slate-900 (cool blue-gray) — 2026-08-21 design
+         pass: slate read as an unrelated dark navy against the sunset/amber palette the rest
+         of the site is now built around. -->
+    <div class="fixed inset-x-0 top-0 z-30 flex items-center justify-end gap-2 border-b border-white/10 bg-stone-900/70 px-4 py-2.5 backdrop-blur-md">
       <div class="flex overflow-hidden rounded-full border border-white/50 bg-white/95 text-xs font-semibold shadow-lg backdrop-blur-sm">
         <button
           type="button"

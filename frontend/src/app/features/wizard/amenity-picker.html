@@ -1,3 +1,8 @@
+<!-- Both inputs below were bg-emerald-50/40 and bg-rose-50/40 until 2026-08-21 — full opacity
+     now (design pass): a 40%-opacity tint was tuned against the panel's old white background,
+     and mixed with the panel's new bg-slate-100 (see wizard.html) into a visibly different,
+     muddier tint than the fully-opaque emerald-100/emerald-600 used a few lines away — owner
+     caught it live as "2 nijanse zelene". -->
 <div class="mb-6 space-y-6">
   <div>
     <div class="mb-2 flex flex-wrap gap-2">
@@ -25,7 +30,7 @@
         (keydown.enter)="onYesEnter()"
         (focus)="onYesFocus()"
         (blur)="onYesBlur()"
-        class="w-full rounded-lg border border-emerald-300 bg-emerald-50/40 px-3 py-2 text-sm
+        class="w-full rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm
                focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400"
       />
       @if (yesFocused() && yesSuggestions().length > 0) {
@@ -69,7 +74,7 @@
         (focus)="onNoFocus()"
         (blur)="onNoBlur()"
         [disabled]="noDisabled()"
-        class="w-full rounded-lg border border-rose-300 bg-rose-50/40 px-3 py-2 text-sm
+        class="w-full rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-sm
                focus:outline-none focus:ring-2 focus:ring-rose-400 focus:border-rose-400
                disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-300"
       />
