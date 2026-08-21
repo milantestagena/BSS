@@ -119,13 +119,16 @@ ne redizajn.
 
 ## 8. Trenutni fokus / sledeći koraci
 
-**Status (2026-08-21):** Live na tripinele.com. **Booking.com Affiliate (CJ) prijava — pomak.**
-CJ.com publisher nalog aktiviran 2026-08-20 (CID 8039749, VIVnetworks/CJ mreža) — to je sam
-network nalog, NE potvrda za Booking.com specifično (odvojen korak po advertiser-u unutar CJ-a).
-BD manager Marina Kostkova je 2026-08-21 potvrdila da je originalna Booking.com prijava (podneta
-07.08, DACH program) eskalirana Booking timu na review. I dalje nema finalnog odobrenja — ne
-pretpostavljati konkretan datum dok ID stvarno ne stigne. Ne blokira dalji razvoj (owner i dalje
-bez žurbe).
+**Status (2026-08-21): Booking.com Affiliate (CJ) — ODOBRENO.** Zvaničan welcome mejl od
+CJ_Booking@cj.com stigao 2026-08-21 (DACH program) — puna hronologija: prijava podneta 07.08.,
+CJ.com publisher nalog aktiviran 20.08. (CID 8039749, VIVnetworks/CJ mreža), BD manager Marina
+Kostkova eskalirala Booking timu 21.08., isti dan stiglo odobrenje. Komisije: smeštaj od 4%,
+letovi od €2, atrakcije od 4%, rent-a-car od 6%. Resource hub/welcome paket linkovi su u mejlu
+(Box.com folderi) — pogledati za tačan affiliate ID/tracking parametar format pre nego što se
+`toBookingUrl()`/`toBookingFlightsUrl()` (trenutno javni linkovi BEZ affiliate ID-a, vidi njihov
+docblock) prekablove da stvarno nose proviziju. **Ovo je bio poslednji veliki blocker pre pravog
+launch-a** — sledeći konkretan korak (kad owner bude spreman) je ubaciti pravi affiliate ID u te
+URL builder-e.
 
 Cela punch-lista niže (stavke 1-7) je **gotova** — kampanja "kasno letovanje" je funkcionalno
 kompletna, sesija 12-19.8 je bila fokusirana na kvalitet/bagove/proširenje, ne na osnovnu
