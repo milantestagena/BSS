@@ -268,6 +268,49 @@ class GeographyResolverTest extends TestCase
         $this->assertTrue($results->firstWhere('id', $backedCountry->id)->perfect_match);
     }
 
+    /** Owner's catch, 2026-08-21 ("zvezdica ide posle 2 bez zvezdice") — a country's own
+     *  match_score comes from ITS aggregate meta (resolveNodeTags on the country node itself),
+     *  while perfect_match for type=country instead checks whether any CHILD city matches
+     *  everything (see isPerfectMatch above). Those two can genuinely disagree: a country whose
+     *  own summary meta only carries one of two selected tags can still be perfect_match=true
+     *  (one real city has both), while a country whose own aggregate meta happens to carry both
+     *  tags scores higher on raw match_score without any single city actually being a perfect
+     *  fit. Without an explicit perfect_match-first sort key, the higher-raw-score non-star
+     *  country would rank ahead of the starred one. */
+    public function test_perfect_match_always_sorts_before_a_higher_raw_score_non_match(): void
+    {
+        $this->node('preference_tag', 'lepe_plaze');
+        $this->node('preference_tag', 'dobra_hrana');
+
+        // Owns only one of the two tags itself, but one real city has both -> perfect_match.
+        $starCountry = $this->node('country', 'star_country', ['atmosphere' => ['lepe_plaze']]);
+        $starCity = $this->node('city', 'star_city', ['atmosphere' => ['lepe_plaze'], 'food' => ['dobra_hrana']]);
+        $starCity->update(['parent_id' => $starCountry->id]);
+
+        // Owns BOTH tags in its own aggregate meta (higher raw match_score), but no single city
+        // matches both -> not perfect_match.
+        $highScoreCountry = $this->node('country', 'high_score_country', ['atmosphere' => ['lepe_plaze'], 'food' => ['dobra_hrana']]);
+        $cityA = $this->node('city', 'high_score_city_a', ['atmosphere' => ['lepe_plaze']]);
+        $cityA->update(['parent_id' => $highScoreCountry->id]);
+        $cityB = $this->node('city', 'high_score_city_b', ['food' => ['dobra_hrana']]);
+        $cityB->update(['parent_id' => $highScoreCountry->id]);
+
+        $session = SearchSession::create([
+            'status' => 'in_progress',
+            'free_text_answers' => ['preference_tags' => ['lepe_plaze', 'dobra_hrana']],
+        ]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'country'])->values();
+
+        $star = $results->firstWhere('id', $starCountry->id);
+        $highScore = $results->firstWhere('id', $highScoreCountry->id);
+
+        $this->assertTrue($star->perfect_match);
+        $this->assertFalse($highScore->perfect_match);
+        $this->assertLessThan($highScore->match_score, $star->match_score, 'test setup should reproduce a star with a LOWER raw score');
+        $this->assertLessThan($results->search($highScore), $results->search($star), 'the starred country must still rank before the higher-scoring non-match');
+    }
+
     public function test_zero_match_filter_falls_back_to_full_list_when_nothing_matches_at_all(): void
     {
         // If a region's atmosphere/drinks/food tags simply aren't seeded yet, hiding every

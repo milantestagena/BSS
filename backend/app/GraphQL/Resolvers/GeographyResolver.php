@@ -195,6 +195,13 @@ class GeographyResolver
         if ($isGeoType && $costPreference) {
             return $mapped
                 ->sort(function (TaxonomyNode $a, TaxonomyNode $b) use ($priceTotals, $costPreference) {
+                    // Owner's ask, 2026-08-21: the Superstar card must always lead, even when a
+                    // non-perfect-match node ties or beats it on raw match_score (possible since
+                    // match_score also counts cultural-availability matches, which don't count
+                    // toward perfect_match's own vibe-only denominator — see isPerfectMatch).
+                    if ($a->perfect_match !== $b->perfect_match) {
+                        return $b->perfect_match <=> $a->perfect_match;
+                    }
                     if ($a->match_score !== $b->match_score) {
                         return $b->match_score <=> $a->match_score;
                     }
@@ -225,11 +232,25 @@ class GeographyResolver
         // arbitrary one. Untied (falls through to sort_order) when there's no price data either.
         if ($isGeoType && $mapped->max('match_score') === 0) {
             return $mapped
-                ->sortBy(fn (TaxonomyNode $node) => $priceTotals[$node->id] ?? PHP_FLOAT_MAX)
+                ->sortBy([
+                    ['perfect_match', 'desc'],
+                    // Laravel's array-comparator form calls this with ($a, $b) and uses the
+                    // returned <=> result as-is — 'desc'/'asc' has no effect on a callable
+                    // comparator (only on plain-attribute comparisons), so ascending is baked
+                    // into the comparison itself here, not the direction flag.
+                    fn (TaxonomyNode $a, TaxonomyNode $b) => ($priceTotals[$a->id] ?? PHP_FLOAT_MAX) <=> ($priceTotals[$b->id] ?? PHP_FLOAT_MAX),
+                ])
                 ->values();
         }
 
-        return $mapped->sortByDesc('match_score')->values();
+        // perfect_match leads, 2026-08-21 (owner's ask — "zvezdica mora na prvo mesto") — see
+        // the identical reasoning in the $costPreference branch above.
+        return $mapped
+            ->sortBy([
+                ['perfect_match', 'desc'],
+                ['match_score', 'desc'],
+            ])
+            ->values();
     }
 
     /** The same vibe-tag pool (drinks/atmosphere/food/budget meta) every matched_tags/match_score
