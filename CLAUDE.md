@@ -119,16 +119,22 @@ ne redizajn.
 
 ## 8. Trenutni fokus / sledeći koraci
 
-**Status (2026-08-21): Booking.com Affiliate (CJ) — ODOBRENO.** Zvaničan welcome mejl od
-CJ_Booking@cj.com stigao 2026-08-21 (DACH program) — puna hronologija: prijava podneta 07.08.,
-CJ.com publisher nalog aktiviran 20.08. (CID 8039749, VIVnetworks/CJ mreža), BD manager Marina
-Kostkova eskalirala Booking timu 21.08., isti dan stiglo odobrenje. Komisije: smeštaj od 4%,
-letovi od €2, atrakcije od 4%, rent-a-car od 6%. Resource hub/welcome paket linkovi su u mejlu
-(Box.com folderi) — pogledati za tačan affiliate ID/tracking parametar format pre nego što se
-`toBookingUrl()`/`toBookingFlightsUrl()` (trenutno javni linkovi BEZ affiliate ID-a, vidi njihov
-docblock) prekablove da stvarno nose proviziju. **Ovo je bio poslednji veliki blocker pre pravog
-launch-a** — sledeći konkretan korak (kad owner bude spreman) je ubaciti pravi affiliate ID u te
-URL builder-e.
+**Status (2026-08-21): Booking.com Affiliate (CJ) — ODOBRENO I UKABLOVANO.** Zvaničan welcome
+mejl od CJ_Booking@cj.com stigao 2026-08-21 (DACH program) — puna hronologija: prijava podneta
+07.08., CJ.com publisher nalog aktiviran 20.08. (CID 8039749, VIVnetworks/CJ mreža), BD manager
+Marina Kostkova eskalirala Booking timu 21.08., isti dan stiglo odobrenje. Komisije: smeštaj od
+4%, letovi od €2, atrakcije od 4%, rent-a-car od 6%.
+
+Isti dan (21.08.) i stvarno ukablovano: `toBookingUrl()`/`toBookingFlightsUrl()` sada wrap-uju
+svoj postojeći javni URL kroz CJ deep-link redirect (`config/services.php`'s `cj` blok,
+`CJ_AFFILIATE_PID`/`CJ_AFFILIATE_LINK_ID` env varijable, realne vrednosti samo u `.env`-u lokalno
+i na produkciji, ne u gitu). PID (101857480) i Link ID (15734849, "Evergreen Link" CJ proizvod)
+pronađeni ručno kroz CJ dashboard (Links & Products → Deep Linking Only → Destination Url
+override) i **potvrđeni uživo** — owner je kliknuo generisani link i stigao na pravu Booking.com
+pretragu (Antalya) sa realnim `aid=818287` u finalnom URL-u. Fallback na plain URL bez tracking-a
+ako env varijable nisu setovane (lokalni dev bez njih, ili ako partnerstvo ikad prestane) — link
+nikad ne puca, samo prestaje da nosi proviziju. **Ovo je bio poslednji veliki blocker pre pravog
+launch-a — sad je gotovo.**
 
 Cela punch-lista niže (stavke 1-7) je **gotova** — kampanja "kasno letovanje" je funkcionalno
 kompletna, sesija 12-19.8 je bila fokusirana na kvalitet/bagove/proširenje, ne na osnovnu
