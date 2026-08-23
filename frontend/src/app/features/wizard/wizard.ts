@@ -118,189 +118,6 @@ interface ThemeIntro {
   cta: string;
 }
 
-/**
- * Mock results screen — see wizard_architecture memory, 2026-08-06. Owner's explicit ask:
- * NOT real Booking data (that integration doesn't exist yet), purely a presentation/demo
- * artifact showing what the payoff moment will eventually look like — doubles as screenshot
- * material for the Booking Affiliate application. Clearly labeled as such in the template,
- * not just in code comments. Names are deliberately generic/invented, never real property
- * names, to avoid any impression of an actual Booking relationship.
- */
-interface MockHotel {
-  name: string;
-  pricePerNightEur: number;
-  rating: number; // out of 10
-  sqm: number;
-  distanceToBeachM: number;
-  propertyType: string;
-  /** Fed to generateHonestReport as-is — real listing text once Booking data exists, invented
-   *  but realistic for now (2026-08-10). Deliberately includes at least one minor gripe per
-   *  review, same "honest, not a sales pitch" spirit as the AI prompt itself. */
-  description: string;
-  reviews: string[];
-}
-
-const MOCK_HOTELS: MockHotel[] = [
-  {
-    name: 'Seaside Breeze Apartments', pricePerNightEur: 62, rating: 8.4, sqm: 55, distanceToBeachM: 150, propertyType: 'Apartment',
-    description: 'A bright one-bedroom apartment on a quiet side street, 150m from the beach, with a private balcony, AC, and a shared rooftop terrace.',
-    reviews: [
-      'Balcony had a great sea glimpse, and the rooftop terrace was perfect for evening drinks.',
-      'Kitchen was small but had everything we needed. Building has no elevator, worth knowing if you have luggage.',
-    ],
-  },
-  {
-    name: 'Villa Aurora', pricePerNightEur: 78, rating: 9.1, sqm: 90, distanceToBeachM: 400, propertyType: 'Villa',
-    description: 'A spacious 3-bedroom villa with a private pool and garden, 400m from the beach, popular with families and larger groups.',
-    reviews: [
-      'The private pool made this trip — kids barely wanted to leave the villa. Plenty of space for two families.',
-      'Beautiful and quiet, but you need a car or a 5-10 min walk to reach any restaurants.',
-    ],
-  },
-  {
-    name: 'Coral Bay Retreat', pricePerNightEur: 54, rating: 7.8, sqm: 40, distanceToBeachM: 80, propertyType: 'Studio',
-    description: 'A cozy studio 80m from the beach, with a small shared pool and a kitchenette, on a quiet residential street 10 minutes from the main strip.',
-    reviews: [
-      'Loved how close it was to the beach, but the walls are thin and we heard neighbors at night.',
-      'Kitchenette was basic but enough for breakfast. AC worked great in the heat.',
-    ],
-  },
-  {
-    name: 'Sunset Harbor Suites', pricePerNightEur: 69, rating: 8.7, sqm: 65, distanceToBeachM: 250, propertyType: 'Suite',
-    description: 'A modern suite overlooking the harbor, 250m from the beach, with a full kitchen, washing machine, and free parking.',
-    reviews: [
-      'Harbor view at sunset was stunning, and having a washing machine was a nice bonus for a longer stay.',
-      'Free parking was tight to maneuver into, but manageable. Great value for the space.',
-    ],
-  },
-  {
-    name: 'Olive Grove Studios', pricePerNightEur: 48, rating: 7.5, sqm: 35, distanceToBeachM: 600, propertyType: 'Studio',
-    description: 'A simple, budget-friendly studio set among olive trees, 600m from the beach, with a fan (no AC) and a small shared pool.',
-    reviews: [
-      'Great price for what you get, and the pool area was peaceful. Beach walk is a bit far in the midday heat.',
-      'No AC was tough on the hottest nights — a fan alone wasn\'t quite enough for us.',
-    ],
-  },
-  {
-    name: 'Blue Horizon Residence', pricePerNightEur: 71, rating: 8.9, sqm: 70, distanceToBeachM: 120, propertyType: 'Apartment',
-    description: 'A two-bedroom apartment 120m from the beach with sea-view balcony, AC in both bedrooms, and a communal pool with sun loungers.',
-    reviews: [
-      'Sea view from the balcony every morning was unbeatable, and the pool loungers were rarely all taken.',
-      'Very close to a beach bar, so it can get a bit noisy on weekend evenings.',
-    ],
-  },
-  {
-    name: 'Palm Court Apartments', pricePerNightEur: 59, rating: 8.0, sqm: 50, distanceToBeachM: 300, propertyType: 'Apartment',
-    description: 'A family-run apartment complex 300m from the beach, with a playground on-site, AC, and a communal BBQ area.',
-    reviews: [
-      'Playground was great for our kids, and the owners were incredibly helpful with local tips.',
-      'Decor is a bit dated, but everything was clean and worked fine.',
-    ],
-  },
-  {
-    name: 'Marina View Loft', pricePerNightEur: 65, rating: 8.3, sqm: 45, distanceToBeachM: 90, propertyType: 'Loft',
-    description: 'A stylish open-plan loft 90m from the beach, overlooking the marina, with AC, a rainfall shower, and a small work desk.',
-    reviews: [
-      'Beautiful marina view and the shower was genuinely great. Loved working from the desk with that view.',
-      'Open-plan layout means zero privacy between sleeping and living area — fine for a couple, not for friends sharing.',
-    ],
-  },
-  {
-    name: 'Golden Sands Bungalow', pricePerNightEur: 56, rating: 8.6, sqm: 48, distanceToBeachM: 60, propertyType: 'Bungalow',
-    description: 'A single-story bungalow just 60m from the beach, with a private shaded patio, AC, and free bike rentals for guests.',
-    reviews: [
-      'Closest we\'ve stayed to a beach — genuinely a 60-second walk. Bikes were a nice touch for exploring.',
-      'Very basic furnishings, but honestly you\'re barely indoors given how close the beach is.',
-    ],
-  },
-  {
-    name: 'Whitewashed Villa', pricePerNightEur: 83, rating: 9.3, sqm: 100, distanceToBeachM: 350, propertyType: 'Villa',
-    description: 'A large whitewashed villa with an infinity pool and sea view, 350m from the beach, sleeping up to 6, with a full outdoor kitchen.',
-    reviews: [
-      'The infinity pool view alone is worth it — best sunset spot of our whole trip. Outdoor kitchen made group dinners easy.',
-      'Top end of our budget, but split between our group of 6 it worked out reasonably.',
-    ],
-  },
-];
-
-interface HotelHighlight {
-  text: string;
-  colorClass: string;
-}
-
-/** See WizardService.generateHonestReport / HonestReportGenerator (backend). */
-interface HonestReport {
-  pros: string[];
-  cons: string[];
-  summary: string;
-}
-
-/** Rating-for-price composite — same ratio computeHotelHighlight() uses for its own
- *  "best value" fallback claim, reused here to actually sort the list by it. Bug fixed
- *  2026-08-06: the results copy already claimed "sorted so the most relevant reasons show
- *  first", but MOCK_HOTELS was rendered in plain declaration order — no sort existed at all. */
-function valueScore(hotel: MockHotel): number {
-  return hotel.rating / hotel.pricePerNightEur;
-}
-
-/**
- * Deterministic, not AI — owner's explicit call: "to ne mora AI, to mozemo i mi da dodamo
- * engine". One superlative claimed per hotel where possible (cheapest/highest-rated/most-
- * spacious/closest-to-beach), assigned in priority order so no single listing hoards every
- * claim; anything left over gets a value-for-money framing instead of nothing.
- */
-const HIGHLIGHT_TEXT: Record<AppLocale, Record<'cheapest' | 'rated' | 'spacious' | 'beach' | 'value' | 'fallback', string>> = {
-  en: {
-    cheapest: 'Of everything within budget, this is the cheapest per night.',
-    rated: 'Highest guest rating of all matching properties.',
-    spacious: 'The most spacious option among the matches.',
-    beach: 'Closest to the beach of everything we found.',
-    value: 'Best rating-for-price balance in this list.',
-    fallback: 'A solid all-around match for what you asked for.',
-  },
-  de: {
-    cheapest: 'Von allem innerhalb deines Budgets ist das die günstigste Option pro Nacht.',
-    rated: 'Höchste Gästebewertung aller passenden Unterkünfte.',
-    spacious: 'Die geräumigste Option unter den Treffern.',
-    beach: 'Am nächsten zum Strand von allem, was wir gefunden haben.',
-    value: 'Bestes Verhältnis von Bewertung zu Preis in dieser Liste.',
-    fallback: 'Eine solide Rundum-Option für das, was du gesucht hast.',
-  },
-};
-
-function computeHotelHighlight(hotel: MockHotel, all: MockHotel[], claimed: Set<string>, locale: AppLocale): HotelHighlight {
-  const text = HIGHLIGHT_TEXT[locale];
-  const isCheapest = hotel === all.reduce((a, b) => (b.pricePerNightEur < a.pricePerNightEur ? b : a));
-  const isTopRated = hotel === all.reduce((a, b) => (b.rating > a.rating ? b : a));
-  const isMostSpacious = hotel === all.reduce((a, b) => (b.sqm > a.sqm ? b : a));
-  const isClosestToBeach = hotel === all.reduce((a, b) => (b.distanceToBeachM < a.distanceToBeachM ? b : a));
-
-  if (isCheapest && !claimed.has('cheapest')) {
-    claimed.add('cheapest');
-    return { text: text.cheapest, colorClass: 'bg-emerald-100 text-emerald-800' };
-  }
-  if (isTopRated && !claimed.has('rated')) {
-    claimed.add('rated');
-    return { text: text.rated, colorClass: 'bg-amber-100 text-amber-800' };
-  }
-  if (isMostSpacious && !claimed.has('spacious')) {
-    claimed.add('spacious');
-    return { text: text.spacious, colorClass: 'bg-sky-100 text-sky-800' };
-  }
-  if (isClosestToBeach && !claimed.has('beach')) {
-    claimed.add('beach');
-    return { text: text.beach, colorClass: 'bg-cyan-100 text-cyan-800' };
-  }
-
-  const valueScore = hotel.rating / hotel.pricePerNightEur;
-  const isBestValue = hotel === all.reduce((a, b) => (b.rating / b.pricePerNightEur > a.rating / a.pricePerNightEur ? b : a));
-  if (isBestValue && valueScore > 0) {
-    return { text: text.value, colorClass: 'bg-violet-100 text-violet-800' };
-  }
-
-  return { text: text.fallback, colorClass: 'bg-slate-100 text-slate-700' };
-}
-
 @Component({
   selector: 'app-wizard',
   standalone: true,
@@ -444,80 +261,20 @@ export class WizardComponent implements OnInit {
     await this.startWizard();
   }
 
-  /** Mock results screen — see wizard_architecture memory, 2026-08-06. Not real Booking data. */
-  readonly mockHotels = MOCK_HOTELS;
-
-  /** Best-rating-for-price first, 2026-08-06 (owner's ask: "fokus na vrh liste") — the top
-   *  entry also gets a distinct "Top pick" card treatment in the template, not just first
-   *  position, so the payoff moment has an obvious focal point instead of ten equal-weight
-   *  cards. */
-  get sortedHotels(): MockHotel[] {
-    return [...this.mockHotels].sort((a, b) => valueScore(b) - valueScore(a));
-  }
-
-  hotelHighlight(hotel: MockHotel): HotelHighlight {
-    return computeHotelHighlight(hotel, this.mockHotels, this.claimedHighlights, this.locale.locale());
-  }
-
-  /** Reset once per component instance so re-computing highlights on every change-detection
-   *  pass doesn't double-claim superlatives across calls — mockHotels never changes at
-   *  runtime, so this only ever gets populated once in practice. */
-  private readonly claimedHighlights = new Set<string>();
-
-  /** AI-generated pros/cons per hotel, keyed by name — see WizardService.generateHonestReport
-   *  and HonestReportGenerator (backend). 'loading' while in flight, null if it failed (best-
-   *  effort — a missing Honest Report must never block the results screen from showing). */
-  readonly honestReports = signal<Record<string, HonestReport | 'loading' | null>>({});
-
-  honestReportFor(hotel: MockHotel): HonestReport | 'loading' | null {
-    return this.honestReports()[hotel.name] ?? null;
-  }
-
-  /** Fired once when the results screen first shows (see goNext()) — all cards load in
-   *  parallel, not sequentially, since GPT-4o-mini is fast/cheap enough that there's no need
-   *  to ration it (see CLAUDE.md, "AI troškovi zanemarljivi").
-   *
-   *  Bug fixed 2026-08-11 (owner caught live: "odoshe 10 kredita na 1 pretragu... a nije nista
-   *  upisano") — this used to call generateHonestReport unconditionally for every mock hotel,
-   *  burning a credit each (see AiCreditsDirective), even when the user typed NOTHING into the
-   *  AI-only fields. Matches the owner's original design (2026-08-09): the AI layer should only
-   *  run at all when there's a real signal (smestaj_preference wishlist notes or the Big-NO
-   *  avoid notes/picks) for it to act on — otherwise the structured taxonomy results ARE the
-   *  answer, for free, no AI needed. */
-  private async loadHonestReports(): Promise<void> {
-    if (!this.hasAdvancedSearchSignals()) {
-      return;
-    }
-
-    this.honestReports.update((current) => {
-      const next = { ...current };
-      for (const hotel of this.mockHotels) next[hotel.name] = 'loading';
-      return next;
-    });
-
-    await Promise.all(
-      this.mockHotels.map(async (hotel) => {
-        const report = await this.wizard.generateHonestReport(hotel.name, hotel.description, hotel.reviews);
-        this.honestReports.update((current) => ({ ...current, [hotel.name]: report }));
-      })
-    );
-  }
-
-  /** True when the user actually gave the AI something to act on — see loadHonestReports(). */
-  private hasAdvancedSearchSignals(): boolean {
-    const wishlist = (this.wizard.getAnswer('smestaj_preference') as string) ?? '';
-    const avoidNotes = (this.wizard.getAnswer('smestaj_avoid') as string) ?? '';
-    const avoidPicks = (this.wizard.getAnswer('amenities_no') as string[]) ?? [];
-
-    return wishlist.trim() !== '' || avoidNotes.trim() !== '' || avoidPicks.length > 0;
-  }
-
   /** Owner's ask, 2026-08-19: real, live flight-search link — never a price we'd estimate
    *  ourselves (see SearchSessionQueryCompiler::toBookingFlightsUrl's docblock). Reads off
    *  WizardService.compiledQuery, which already refreshes after every answer (previously just a
    *  debug aid) — null until a destination + dates are actually resolvable. */
   get bookingFlightsUrl(): string | null {
     return (this.wizard.compiledQuery()?.['bookingFlightsUrl'] as string | undefined) ?? null;
+  }
+
+  /** The real, affiliate-tracked accommodation search — owner's ask, 2026-08-23: the old mock
+   *  hotel-card results screen was never actually linked to a real Booking.com search anywhere,
+   *  so no visitor could ever complete a real, trackable booking through the site. This is now
+   *  the results screen's primary CTA (see wizard.html's finished() branch). */
+  get bookingUrl(): string | null {
+    return (this.wizard.compiledQuery()?.['bookingUrl'] as string | undefined) ?? null;
   }
 
   /**
@@ -568,8 +325,7 @@ export class WizardComponent implements OnInit {
   }
 
   /** Re-runs the results screen against a different shortlisted city — same session, no wizard
-   *  steps re-walked. Resets honestReports so stale text from the OLD city's context never
-   *  lingers under the new selection while the fresh ones load. */
+   *  steps re-walked. */
   async searchResultsCity(): Promise<void> {
     const cityId = this.selectedResultsCityId();
     if (!cityId) return;
@@ -577,8 +333,6 @@ export class WizardComponent implements OnInit {
     this.wizard.loading.set(true);
     try {
       await this.wizard.switchResultsCity(cityId);
-      this.honestReports.set({});
-      await this.loadHonestReports();
     } finally {
       this.wizard.loading.set(false);
     }
@@ -1004,7 +758,6 @@ export class WizardComponent implements OnInit {
         // different "page" entirely and must always open at the top.
         window.scrollTo(0, 0);
         void this.wizard.recordEvent('results_reached');
-        void this.loadHonestReports();
         return;
       }
 
