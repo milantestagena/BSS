@@ -31,5 +31,13 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- Forced empty, 2026-08-23 — without this, tests silently inherit whatever real value
+             happens to be in the developer's own .env (no .env.testing exists), so e.g. every
+             toBookingUrl()/toBookingFlightsUrl() test asserting the plain unwrapped shape broke
+             the moment CJ_AFFILIATE_PID/LINK_ID were added to local .env for real testing. The
+             two dedicated "wraps_with_cj_affiliate_tracking_when_configured" tests set these
+             explicitly via config() when they actually want the wrapped shape. -->
+        <env name="CJ_AFFILIATE_PID" value=""/>
+        <env name="CJ_AFFILIATE_LINK_ID" value=""/>
     </php>
 </phpunit>

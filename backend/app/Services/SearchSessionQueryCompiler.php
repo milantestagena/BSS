@@ -92,8 +92,21 @@ class SearchSessionQueryCompiler
      * its own intent parser server-side instead — same as a person typing a city name into the
      * search box, confirmed via developers.booking.com's own search-URL examples, so this needs
      * no dest_id at all. This is the actual outbound/affiliate redirect target once a CJ deep
-     * link wrapper goes around it later — not the Partner/Demand API request toBookingParams()
-     * feeds today.
+     * link wrapper goes around it later.
+     *
+     * Bug fixed 2026-08-23 (owner caught it live: picked Breakfast/AC/Balcony/All-inclusive in
+     * the wizard, clicked through to a real Booking search, and NONE of it was reflected — the
+     * page showed unfiltered, unsorted results). Root cause: toBookingParams()'s rich `filters`
+     * shape was built assuming a FUTURE Partner/Demand API request body, and this method never
+     * read it at all. Now reuses that same filter computation and translates it into Booking's
+     * real public URL filter parameter — `nflt` (semicolon-delimited `category=id` chips) and
+     * `order` for sort — format confirmed via developers.booking.com's own filter/sort docs
+     * (2026-08-23) using the exact hotelfacility/roomfacility/mealplan IDs already captured
+     * manually from a live site export (see applyAmenityYesFilters's docblock). Deliberately
+     * does NOT yet forward accommodation_types (no real `nflt` key confirmed for it, and no
+     * wizard question sets it today anyway) or the price range / `kvalitet` sort (no confirmed
+     * real URL format for either yet) — narrower but confirmed-correct beats a guessed param
+     * Booking silently ignores.
      *
      * Null whenever there isn't yet a chosen destination or resolvable dates — same "absent, not
      * an error" convention as the rest of this compiler.
@@ -124,6 +137,34 @@ class SearchSessionQueryCompiler
         $childrenAges = $this->session->children_ages ?? [];
         if (! empty($childrenAges)) {
             $params['group_children'] = count($childrenAges);
+        }
+
+        $filters = $this->toBookingParams()['filters'] ?? [];
+
+        $nfltChips = [];
+        foreach ($filters['accommodation_facilities'] ?? [] as $id) {
+            $nfltChips[] = "hotelfacility={$id}";
+        }
+        foreach ($filters['room_facilities'] ?? [] as $id) {
+            $nfltChips[] = "roomfacility={$id}";
+        }
+        foreach ($filters['meal_plan'] ?? [] as $id) {
+            $nfltChips[] = "mealplan={$id}";
+        }
+        if (! empty($nfltChips)) {
+            $params['nflt'] = implode(';', $nfltChips);
+        }
+
+        // Real top-level param, not an nflt chip — see applyFamilyFriendlyFilter's docblock,
+        // sourced the same way (a live filter-sidebar export), not guessed.
+        if (! empty($filters['family_friendly_property'])) {
+            $params['family_friendly_property'] = 1;
+        }
+
+        // Only the confirmed direction — see this method's docblock for why 'kvalitet' isn't
+        // mapped to a sort param yet.
+        if ($this->allPreferenceTagSlugs()->contains('jeftino')) {
+            $params['order'] = 'price';
         }
 
         $query = [];

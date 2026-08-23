@@ -171,6 +171,43 @@ class SearchSessionQueryCompilerTest extends TestCase
         $this->assertStringContainsString('age=9', $url);
     }
 
+    /** Bug fixed 2026-08-23 (owner caught it live: picked amenities/meal plan/cheap-sort in the
+     *  wizard, but the real Booking.com link showed none of it applied) — toBookingUrl() now
+     *  reuses toBookingParams()'s filter computation and translates it into Booking's real
+     *  `nflt`/`order`/`family_friendly_property` URL parameters. IDs and format here match a
+     *  real captured Booking.com search URL the owner sent the same day (WiFi=107, private
+     *  bathroom=38, and all four real meal-plan IDs), not guessed. */
+    public function test_booking_url_includes_real_amenity_meal_plan_and_sort_filters(): void
+    {
+        TaxonomyNode::create(['type' => 'accommodation_facility', 'slug' => 'wifi', 'label' => 'WiFi', 'sort_order' => 0, 'meta' => ['booking_facility_id' => 107]]);
+        TaxonomyNode::create(['type' => 'room_facility', 'slug' => 'privatno_kupatilo', 'label' => 'Private bathroom', 'sort_order' => 0, 'meta' => ['booking_facility_id' => 38]]);
+        TaxonomyNode::create(['type' => 'meal_plan', 'slug' => 'dorucak', 'label' => 'Breakfast', 'sort_order' => 0, 'meta' => ['booking_meal_plan_id' => 1]]);
+        TaxonomyNode::create(['type' => 'meal_plan', 'slug' => 'sve_ukljuceno', 'label' => 'All-inclusive', 'sort_order' => 1, 'meta' => ['booking_meal_plan_id' => 4]]);
+        TaxonomyNode::create(['type' => 'preference_tag', 'slug' => 'porodicna_atmosfera', 'label' => 'Family-friendly', 'sort_order' => 0]);
+
+        $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'melieha2', 'label' => 'Mellieħa', 'sort_order' => 0]);
+        $session = SearchSession::create([
+            'status' => 'in_progress',
+            'city_id' => $city->id,
+            'date_from' => '2026-09-19',
+            'date_to' => '2026-09-27',
+            'adults_count' => 1,
+            'free_text_answers' => [
+                'amenities_yes' => ['wifi', 'privatno_kupatilo', 'dorucak', 'sve_ukljuceno'],
+                'preference_tags' => ['jeftino', 'porodicna_atmosfera'],
+            ],
+        ]);
+
+        $url = (new SearchSessionQueryCompiler($session))->toBookingUrl();
+
+        $this->assertStringContainsString(rawurlencode('hotelfacility=107'), $url);
+        $this->assertStringContainsString(rawurlencode('roomfacility=38'), $url);
+        $this->assertStringContainsString(rawurlencode('mealplan=1'), $url);
+        $this->assertStringContainsString(rawurlencode('mealplan=4'), $url);
+        $this->assertStringContainsString('order=price', $url);
+        $this->assertStringContainsString('family_friendly_property=1', $url);
+    }
+
     public function test_booking_flights_url_is_null_without_a_destination_or_dates(): void
     {
         $session = SearchSession::create(['status' => 'in_progress']);
