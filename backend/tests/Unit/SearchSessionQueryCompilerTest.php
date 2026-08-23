@@ -208,6 +208,55 @@ class SearchSessionQueryCompilerTest extends TestCase
         $this->assertStringContainsString('family_friendly_property=1', $url);
     }
 
+    /** Owner's ask, 2026-08-23 ("izabrao sam da je cena manja od 140 evra po noci... za sad
+     *  imamo neki budzet i ideju kolko ce da daju za hranu") — see
+     *  SearchSessionQueryCompiler::accommodationNightlyPriceCeiling's docblock. Hand-calculated:
+     *  meal=10/coffee=2 -> eating-out 27 EUR/adult/day (2.5*10 + 1*2), self-catering 27/3.5 =
+     *  7.71 EUR/adult/day, both x7 nights x1 adult. */
+    public function test_booking_url_includes_a_price_ceiling_derived_from_total_budget_and_meal_style(): void
+    {
+        $country = TaxonomyNode::create([
+            'type' => 'country', 'slug' => 'ceilingland', 'label' => 'Ceilingland', 'sort_order' => 0,
+            'meta' => ['hospitality' => ['avg_restaurant_meal_eur' => 10, 'avg_cafe_coffee_eur' => 2]],
+        ]);
+        $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'ceilingtown', 'label' => 'Ceilingtown', 'sort_order' => 0, 'parent_id' => $country->id]);
+
+        $baseSession = [
+            'status' => 'in_progress',
+            'city_id' => $city->id,
+            'date_from' => '2026-09-19',
+            // diffInDays(checkin, checkout) + 1 = 7 "days" for this class's own budget math
+            // (same convention resolveBudgetContext()/budgetSignal() already use) -- 6 calendar
+            // days apart, not 7, to land on exactly 7.
+            'date_to' => '2026-09-25',
+            'adults_count' => 1,
+            'total_budget' => 1000,
+        ];
+
+        // jede_napolju: eating-out total = 27 * 7 = 189. (1000 - 189) / 7 = 115.86 -> floor 115.
+        $eatingOutSession = SearchSession::create([...$baseSession, 'free_text_answers' => ['meal_style' => 'jede_napolju']]);
+        $eatingOutUrl = (new SearchSessionQueryCompiler($eatingOutSession))->toBookingUrl();
+        $this->assertStringContainsString(rawurlencode('price=EUR-min-115-1'), $eatingOutUrl);
+
+        // sam_se_snalazim: self-catering total = 189 / 3.5 = 54. (1000 - 54) / 7 = 135.14 -> floor 135.
+        $selfCateringSession = SearchSession::create([...$baseSession, 'free_text_answers' => ['meal_style' => 'sam_se_snalazim']]);
+        $selfCateringUrl = (new SearchSessionQueryCompiler($selfCateringSession))->toBookingUrl();
+        $this->assertStringContainsString(rawurlencode('price=EUR-min-135-1'), $selfCateringUrl);
+
+        // u_smestaju + sve_ukljuceno: fully covered, 0 out-of-pocket. 1000 / 7 = 142.86 -> floor 142.
+        $allInclusiveSession = SearchSession::create([
+            ...$baseSession,
+            'free_text_answers' => ['meal_style' => 'u_smestaju', 'meal_plan_preference' => ['sve_ukljuceno']],
+        ]);
+        $allInclusiveUrl = (new SearchSessionQueryCompiler($allInclusiveSession))->toBookingUrl();
+        $this->assertStringContainsString(rawurlencode('price=EUR-min-142-1'), $allInclusiveUrl);
+
+        // No meal_style answered yet: no price filter at all, not a guess.
+        $unansweredSession = SearchSession::create([...$baseSession, 'free_text_answers' => []]);
+        $unansweredUrl = (new SearchSessionQueryCompiler($unansweredSession))->toBookingUrl();
+        $this->assertStringNotContainsString('price%3DEUR', $unansweredUrl);
+    }
+
     public function test_booking_flights_url_is_null_without_a_destination_or_dates(): void
     {
         $session = SearchSession::create(['status' => 'in_progress']);

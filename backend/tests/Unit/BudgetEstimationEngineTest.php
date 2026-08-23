@@ -171,6 +171,43 @@ class BudgetEstimationEngineTest extends TestCase
         $this->assertSame('insufficient', $engine->fitFor($country, 498, 2, 2, 7, mealPlanSlugs: ['sve_ukljuceno']));
     }
 
+    /** Owner's ask, 2026-08-23 — see SearchSessionQueryCompiler::accommodationNightlyPriceCeiling.
+     *  Distinct from mealPlanTotalFor above: this is only the LEFTOVER out-of-pocket slice for
+     *  meals the hotel plan doesn't cover, not the full combined food spend. */
+    public function test_out_of_pocket_meal_total_is_zero_for_all_inclusive(): void
+    {
+        $country = $this->countryWithPrices(meal: 10, coffee: 2);
+        $engine = new BudgetEstimationEngine;
+
+        $this->assertSame(0.0, $engine->outOfPocketMealTotal($country, 'sve_ukljuceno', 623.0));
+    }
+
+    public function test_out_of_pocket_meal_total_is_most_of_the_eating_out_estimate_for_breakfast_only(): void
+    {
+        $country = $this->countryWithPrices(meal: 10, coffee: 2);
+        $engine = new BudgetEstimationEngine;
+
+        // dorucak covers 0.3 of 2.5 meal-units -> 88% still out of pocket.
+        $this->assertEqualsWithDelta(623.0 * 0.88, $engine->outOfPocketMealTotal($country, 'dorucak', 623.0), 0.01);
+    }
+
+    public function test_out_of_pocket_meal_total_is_a_small_slice_for_full_board(): void
+    {
+        $country = $this->countryWithPrices(meal: 10, coffee: 2);
+        $engine = new BudgetEstimationEngine;
+
+        // pun_pansion covers 1.95 of 2.5 meal-units -> 22% still out of pocket.
+        $this->assertEqualsWithDelta(623.0 * 0.22, $engine->outOfPocketMealTotal($country, 'pun_pansion', 623.0), 0.01);
+    }
+
+    public function test_out_of_pocket_meal_total_treats_an_unrecognized_slug_as_fully_uncovered(): void
+    {
+        $country = $this->countryWithPrices(meal: 10, coffee: 2);
+        $engine = new BudgetEstimationEngine;
+
+        $this->assertSame(623.0, $engine->outOfPocketMealTotal($country, 'not_a_real_slug', 623.0));
+    }
+
     public function test_all_inclusive_costs_more_than_eating_out_when_coefficient_above_one(): void
     {
         $country = $this->countryWithPrices(meal: 10, coffee: 2); // eating_out total = 623

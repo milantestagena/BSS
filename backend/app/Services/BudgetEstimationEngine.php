@@ -214,6 +214,29 @@ class BudgetEstimationEngine
     }
 
     /**
+     * Out-of-pocket food total for a specific hotel meal_plan_preference tier — the portion NOT
+     * covered by that tier's included meals, still paid at restaurants elsewhere. Owner's ask,
+     * 2026-08-23: used to work out how much of a stated total_budget can realistically go
+     * toward the ROOM RATE itself (Booking's own price filter, which already reflects a
+     * selected meal plan's cost once `mealplan=` is applied) instead of sitting unspent as an
+     * unaccounted food buffer — see SearchSessionQueryCompiler::accommodationNightlyPriceCeiling.
+     * Distinct from mealPlanTotalFor() below (that one estimates the FULL combined food spend,
+     * hotel-embedded + out-of-pocket, for fitFor()'s budget-fit comparison) — this returns only
+     * the leftover slice, using the same MEAL_PLAN_COVERAGE_RATIOS/MEALS_PER_DAY_PER_ADULT this
+     * class already has. sve_ukljuceno (all-inclusive) covers the full 2.5, so this is 0 — the
+     * whole budget can target the room rate, matching the owner's own "3 obroka, sve ide po
+     * nocenju" framing. An unrecognized slug is treated as covering nothing (full eating-out
+     * cost stays out-of-pocket) — same conservative-default convention as the rest of this class.
+     */
+    public function outOfPocketMealTotal(TaxonomyNode $country, string $mealPlanSlug, float $eatingOutTotal): float
+    {
+        $coveredRatio = self::MEAL_PLAN_COVERAGE_RATIOS[$mealPlanSlug] ?? 0.0;
+        $uncoveredFraction = max(0.0, self::MEALS_PER_DAY_PER_ADULT - $coveredRatio) / self::MEALS_PER_DAY_PER_ADULT;
+
+        return $eatingOutTotal * $uncoveredFraction;
+    }
+
+    /**
      * Owner's ask, 2026-08-13: real total cost of a specific meal_plan_preference, used only as
      * a FALLBACK when we don't have a real `includes_meals` price for the destination. Reuses
      * the already-computed `eatingOutTotal` (which already accounts for adults/children/coffee/

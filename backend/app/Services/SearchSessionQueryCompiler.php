@@ -102,11 +102,12 @@ class SearchSessionQueryCompiler
      * real public URL filter parameter — `nflt` (semicolon-delimited `category=id` chips) and
      * `order` for sort — format confirmed via developers.booking.com's own filter/sort docs
      * (2026-08-23) using the exact hotelfacility/roomfacility/mealplan IDs already captured
-     * manually from a live site export (see applyAmenityYesFilters's docblock). Deliberately
-     * does NOT yet forward accommodation_types (no real `nflt` key confirmed for it, and no
-     * wizard question sets it today anyway) or the price range / `kvalitet` sort (no confirmed
-     * real URL format for either yet) — narrower but confirmed-correct beats a guessed param
-     * Booking silently ignores.
+     * manually from a live site export (see applyAmenityYesFilters's docblock). `kvalitet` ->
+     * `order=class` (rating high-to-low) confirmed the same way, same day. A real price ceiling
+     * — computed from total_budget minus an estimated food cost, see
+     * accommodationNightlyPriceCeiling()'s docblock — also confirmed the same day
+     * ("price=EUR-min-140-1"). Deliberately does NOT yet forward accommodation_types — no real
+     * `nflt` key confirmed for it, and no wizard question sets it today anyway.
      *
      * Null whenever there isn't yet a chosen destination or resolvable dates — same "absent, not
      * an error" convention as the rest of this compiler.
@@ -151,6 +152,9 @@ class SearchSessionQueryCompiler
         foreach ($filters['meal_plan'] ?? [] as $id) {
             $nfltChips[] = "mealplan={$id}";
         }
+        if ($ceiling = $this->accommodationNightlyPriceCeiling()) {
+            $nfltChips[] = "price=EUR-min-{$ceiling}-1";
+        }
         if (! empty($nfltChips)) {
             $params['nflt'] = implode(';', $nfltChips);
         }
@@ -161,10 +165,16 @@ class SearchSessionQueryCompiler
             $params['family_friendly_property'] = 1;
         }
 
-        // Only the confirmed direction — see this method's docblock for why 'kvalitet' isn't
-        // mapped to a sort param yet.
-        if ($this->allPreferenceTagSlugs()->contains('jeftino')) {
+        // kvalitet -> order=class (rating high-to-low) confirmed 2026-08-23, same live-capture
+        // method as everything else here — owner found it while testing the price sort. jeftino/
+        // kvalitet are mutually exclusive selections (see seedPreferenceTags' excludes relation),
+        // so at most one of these ever fires; jeftino checked first only as a stable tie-break
+        // if that relation is ever bypassed (e.g. a session seeded directly in a test).
+        $tags = $this->allPreferenceTagSlugs();
+        if ($tags->contains('jeftino')) {
             $params['order'] = 'price';
+        } elseif ($tags->contains('kvalitet')) {
+            $params['order'] = 'class';
         }
 
         $query = [];
@@ -540,6 +550,87 @@ class SearchSessionQueryCompiler
             'accommodation_total_eur' => $accommodationTotal,
             'meals_included' => (bool) $priceRow?->includes_meals,
         ];
+    }
+
+    /**
+     * Real per-night accommodation price ceiling for Booking's `price=EUR-min-{X}-1` URL
+     * filter — owner's ask, 2026-08-23, after finding that filter's real format from a live
+     * capture ("izabrao sam da je cena manja od 140 evra po noci"). Works backward from the
+     * wizard's own total_budget: subtracts however much of that budget is realistically going
+     * to FOOD, and whatever's left, divided by nights, becomes the ceiling.
+     *
+     * Deliberately does NOT reuse resolveBudgetContext() — that one zeroes the food estimate
+     * when the destination's own price row is flagged includes_meals, which is exactly backward
+     * for this purpose (a bundled all-inclusive PRICE already reflects meal cost; here we still
+     * need a real food-total to subtract from the traveler's STATED budget, regardless of
+     * whether the specific price row we might eventually book happens to bundle it).
+     *
+     * meal_style branches (see BudgetEstimationEngine::fitFor's docblock for the same three
+     * values elsewhere in this class):
+     *  - 'jede_napolju' (restaurants): subtract the full eating-out estimate.
+     *  - 'sam_se_snalazim' (self-catering): subtract the full self-catering estimate.
+     *  - 'u_smestaju' (hotel meal plan): subtract only the OUT-OF-POCKET slice for whichever
+     *    meals aren't covered by the plan (BudgetEstimationEngine::outOfPocketMealTotal) — the
+     *    covered portion is already priced into whatever room rate Booking shows for a
+     *    mealplan=-filtered property, not something to double-subtract here. Multiple picks use
+     *    the MOST inclusive one (smallest leftover) — same "best case they're open to" spirit as
+     *    fitFor()'s own ranking.
+     *  - anything else (not yet answered): null, no price filter added at all — same "absent,
+     *    not a guess" convention as everything else in this class.
+     *
+     * Rounds DOWN, not to nearest — never let the filter exclude a property that's genuinely
+     * still in budget by a rounding hair.
+     */
+    private function accommodationNightlyPriceCeiling(): ?int
+    {
+        if (! $this->session->total_budget || ! $this->session->adults_count) {
+            return null;
+        }
+
+        $destination = $this->destinationNode();
+        $country = $destination?->type === 'country' ? $destination : $destination?->parent;
+        if (! $country) {
+            return null;
+        }
+
+        [$checkin, $checkout] = $this->resolveDates();
+        if (! $checkin) {
+            return null;
+        }
+        $days = $checkin->diffInDays($checkout) + 1;
+        if ($days < 1) {
+            return null;
+        }
+
+        $children = count($this->session->children_ages ?? []);
+        $engine = new BudgetEstimationEngine;
+        $estimate = $engine->estimate($country, $this->session->adults_count, $children, $days);
+        if ($estimate === null) {
+            return null;
+        }
+
+        $mealStyle = $this->session->free_text_answers['meal_style'] ?? null;
+        $mealPlanSlugs = $this->session->free_text_answers['meal_plan_preference'] ?? [];
+
+        $foodTotal = match (true) {
+            $mealStyle === 'jede_napolju' => $estimate['eating_out_total_eur'],
+            $mealStyle === 'sam_se_snalazim' => $estimate['self_catering_total_eur'],
+            $mealStyle === 'u_smestaju' && ! empty($mealPlanSlugs) => collect($mealPlanSlugs)
+                ->map(fn (string $slug) => $engine->outOfPocketMealTotal($country, $slug, $estimate['eating_out_total_eur']))
+                ->min(),
+            default => null,
+        };
+
+        if ($foodTotal === null) {
+            return null;
+        }
+
+        $accommodationBudgetTotal = ((float) $this->session->total_budget) - $foodTotal;
+        if ($accommodationBudgetTotal <= 0) {
+            return null;
+        }
+
+        return (int) floor($accommodationBudgetTotal / $days);
     }
 
     /**
