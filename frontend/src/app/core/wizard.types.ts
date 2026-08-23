@@ -40,6 +40,11 @@ export interface TaxonomyNode {
    *  Gates whether the optional "see full guide" link even shows — see
    *  DestinationGuideModalComponent. */
   hasGuide?: boolean | null;
+  /** Populated only when returned from suggestedGeography — slugs this node EXCLUDES (a real
+   *  contradiction, not just a preference nuance — e.g. preference_tag 'jeftino' excludes
+   *  'kvalitet', opposite Booking sort directions). Live-deselected from the same multi-choice
+   *  question when this node is picked — see QuestionInputComponent.onMultiChoiceToggle. */
+  excludesSlugs?: string[] | null;
   /** Populated only when returned from suggestedGeography for type=city — the parent country's
    *  label (+ meta, for the iso_code badge — see wizard.ts's countryCodeFor), so a mixed-country
    *  city grid (multi-select Country/region, 2026-08-13) can show which country each card

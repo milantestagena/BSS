@@ -124,6 +124,8 @@ type TaxonomyNode {
     priceRank: Int @rename(attribute: "price_rank")
     "Populated only when returned from `suggestedGeography` for type=country/city, campaign mode only — true if a DestinationGuide row exists for this node + the session's campaign. Frontend uses this to decide whether to even show the optional 'see full guide' link at all."
     hasGuide: Boolean @rename(attribute: "has_guide")
+    "Populated only when returned from `suggestedGeography` — slugs of taxonomy_node_relations this node EXCLUDES (relation_type=excludes), e.g. preference_tag 'jeftino' excludes 'kvalitet'. Frontend live-deselects any of these from the same multi-choice question when this node is picked, not just filters what a later question offers."
+    excludesSlugs: [String!] @rename(attribute: "excludes_slugs")
 }
 
 "One page of the wizard, admin-orderable and toggleable."

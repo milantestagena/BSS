@@ -1907,6 +1907,15 @@ class WizardSeeder extends Seeder
         $this->relate('persona', 'flegma', 'implies', 'preference_tag', 'mirno_i_tiho');
         $this->relate('persona', 'flegma', 'excludes', 'preference_tag', 'zivahna_nocna_zabava');
 
+        // jeftino/kvalitet mutual exclusion, owner's ask 2026-08-23 — both were selectable at
+        // once on the same "Atmosphere / Vibe" question (opposite Booking sort directions,
+        // order=price vs order=class, see SearchSessionQueryCompiler::toBookingUrl), which read
+        // as a real contradiction, not a preference nuance. Both directions seeded so the
+        // frontend only ever needs to check the JUST-CLICKED node's own excludes list — see
+        // QuestionInputComponent.onMultiChoiceToggle.
+        $this->relate('preference_tag', 'jeftino', 'excludes', 'preference_tag', 'kvalitet');
+        $this->relate('preference_tag', 'kvalitet', 'excludes', 'preference_tag', 'jeftino');
+
         // Owner's call, 2026-08-03: "porodica ne moz da bude partigoer" — filters 'partijaner'
         // out of persona_group's options once group_type=porodica is selected. Uses the SAME
         // excludes mechanism GeographyResolver already applies generically to any type, not a

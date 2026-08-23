@@ -79,7 +79,9 @@ class GeographyResolver
             });
         }
 
-        $nodes = $query->get();
+        // Eager-loaded so excludes_slugs (below) is one query for the whole result set, not
+        // N+1 — 2026-08-23, jeftino/kvalitet mutual exclusion.
+        $nodes = $query->with('excludes')->get();
         $budgetCaveatIds = collect();
         $budgetFitById = collect();
         $allInclusiveById = collect();
@@ -142,6 +144,10 @@ class GeographyResolver
             $node->setAttribute('all_inclusive_fits', $allInclusiveById->get($node->id, false));
             $node->setAttribute('perfect_match', $this->isPerfectMatch($node, $args['type'], $matchedTags, $vibeTagCount, $preferenceTags));
             $node->setAttribute('has_guide', $guidedIds->contains($node->id));
+            // jeftino/kvalitet mutual exclusion, 2026-08-23 — see QuestionInputComponent.
+            // onMultiChoiceToggle. Cheap for every type (empty array when a node has no excludes
+            // rows at all), not just preference_tag, so this stays generic like implied/matched_tags.
+            $node->setAttribute('excludes_slugs', $node->excludes->pluck('slug')->all());
 
             return $node;
         });

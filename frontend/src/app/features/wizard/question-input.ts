@@ -136,12 +136,20 @@ export class QuestionInputComponent {
   }
 
   onMultiChoiceToggle(node: TaxonomyNode): void {
-    const current = ((this.value as string[]) || []).slice();
+    let current = ((this.value as string[]) || []).slice();
     const idx = current.indexOf(node.slug);
     if (idx >= 0) {
       current.splice(idx, 1);
     } else {
       current.push(node.slug);
+      // Owner's ask, 2026-08-23 (jeftino/kvalitet: "nije iskljucivo", both selectable on the
+      // same question despite being opposite Booking sort directions) — picking a node drops
+      // any currently-selected slug it excludes. Both directions are seeded server-side (see
+      // WizardSeeder), so checking only the just-clicked node's own list is enough.
+      const excludes = node.excludesSlugs ?? [];
+      if (excludes.length > 0) {
+        current = current.filter((slug) => !excludes.includes(slug));
+      }
     }
     this.valueChange.emit(current);
   }

@@ -116,6 +116,27 @@ class GeographyResolverTest extends TestCase
         $this->assertFalse($notImplied->implied);
     }
 
+    /** Owner's ask, 2026-08-23 ("nije iskljucivo" — jeftino/kvalitet both selectable on the same
+     *  Atmosphere/Vibe question despite being opposite Booking sort directions). excludes_slugs
+     *  is what the frontend reads to live-deselect a contradicting sibling on click — see
+     *  QuestionInputComponent.onMultiChoiceToggle. Not session/selection-dependent like
+     *  implied/matched_tags above — it's just the node's own excludes list, always present. */
+    public function test_excludes_slugs_reflects_a_nodes_own_excludes_relation(): void
+    {
+        $jeftino = $this->node('preference_tag', 'jeftino');
+        $kvalitet = $this->node('preference_tag', 'kvalitet');
+        $pivo = $this->node('preference_tag', 'pivo');
+
+        $jeftino->excludes()->attach($kvalitet->id, ['relation_type' => 'excludes']);
+
+        $session = SearchSession::create(['status' => 'in_progress']);
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'preference_tag']);
+
+        $this->assertSame(['kvalitet'], $results->firstWhere('id', $jeftino->id)->excludes_slugs);
+        $this->assertSame([], $results->firstWhere('id', $kvalitet->id)->excludes_slugs);
+        $this->assertSame([], $results->firstWhere('id', $pivo->id)->excludes_slugs);
+    }
+
     public function test_preference_tag_overlap_ranks_matching_nodes_higher(): void
     {
         $italija = $this->node('country', 'italija', ['food' => ['dobra_hrana'], 'drinks' => ['vino']]);
