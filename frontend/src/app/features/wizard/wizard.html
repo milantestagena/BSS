@@ -361,11 +361,15 @@
                                     countryCodeFor(parent)
                                   }}</span>
                                 }
-                                <!-- break-words, 2026-08-24 (owner's catch) — a long, single-word
-                                     city name (no spaces to wrap on) overflowed the narrower
-                                     3-column card width and slid out from under the fixed-
-                                     position info icon instead of wrapping to a second line. -->
-                                <span class="block break-words px-8">{{ node.label }}</span>
+                                <!-- Owner's ask, 2026-08-24, second pass — the first fix
+                                     (break-words + px-8 side padding) kept the label sharing the
+                                     icons' own line, so even short names like "Turkey"/"Cyprus"
+                                     had barely any width left and broke mid-word ("Tur/key").
+                                     Pushed below the icon row instead (mt-5 clears both the
+                                     country-code badge and the info circle's top-3 offset) — the
+                                     label gets the card's FULL width, so it no longer needs side
+                                     padding or forced word-breaking at all for a normal name. -->
+                                <span class="mt-5 block">{{ node.label }}</span>
                                 @if (matchedTagLabelsFor(node); as matched) {
                                   <span class="mt-0.5 block text-xs font-normal text-slate-500">{{ matched }}</span>
                                 }
