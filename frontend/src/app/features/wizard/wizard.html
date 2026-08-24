@@ -30,23 +30,11 @@
        desktop mouse hover showed the description in BOTH places at once. The info circle now
        owns this entirely (click-only, works everywhere) — this sidebar case is removed, only
        the results-screen explainer keeps this slot. -->
-  @if (finished()) {
-    <!-- Same left-column explainer slot, now for the results screen — owner's call, 2026-08-06:
-         moved out of the middle column (where it sat as an inline box) so the "why is this here"
-         context lives in one consistent place throughout the whole flow, not just during Q&A. -->
-    <div class="fixed left-8 top-24 hidden w-72 lg:block">
-      <div class="rounded-2xl border border-white/50 bg-white/95 p-5 shadow-xl shadow-black/20 ring-1 ring-black/5 backdrop-blur-sm">
-        <h3 class="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">Your match</h3>
-        <p class="text-sm leading-relaxed text-slate-600">
-          We've taken everything you told us — where, when, who's coming, and what matters to you
-          — and matched it to real places to stay.
-        </p>
-        <p class="mt-2 text-sm leading-relaxed text-slate-600">
-          Click below to see them and book directly on Booking.com.
-        </p>
-      </div>
-    </div>
-  }
+  <!-- Owner's call, 2026-08-24: this results-screen explainer sidebar removed along with the
+       "Here's what we found" CTA box it referenced ("Click below to see them...") — nothing left
+       without real listing data (still no XML/JSON feed or Demand API access) beyond what the
+       shortlisted-city pills already do directly. -->
+
 
   <div class="mx-auto w-full max-w-2xl">
     @if (showIntro() && themeIntro; as intro) {
