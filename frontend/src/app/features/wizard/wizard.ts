@@ -614,6 +614,21 @@ export class WizardComponent implements OnInit {
     return (parent.meta?.['iso_code'] as string | undefined) ?? parent.label;
   }
 
+  /** Owner's ask, 2026-08-24: the City-step badge moves from a corner text label to a tiny flag
+   *  emoji sitting right after the city name. Built from the same iso_code meta as
+   *  countryCodeFor() — a flag emoji is just two Unicode "regional indicator" characters, one
+   *  per letter (A -> 🇦, offset 0x1F1E6 from 'A'). Falls back to countryCodeFor()'s plain text
+   *  for anything that isn't exactly 2 letters (can't build a valid flag from it), same
+   *  "degrade, don't go blank" convention. */
+  countryFlagFor(parent: { label: string; meta?: Record<string, unknown> | null }): string {
+    const code = (parent.meta?.['iso_code'] as string | undefined) ?? '';
+    if (!/^[A-Za-z]{2}$/.test(code)) return this.countryCodeFor(parent);
+
+    return Array.from(code.toUpperCase())
+      .map((letter) => String.fromCodePoint(0x1f1e6 + letter.charCodeAt(0) - 65))
+      .join('');
+  }
+
   /**
    * Group headers used to spell out the UNION of tags matched across every card in the group —
    * with 3+ tags selected that union crept toward listing all of them for EVERY tier, reading as
