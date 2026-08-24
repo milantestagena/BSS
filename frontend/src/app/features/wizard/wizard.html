@@ -361,15 +361,21 @@
                                     countryCodeFor(parent)
                                   }}</span>
                                 }
-                                <!-- Owner's ask, 2026-08-24, second pass — the first fix
-                                     (break-words + px-8 side padding) kept the label sharing the
-                                     icons' own line, so even short names like "Turkey"/"Cyprus"
-                                     had barely any width left and broke mid-word ("Tur/key").
-                                     Pushed below the icon row instead (mt-5 clears both the
-                                     country-code badge and the info circle's top-3 offset) — the
-                                     label gets the card's FULL width, so it no longer needs side
-                                     padding or forced word-breaking at all for a normal name. -->
-                                <span class="mt-5 block">{{ node.label }}</span>
+                                <!-- Owner's ask, 2026-08-24, THIRD pass — mt-5-for-everyone
+                                     wasted a whole empty row on country cards, which never had a
+                                     real collision problem (short, single-word names, no left
+                                     country-code badge to share the line with in the first
+                                     place) — that push-down is only worth it for the city step's
+                                     occasional long name (Rethymno) needing full width. Split by
+                                     question type: city keeps mt-5 (full width, no side padding);
+                                     country_region stays on the icon's own line with just enough
+                                     right padding (pr-8) to clear the info circle — no left
+                                     padding needed since it has no left badge to avoid. -->
+                                <span
+                                  class="block"
+                                  [class.mt-5]="question.key === 'city'"
+                                  [class.pr-8]="question.key !== 'city'"
+                                >{{ node.label }}</span>
                                 @if (matchedTagLabelsFor(node); as matched) {
                                   <span class="mt-0.5 block text-xs font-normal text-slate-500">{{ matched }}</span>
                                 }
