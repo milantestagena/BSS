@@ -324,8 +324,15 @@
                             <!-- Wrapping div owns `relative` now, not the button — a <button>
                                  can't contain another <button>, and ui-info-popover's trigger IS
                                  one, so it has to sit as a SIBLING positioned on top of the card
-                                 rather than nested inside it. -->
-                            <div class="relative">
+                                 rather than nested inside it. `self-start`, 2026-08-24 (owner's
+                                 catch) — a CSS grid item stretches to the row's full height by
+                                 default, but the button inside stays its own shorter natural
+                                 height; the selected-checkmark badge (bottom-2/right-2, absolute
+                                 against THIS div) was landing in that stretched dead space below
+                                 a shorter card whenever a taller sibling shared its row, not at
+                                 the visible card's actual corner. self-start makes this div only
+                                 as tall as its own content, matching the button exactly. -->
+                            <div class="relative self-start">
                               <!-- Owner's ask, 2026-08-21: a Superstar card showed BOTH the gold
                                    ring AND its own price-rank left-border color at once — two
                                    competing "this card is special" signals. The gold ring wins
@@ -354,7 +361,11 @@
                                     countryCodeFor(parent)
                                   }}</span>
                                 }
-                                <span class="block px-8">{{ node.label }}</span>
+                                <!-- break-words, 2026-08-24 (owner's catch) — a long, single-word
+                                     city name (no spaces to wrap on) overflowed the narrower
+                                     3-column card width and slid out from under the fixed-
+                                     position info icon instead of wrapping to a second line. -->
+                                <span class="block break-words px-8">{{ node.label }}</span>
                                 @if (matchedTagLabelsFor(node); as matched) {
                                   <span class="mt-0.5 block text-xs font-normal text-slate-500">{{ matched }}</span>
                                 }
