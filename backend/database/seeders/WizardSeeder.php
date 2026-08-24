@@ -414,10 +414,32 @@ class WizardSeeder extends Seeder
             ['slug' => 'vesmasina', 'en' => 'Washing machine', 'sr' => 'Veš mašina', 'id' => 34],
             ['slug' => 'frizider', 'en' => 'Refrigerator', 'sr' => 'Frižider', 'id' => 22],
             ['slug' => 'terasa', 'en' => 'Terrace', 'sr' => 'Terasa', 'id' => 123],
+            // Added 2026-08-24 from another owner "Room facilities" export — same curation call
+            // as above (dropped View/Mountain view/Pool with a view/Fireplace/Heating/
+            // Soundproofing/Outdoor furniture/Toilet/Toilet paper/Towels/Pool towels/Linen/
+            // Hairdryer/Ironing facilities/TV/Flat-screen TV/Tea-Coffee maker — near-universal
+            // or off-season, not genuinely differentiating for this campaign). High chair is the
+            // one standout: real family-relevant signal, matches the persona this site targets.
+            ['slug' => 'stolica_za_hranjenje', 'en' => "Children's high chair", 'sr' => 'Stolica za hranjenje', 'id' => 127],
         ];
         foreach ($roomFacilities as $i => $item) {
             $this->node('room_facility', $item['slug'], $item['en'], $item['sr'], $i, [
                 'booking_facility_id' => $item['id'],
+                'source' => 'manual_website',
+            ]);
+        }
+
+        // stay_type — new real Booking filter category, first mapped 2026-08-24 (owner's own
+        // "Travel group" filter-sidebar export). Same "category=id" nflt chip shape as
+        // hotelfacility=/roomfacility=/mealplan= (checkbox name/value on the real site), just a
+        // different chip prefix — see applyAmenityYesFilters/toBookingUrl. Only 'Pets allowed'
+        // seen/seeded so far; a real family-travel-relevant filter, not niche.
+        $stayTypes = [
+            ['slug' => 'kucni_ljubimci', 'en' => 'Pets allowed', 'sr' => 'Kućni ljubimci dozvoljeni', 'id' => 1],
+        ];
+        foreach ($stayTypes as $i => $item) {
+            $this->node('stay_type', $item['slug'], $item['en'], $item['sr'], $i, [
+                'booking_stay_type_id' => $item['id'],
                 'source' => 'manual_website',
             ]);
         }

@@ -23,9 +23,9 @@ use Illuminate\Support\Collection;
  */
 class SearchSessionQueryCompiler
 {
-    /** The four taxonomy types the Big YES/NO picker spans — see AmenityPickerComponent /
+    /** The taxonomy types the Big YES/NO picker spans — see AmenityPickerComponent /
      *  applyAmenityYesFilters(). Reused by labelsForSlugs() below. */
-    private const AMENITY_TYPES = ['tip_smestaja', 'accommodation_facility', 'room_facility', 'meal_plan'];
+    private const AMENITY_TYPES = ['tip_smestaja', 'accommodation_facility', 'room_facility', 'meal_plan', 'stay_type'];
 
     public function __construct(private SearchSession $session)
     {
@@ -106,8 +106,10 @@ class SearchSessionQueryCompiler
      * `order=class` (rating high-to-low) confirmed the same way, same day. A real price ceiling
      * — computed from total_budget minus an estimated food cost, see
      * accommodationNightlyPriceCeiling()'s docblock — also confirmed the same day
-     * ("price=EUR-min-140-1"). Deliberately does NOT yet forward accommodation_types — no real
-     * `nflt` key confirmed for it, and no wizard question sets it today anyway.
+     * ("price=EUR-min-140-1"). `stay_type` chips (e.g. Pets allowed) added 2026-08-24, same real
+     * "Travel group" filter-sidebar export as the amenity IDs. Deliberately does NOT yet forward
+     * accommodation_types — no real `nflt` key confirmed for it, and no wizard question sets it
+     * today anyway.
      *
      * Null whenever there isn't yet a chosen destination or resolvable dates — same "absent, not
      * an error" convention as the rest of this compiler.
@@ -151,6 +153,9 @@ class SearchSessionQueryCompiler
         }
         foreach ($filters['meal_plan'] ?? [] as $id) {
             $nfltChips[] = "mealplan={$id}";
+        }
+        foreach ($filters['stay_types'] ?? [] as $id) {
+            $nfltChips[] = "stay_type={$id}";
         }
         if ($ceiling = $this->accommodationNightlyPriceCeiling()) {
             $nfltChips[] = "price=EUR-min-{$ceiling}-1";
@@ -359,7 +364,7 @@ class SearchSessionQueryCompiler
             return;
         }
 
-        $nodes = TaxonomyNode::whereIn('type', ['tip_smestaja', 'accommodation_facility', 'room_facility', 'meal_plan'])
+        $nodes = TaxonomyNode::whereIn('type', ['tip_smestaja', 'accommodation_facility', 'room_facility', 'meal_plan', 'stay_type'])
             ->whereIn('slug', $slugs)
             ->get();
 
@@ -372,11 +377,12 @@ class SearchSessionQueryCompiler
                 'accommodation_facility' => $params['filters']['accommodation_facilities'][] = $node->meta['booking_facility_id'] ?? null,
                 'room_facility' => $params['filters']['room_facilities'][] = $node->meta['booking_facility_id'] ?? null,
                 'meal_plan' => $params['filters']['meal_plan'][] = $node->meta['booking_meal_plan_id'] ?? null,
+                'stay_type' => $params['filters']['stay_types'][] = $node->meta['booking_stay_type_id'] ?? null,
                 default => null,
             };
         }
 
-        foreach (['accommodation_facilities', 'room_facilities', 'meal_plan'] as $key) {
+        foreach (['accommodation_facilities', 'room_facilities', 'meal_plan', 'stay_types'] as $key) {
             if (isset($params['filters'][$key])) {
                 $params['filters'][$key] = array_values(array_filter($params['filters'][$key]));
             }

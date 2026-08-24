@@ -185,7 +185,16 @@ funkcionalnost. Bitno iz tog perioda:
      tačan tekst caching/data-retention klauzule iz partner ugovora — ne nagađati.
    - **Ekstrakcija sa screenshot-a:** NE uzimati apsolutno najjeftiniju stavku sa vrha Order by
      Price ASC liste — česta anomalija (soba bez kupatila, pogrešan unos). Uzeti 3.-4. cenu sa
-     liste kao realniji "pod" za tu nedelju/destinaciju.
+     liste, pa **dodati malu sigurnosnu marginu iznad nje** (ne samu 3.-4. cenu bukvalno) —
+     odluka 2026-08-24, posle uživo uhvaćenog slučaja gde je Rodos imao upisano 24€/noć po osobi
+     (iz stare/prezaboravljene screenshot sesije) naspram stvarnih ~110-140€/noć na live Booking
+     pretrazi za iste datume. I wizard-ov budget-fit filter (`BudgetEstimationEngine::fitFor`) i
+     `accommodationNightlyPriceCeiling()` (Booking link cenovni plafon) slepo veruju ovoj upisanoj
+     cifri — potcenjena cena tiho pušta destinacije koje realno ne staju u budžet kroz oba
+     mehanizma odjednom, a ni jedan od njih tada ne greši matematički, samo nasleđuju loš ulazni
+     podatak. Nije rešeno automatizacijom/XML feed-om — CJ potvrdio (Marina, 2026-08-24) da
+     Booking.com nema XML feed u njihovom sistemu, pa ni API spajanje preko CJ nije moguće; pravi
+     Content/Demand API pristup i dalje zahteva direktan dogovor sa Booking-om, ne preko CJ-a.
 3. ~~Automatsko skraćivanje liste gradova po temperaturi mora~~ — **gotovo.** `filterByClimate` u
    `GeographyResolver`, računa se live protiv ciljanog meseca protiv stvarnih `TaxonomyNodeClimate`
    podataka.

@@ -183,6 +183,7 @@ class SearchSessionQueryCompilerTest extends TestCase
         TaxonomyNode::create(['type' => 'room_facility', 'slug' => 'privatno_kupatilo', 'label' => 'Private bathroom', 'sort_order' => 0, 'meta' => ['booking_facility_id' => 38]]);
         TaxonomyNode::create(['type' => 'meal_plan', 'slug' => 'dorucak', 'label' => 'Breakfast', 'sort_order' => 0, 'meta' => ['booking_meal_plan_id' => 1]]);
         TaxonomyNode::create(['type' => 'meal_plan', 'slug' => 'sve_ukljuceno', 'label' => 'All-inclusive', 'sort_order' => 1, 'meta' => ['booking_meal_plan_id' => 4]]);
+        TaxonomyNode::create(['type' => 'stay_type', 'slug' => 'kucni_ljubimci', 'label' => 'Pets allowed', 'sort_order' => 0, 'meta' => ['booking_stay_type_id' => 1]]);
         TaxonomyNode::create(['type' => 'preference_tag', 'slug' => 'porodicna_atmosfera', 'label' => 'Family-friendly', 'sort_order' => 0]);
 
         $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'melieha2', 'label' => 'Mellieħa', 'sort_order' => 0]);
@@ -193,7 +194,7 @@ class SearchSessionQueryCompilerTest extends TestCase
             'date_to' => '2026-09-27',
             'adults_count' => 1,
             'free_text_answers' => [
-                'amenities_yes' => ['wifi', 'privatno_kupatilo', 'dorucak', 'sve_ukljuceno'],
+                'amenities_yes' => ['wifi', 'privatno_kupatilo', 'dorucak', 'sve_ukljuceno', 'kucni_ljubimci'],
                 'preference_tags' => ['jeftino', 'porodicna_atmosfera'],
             ],
         ]);
@@ -204,6 +205,7 @@ class SearchSessionQueryCompilerTest extends TestCase
         $this->assertStringContainsString(rawurlencode('roomfacility=38'), $url);
         $this->assertStringContainsString(rawurlencode('mealplan=1'), $url);
         $this->assertStringContainsString(rawurlencode('mealplan=4'), $url);
+        $this->assertStringContainsString(rawurlencode('stay_type=1'), $url);
         $this->assertStringContainsString('order=price', $url);
         $this->assertStringContainsString('family_friendly_property=1', $url);
     }

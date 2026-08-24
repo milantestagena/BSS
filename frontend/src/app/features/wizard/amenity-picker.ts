@@ -16,8 +16,10 @@ interface AmenityOption {
  *  own combined fetch instead.
  *  `meal_plan` moved OUT 2026-08-13 — it's now its own direct question on the broj_putnika
  *  step (see WizardSeeder's meal_plan_preference) instead of a budget-ratio guess pre-filled
- *  in here; picking it in two different places in the flow would just be confusing. */
-const AMENITY_TYPES = ['tip_smestaja', 'accommodation_facility', 'room_facility'];
+ *  in here; picking it in two different places in the flow would just be confusing.
+ *  `stay_type` added 2026-08-24 (Pets allowed) — unlike meal_plan it has no dedicated question
+ *  of its own, so it belongs in this general combined vocabulary like the other facility types. */
+const AMENITY_TYPES = ['tip_smestaja', 'accommodation_facility', 'room_facility', 'stay_type'];
 
 const MAX_SUGGESTIONS = 6;
 
