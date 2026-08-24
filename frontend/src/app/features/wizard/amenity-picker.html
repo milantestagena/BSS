@@ -46,49 +46,4 @@
       }
     </div>
   </div>
-
-  <div>
-    <div class="mb-2 flex flex-wrap gap-2">
-      @for (slug of noSlugs(); track slug) {
-        <span class="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-3 py-1 text-sm text-rose-800">
-          {{ labelFor(slug) }}
-          <button type="button" class="text-rose-500 hover:text-rose-800" (click)="removeNo(slug)">×</button>
-        </span>
-      }
-      @for (text of customNo(); track text) {
-        <span
-          class="inline-flex items-center gap-1 rounded-full border border-dashed border-rose-300 px-3 py-1 text-sm text-rose-700"
-          title="Not in the amenity list — noted separately"
-        >
-          {{ text }}
-        </span>
-      }
-    </div>
-    <div class="relative">
-      <input
-        type="text"
-        [placeholder]="noDisabled() ? i18n.t('bigNoLogin') : i18n.t('bigNoPlaceholder')"
-        [ngModel]="noQuery()"
-        (ngModelChange)="noQuery.set($event)"
-        (keydown.enter)="onNoEnter()"
-        (focus)="onNoFocus()"
-        (blur)="onNoBlur()"
-        [disabled]="noDisabled()"
-        class="w-full rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-sm
-               focus:outline-none focus:ring-2 focus:ring-rose-400 focus:border-rose-400
-               disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-300"
-      />
-      @if (noFocused() && noSuggestions().length > 0) {
-        <ul class="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
-          @for (opt of noSuggestions(); track opt.slug) {
-            <li>
-              <button type="button" class="block w-full px-3 py-2 text-left text-sm hover:bg-rose-50" (click)="addNo(opt.slug)">
-                {{ opt.label }}
-              </button>
-            </li>
-          }
-        </ul>
-      }
-    </div>
-  </div>
 </div>

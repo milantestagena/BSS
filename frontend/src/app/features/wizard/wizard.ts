@@ -28,10 +28,17 @@ const HOME_CITY_QUESTION_KEY = 'home_city';
  *  "stay together?" yes/no instead of typing a room count. Owner's explicit call, 2026-07-30. */
 const ROOMS_QUESTION_KEY = 'number_of_rooms';
 
-/** amenities_yes/amenities_no render via <app-amenity-picker> (combined typeahead over
- *  tip_smestaja/accommodation_facility/room_facility) instead of two separate generic pill
- *  grids — see amenity-picker.ts. Owner's design, 2026-08-04. */
+/** amenities_yes renders via <app-amenity-picker> (combined typeahead over
+ *  tip_smestaja/accommodation_facility/room_facility) instead of a generic pill grid — see
+ *  amenity-picker.ts. Owner's design, 2026-08-04. */
 const AMENITY_YES_KEY = 'amenities_yes';
+
+/** No UI at all, 2026-08-24 — the "Big NO" picker section that used to render this was removed
+ *  (see AmenityPickerComponent's docblock); this key only still needs excluding from
+ *  visibleQuestions below so its WizardQuestion row doesn't fall through to the generic
+ *  taxonomy_multi_choice renderer with an empty option list (bug caught live: a bold label with
+ *  nothing under it, "Anything you'd rather avoid?"). Same "no UI of its own" pattern as
+ *  SMESTAJ_AVOID_KEY just below. */
 const AMENITY_NO_KEY = 'amenities_no';
 
 /** Same 3 types as amenity-picker.ts's own AMENITY_TYPES — duplicated here (not read from
@@ -74,17 +81,16 @@ const CALCULATING_MESSAGES: Record<AppLocale, string[]> = {
 const CALCULATING_MIN_DURATION_MS = 1800;
 
 /** Idiot-proof, plain-English "why are we asking this" blurb per wizard step, shown in the
- *  reserved left column (see stepDescription()) — owner's ask, 2026-08-06, aimed at a reviewer
- *  (e.g. the Booking Affiliate application) who's never seen this flow before and needs to
- *  follow along without guessing. Keyed by WizardStep.key, same keys used by both the generic
- *  flow and every campaign (campaigns only ever reorder/select from this same fixed step set,
- *  see WizardSeeder::seedWizardSteps()). */
+ *  reserved left column (see stepDescription()) — owner's ask, 2026-08-06, so a first-time
+ *  visitor always knows why a question matters instead of just filling in blanks. Keyed by
+ *  WizardStep.key, same keys used by both the generic flow and every campaign (campaigns only
+ *  ever reorder/select from this same fixed step set, see WizardSeeder::seedWizardSteps()). */
 const STEP_DESCRIPTIONS: Record<AppLocale, Record<string, string>> = {
   en: {
     trip_type: 'What kind of trip is this? This one choice shapes every question that follows.',
     broj_putnika: "Just headcount and a rough budget for now — how many of you, any kids, and what you're comfortable spending. We'll match destinations to this later.",
     odakle_putujes: 'Your home city, so we can give you a realistic sense of how far each suggestion actually is.',
-    termin: "When you're planning to travel. We already suggest a window based on the campaign, but you can fine-tune the exact dates.",
+    termin: "When are you planning to travel? We already suggest a window based on the campaign, but you can fine-tune the exact dates.",
     persona: "A quick read on what kind of traveler(s) you are — this steers which destinations and vibes we suggest next.",
     preferencije: "What matters most about the trip's atmosphere, plus your nightly budget — helps us narrow things down to a shortlist that actually fits.",
     zemlja_regija: "Based on everything so far, here are the countries/regions that fit best. Pick one, or tell us if none of them feel right.",
@@ -95,7 +101,7 @@ const STEP_DESCRIPTIONS: Record<AppLocale, Record<string, string>> = {
     trip_type: 'Was für eine Reise soll es werden? Diese eine Wahl bestimmt alle folgenden Fragen.',
     broj_putnika: 'Erstmal nur die Kopfzahl und ein grobes Budget — wie viele seid ihr, gibt es Kinder, und was möchtet ihr ausgeben. Passende Ziele finden wir später.',
     odakle_putujes: 'Deine Heimatstadt, damit wir dir realistisch zeigen können, wie weit jeder Vorschlag tatsächlich entfernt ist.',
-    termin: 'Wann du reisen möchtest. Wir schlagen bereits einen Zeitraum basierend auf der Kampagne vor, du kannst die genauen Daten aber anpassen.',
+    termin: 'Wann möchtest du reisen? Wir schlagen bereits einen Zeitraum basierend auf der Kampagne vor, du kannst die genauen Daten aber anpassen.',
     persona: 'Ein kurzer Eindruck davon, was für ein Reisetyp du bist — das steuert, welche Ziele und Stimmungen wir als Nächstes vorschlagen.',
     preferencije: 'Was dir bei der Atmosphäre der Reise am wichtigsten ist, plus dein nächtliches Budget — hilft uns, eine wirklich passende Auswahl zu treffen.',
     zemlja_regija: 'Basierend auf allem bisher Gesagten sind das die am besten passenden Länder/Regionen. Wähle eins, oder sag uns, wenn keins passt.',
@@ -104,12 +110,14 @@ const STEP_DESCRIPTIONS: Record<AppLocale, Record<string, string>> = {
   },
 };
 
-/** Shown ABOVE the first step's description only, 2026-08-06 (owner's ask) — orients a
- *  first-time viewer to the fact that this whole flow is scoped to ONE campaign at a time
- *  before they've seen enough of it to infer that themselves. */
+/** Shown ABOVE the first step's description only, 2026-08-06 (owner's ask). Owner's ask,
+ *  2026-08-24: rewritten to talk to the traveler about THEIR trip, not to a reviewer about our
+ *  own product roadmap — the original version explained that "this flow is built around one
+ *  campaign" and listed campaigns we're planning next, which is internal architecture a real
+ *  visitor has no reason to care about. */
 const CAMPAIGN_INTRO_BLURB: Record<AppLocale, string> = {
-  en: "This flow is built around one campaign at a time. Right now you're looking at \"Late Summer\" — squeezing in warm-weather travel before the season ends. More campaigns are planned down the line (city breaks, holiday trips, full summer/winter vacations), each with its own tailored flow like this one.",
-  de: 'Dieser Ablauf ist immer auf eine Kampagne zugeschnitten. Gerade siehst du "Spätsommer" — noch etwas warmes Reisewetter mitnehmen, bevor die Saison endet. Weitere Kampagnen sind geplant (Städtereisen, Feiertagsreisen, komplette Sommer-/Winterurlaube), jede mit ihrem eigenen, passenden Ablauf wie diesem.',
+  en: 'Squeeze in one more warm-weather trip before summer ends. Answer a few quick questions, and we’ll help you find the right spot.',
+  de: 'Hol dir noch eine warme Reise, bevor der Sommer endet. Beantworte ein paar kurze Fragen, und wir helfen dir, den richtigen Ort zu finden.',
 };
 
 interface ThemeIntro {
@@ -214,10 +222,11 @@ export class WizardComponent implements OnInit {
     });
   }
 
-  /** Gates the AI-only free-text fields (smestaj_preference textarea + amenity picker's Big-NO
-   *  side) — CLAUDE.md section 3/8, owner's ask 2026-08-11: these two are the only inputs that
-   *  actually feed the AI layer (Big-YES drives real Booking filters and stays free always).
-   *  Structured taxonomy pills are NEVER gated — only these two free-text signals. */
+  /** Gates the smestaj_preference free-text field — CLAUDE.md section 3/8, owner's ask
+   *  2026-08-11: it's part of step 8 (konkretne preference smeštaja), which the login/credit
+   *  gate applies to as a whole. Structured taxonomy pills and Big-YES amenities are NEVER
+   *  gated — only this free-text field. (Big-NO, the other field this used to gate, was removed
+   *  2026-08-24 — see AmenityPickerComponent's docblock.) */
   get aiSearchEnabled(): boolean {
     const user = this.auth.currentUser();
     return !!user && (user.wallet?.balance ?? 0) > 0;
@@ -432,20 +441,12 @@ export class WizardComponent implements OnInit {
     this.wizard.setAnswer(AMENITY_YES_KEY, slugs);
   }
 
-  onAmenityNoChange(slugs: string[]): void {
-    this.wizard.setAnswer(AMENITY_NO_KEY, slugs);
-  }
-
-  /**
-   * Typed amenity text that matched nothing in the taxonomy — never silently lost, but routed
-   * to a field matching its framing. Bug fixed 2026-08-04: both used to land in
-   * smestaj_preference (a POSITIVE "wishlist" field), which reads backwards for something
-   * typed into the avoid/NO box — "wishlist: Crowd, Loud" sounds like they're wanted.
-   */
-  onAmenityUnmatchedText({ text, isAvoid }: { text: string; isAvoid: boolean }): void {
-    const field = isAvoid ? 'smestaj_avoid' : 'smestaj_preference';
-    const existing = (this.wizard.getAnswer(field) as string) ?? '';
-    this.wizard.setAnswer(field, existing ? `${existing}\n${text}` : text);
+  /** Typed amenity text that matched nothing in the taxonomy — never silently lost, routed to
+   *  smestaj_preference (the wishlist free-text field, same one extractFreeTextAmenities reads
+   *  — see FreeTextAmenityResolver). */
+  onAmenityUnmatchedText(text: string): void {
+    const existing = (this.wizard.getAnswer('smestaj_preference') as string) ?? '';
+    this.wizard.setAnswer('smestaj_preference', existing ? `${existing}\n${text}` : text);
   }
 
   /** True when the current step has an adults_count question — its whole cluster
@@ -1141,7 +1142,7 @@ export class WizardComponent implements OnInit {
   }
 
   private async loadGeographyForStep(step: WizardStep): Promise<void> {
-    if (step.questions.some((q) => q.key === AMENITY_YES_KEY || q.key === AMENITY_NO_KEY)) {
+    if (step.questions.some((q) => q.key === AMENITY_YES_KEY)) {
       await this.loadAmenitySummaryOptions();
     }
 
@@ -1188,13 +1189,12 @@ export class WizardComponent implements OnInit {
   }
 
   /** Mirrors AmenityPickerComponent.fetchOptions()'s combined fetch, but writes the result into
-   *  the SHARED geographyOptions map (under both amenities_yes and amenities_no — either key
-   *  works for optionLabel()'s lookup, they're both searching the same combined slug pool)
-   *  instead of the picker's own private state — see AMENITY_SUMMARY_TAXONOMY_TYPES docblock. */
+   *  the SHARED geographyOptions map (under amenities_yes, for optionLabel()'s lookup) instead
+   *  of the picker's own private state — see AMENITY_SUMMARY_TAXONOMY_TYPES docblock. */
   private async loadAmenitySummaryOptions(): Promise<void> {
     const results = await Promise.all(AMENITY_SUMMARY_TAXONOMY_TYPES.map((type) => this.wizard.loadGeographyOptions(type)));
     const combined = results.flat();
-    this.geographyOptions.update((g) => ({ ...g, [AMENITY_YES_KEY]: combined, [AMENITY_NO_KEY]: combined }));
+    this.geographyOptions.update((g) => ({ ...g, [AMENITY_YES_KEY]: combined }));
   }
 
   /** country_region is multi-select (owner's ask, 2026-08-12) — the answer is an array of

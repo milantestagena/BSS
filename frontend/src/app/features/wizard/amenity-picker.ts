@@ -10,7 +10,7 @@ interface AmenityOption {
   type: string;
 }
 
-/** The taxonomy types Big YES/NO searches across — see WizardSeeder::seedAmenities() and
+/** The taxonomy types Big YES searches across — see WizardSeeder::seedAmenities() and
  *  wizard_architecture, 2026-08-04. Deliberately NOT routed through the generic
  *  loadGeographyForCurrentStep() (single taxonomyType per question) — this widget owns its
  *  own combined fetch instead.
@@ -24,14 +24,20 @@ const AMENITY_TYPES = ['tip_smestaja', 'accommodation_facility', 'room_facility'
 const MAX_SUGGESTIONS = 6;
 
 /**
- * "Big YES / Big NO" amenity picker — owner's design, 2026-08-04: type a few characters,
- * pick a suggestion (or press Enter to accept the top one), it becomes a pill. Two
- * independent lists (yes/no) sharing one combined vocabulary; picking something in one list
- * removes it from the other's suggestions (can't want AND avoid the same thing). Typed text
- * that matches nothing becomes free text instead (see unmatchedText) — never silently lost.
+ * "Big YES" amenity picker — owner's design, 2026-08-04: type a few characters, pick a
+ * suggestion (or press Enter to accept the top one), it becomes a pill. Typed text that
+ * matches nothing becomes free text instead (see unmatchedText) — never silently lost.
  *
  * Replaces reading long checkbox lists with ~3 keystrokes per thing that matters — owner's
  * own framing: "lakse da ukuca ukupno 15 karaktera... nego da cita opise, tekstove i sl."
+ *
+ * Owner's ask, 2026-08-24: the "Big NO" half (an avoid-list, its own text input + suggestions)
+ * was removed — it never drove a real Booking filter, only fed Honest Report's avoid_amenities
+ * signal, and Honest Report hasn't been wired into the live results screen since the mock hotel
+ * cards were replaced with a real Booking.com link (see wizard.ts's goNext). Dead UI gated
+ * behind login/credits for a feature nobody could see. If Honest Report ever gets a real
+ * listing-data source and comes back, Big NO can come back with it — the backend signal
+ * (SearchSessionQueryCompiler's avoid_amenities/smestaj_avoid) was left untouched.
  */
 @Component({
   selector: 'app-amenity-picker',
@@ -41,38 +47,27 @@ const MAX_SUGGESTIONS = 6;
 })
 export class AmenityPickerComponent implements OnInit {
   yesSlugs = input<string[]>([]);
-  noSlugs = input<string[]>([]);
-  /** Big-NO drives no real Booking filter (see SearchSessionQueryCompiler) — it only ever feeds
-   *  the AI signal layer, so gating it behind login+credits costs anonymous/no-credit users
-   *  nothing real. Big-YES stays always enabled since it drives actual search filters. */
-  noDisabled = input(false);
 
   yesChange = output<string[]>();
-  noChange = output<string[]>();
-  /** Typed text that matched nothing in the combined vocabulary — never dropped. `isAvoid`
-   *  tells the parent which fallback field to route it to (positive wishlist vs. avoid-notes),
-   *  since the two read with opposite framing. */
-  unmatchedText = output<{ text: string; isAvoid: boolean }>();
+  /** Typed text that matched nothing in the combined vocabulary — never dropped, routed to the
+   *  smestaj_preference wishlist field (see wizard.ts's onAmenityUnmatchedText). */
+  unmatchedText = output<string>();
 
   readonly allOptions = signal<AmenityOption[]>([]);
   readonly yesQuery = signal('');
-  readonly noQuery = signal('');
 
   /** Owner's ask, 2026-08-13: "možda ne mogu da se sete prave reči, al kad skroluju vide" —
    *  focusing the field now browses the FULL remaining list (empty query no longer means empty
    *  dropdown), typing still narrows it. Blur hides it on a short delay rather than immediately,
    *  so a click on a suggestion registers before the list disappears (blur fires first). */
   readonly yesFocused = signal(false);
-  readonly noFocused = signal(false);
 
   /** Purely visual confirmation for unmatched text — see flushUnmatched. Bug fixed 2026-08-04:
-   *  typing something with no taxonomy match (e.g. "Crowd" in the NO box) DID get captured
-   *  (routed to smestaj_avoid, invisible field), but with zero on-screen confirmation it read
-   *  as "vanished" ("ukucao Crowd, pritisnuo Enter, nema ga nidje"). These render as inert
-   *  (non-removable) chips, visually distinct from real taxonomy pills, so typing something
-   *  always visibly lands SOMEWHERE. */
+   *  typing something with no taxonomy match DID get captured (routed to smestaj_preference,
+   *  invisible field), but with zero on-screen confirmation it read as "vanished". These render
+   *  as inert (non-removable) chips, visually distinct from real taxonomy pills, so typing
+   *  something always visibly lands SOMEWHERE. */
   readonly customYes = signal<string[]>([]);
-  readonly customNo = signal<string[]>([]);
 
   private isFirstLocaleEffect = true;
 
@@ -112,18 +107,14 @@ export class AmenityPickerComponent implements OnInit {
   }
 
   yesSuggestions(): AmenityOption[] {
-    return this.suggestionsFor(this.yesQuery(), this.yesSlugs(), this.noSlugs());
-  }
-
-  noSuggestions(): AmenityOption[] {
-    return this.suggestionsFor(this.noQuery(), this.noSlugs(), this.yesSlugs());
+    return this.suggestionsFor(this.yesQuery());
   }
 
   /** Empty query -> the full remaining (unselected) list, alphabetical, unlimited — this is the
    *  "browse" case (field just got focused, nothing typed yet). A real query narrows AND caps
    *  to MAX_SUGGESTIONS, same as before — that's still a search, not a browse. */
-  private suggestionsFor(query: string, ownSlugs: string[], otherSlugs: string[]): AmenityOption[] {
-    const remaining = this.allOptions().filter((o) => !ownSlugs.includes(o.slug) && !otherSlugs.includes(o.slug));
+  private suggestionsFor(query: string): AmenityOption[] {
+    const remaining = this.allOptions().filter((o) => !this.yesSlugs().includes(o.slug));
     const q = query.trim().toLowerCase();
 
     if (q.length === 0) {
@@ -150,38 +141,18 @@ export class AmenityPickerComponent implements OnInit {
     setTimeout(() => this.yesFocused.set(false), 150);
   }
 
-  onNoFocus(): void {
-    this.noFocused.set(true);
-  }
-
-  onNoBlur(): void {
-    setTimeout(() => this.noFocused.set(false), 150);
-  }
-
   addYes(slug: string): void {
     this.yesChange.emit([...this.yesSlugs(), slug]);
     this.yesQuery.set('');
-  }
-
-  addNo(slug: string): void {
-    this.noChange.emit([...this.noSlugs(), slug]);
-    this.noQuery.set('');
   }
 
   removeYes(slug: string): void {
     this.yesChange.emit(this.yesSlugs().filter((s) => s !== slug));
   }
 
-  removeNo(slug: string): void {
-    this.noChange.emit(this.noSlugs().filter((s) => s !== slug));
-  }
-
   /** Enter with at least one live suggestion accepts the top one (owner's spec: "mi ponudimo
    *  beach, on prihvati, enter") — otherwise the typed text has no taxonomy match at all, so
-   *  it's handed off as free text rather than silently dropped. Bug fixed 2026-08-04: unmatched
-   *  YES and NO text used to land in the SAME free-text field, which reads backwards for NO
-   *  ("wishlist: Crowd, Loud" sounds like they're wanted, not avoided) — now tagged so the
-   *  parent can route each to a field with the right framing. */
+   *  it's handed off as free text rather than silently dropped. */
   onYesEnter(): void {
     // Guarded on a real typed query now (2026-08-13) — suggestionsFor() returns the whole
     // browse list on an EMPTY query too, so without this an Enter press on an untouched,
@@ -191,29 +162,15 @@ export class AmenityPickerComponent implements OnInit {
       this.addYes(top.slug);
       return;
     }
-    this.flushUnmatched(this.yesQuery(), false);
+    this.flushUnmatched(this.yesQuery());
     this.yesQuery.set('');
   }
 
-  onNoEnter(): void {
-    const top = this.noQuery().trim().length > 0 ? this.noSuggestions()[0] : undefined;
-    if (top) {
-      this.addNo(top.slug);
-      return;
-    }
-    this.flushUnmatched(this.noQuery(), true);
-    this.noQuery.set('');
-  }
-
-  private flushUnmatched(raw: string, isAvoid: boolean): void {
+  private flushUnmatched(raw: string): void {
     const text = raw.trim();
     if (text.length === 0) return;
 
-    this.unmatchedText.emit({ text, isAvoid });
-    if (isAvoid) {
-      this.customNo.update((c) => [...c, text]);
-    } else {
-      this.customYes.update((c) => [...c, text]);
-    }
+    this.unmatchedText.emit(text);
+    this.customYes.update((c) => [...c, text]);
   }
 }

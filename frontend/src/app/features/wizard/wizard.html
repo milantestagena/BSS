@@ -292,10 +292,7 @@
               @if (showAmenityPicker) {
                 <app-amenity-picker
                   [yesSlugs]="$any(wizard.getAnswer('amenities_yes')) ?? []"
-                  [noSlugs]="$any(wizard.getAnswer('amenities_no')) ?? []"
-                  [noDisabled]="!aiSearchEnabled"
                   (yesChange)="onAmenityYesChange($event)"
-                  (noChange)="onAmenityNoChange($event)"
                   (unmatchedText)="onAmenityUnmatchedText($event)"
                 />
 
