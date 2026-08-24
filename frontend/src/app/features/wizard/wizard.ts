@@ -324,7 +324,12 @@ export class WizardComponent implements OnInit {
    *  synchronously, rather than after the awaited switch below. */
   selectResultsCity(node: TaxonomyNode): void {
     this.selectedResultsCityId.set(node.id);
-    const bookingTab = window.open('', '_blank', 'noopener');
+    // Bug fixed 2026-08-24: passing the 'noopener' flag to window.open makes it return null by
+    // spec (no reference to redirect later), which silently broke every open here. Get a real
+    // reference by omitting it, then sever window.opener by hand — same tabnabbing protection
+    // as noopener, without losing the ability to set .location.href once bookingUrl resolves.
+    const bookingTab = window.open('', '_blank');
+    if (bookingTab) bookingTab.opener = null;
     void this.searchResultsCity(bookingTab);
   }
 
