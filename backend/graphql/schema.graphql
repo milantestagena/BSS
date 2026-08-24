@@ -94,6 +94,19 @@ type Mutation {
     "Raw funnel/usage log entry — owner's ask, 2026-08-13, see WizardEvent model. Fire-and-forget from the frontend (step_viewed today); never blocks or errors the wizard flow if it fails."
     recordWizardEvent(sessionId: ID!, eventType: String!, payload: JSON): Boolean!
         @field(resolver: "App\\GraphQL\\Resolvers\\WizardEventResolver@record")
+
+    """
+    Owner's ask, 2026-08-24: matches the session's free-text smestaj_preference against the same
+    real Booking filter catalog the amenity picker uses (tip_smestaja/accommodation_facility/
+    room_facility/meal_plan/stay_type), merging any matches into amenities_yes so they route
+    through the exact real Booking filters a manual pick would (see
+    SearchSessionQueryCompiler::applyAmenityYesFilters). No-op, returns amenities_yes unchanged,
+    if smestaj_preference is empty or nothing matches. Returns the full, updated amenities_yes
+    list. Deliberately NOT @aiCredits — free-text entries never cost extra credits (CLAUDE.md
+    section 3), and this only ever fires from a free-text answer already typed for free.
+    """
+    extractFreeTextAmenities(sessionId: ID!): [String!]!
+        @field(resolver: "App\\GraphQL\\Resolvers\\FreeTextAmenityResolver@extract")
 }
 
 "A node in the self-referencing taxonomy tree (trip types, group types, personas, geography, ...)."

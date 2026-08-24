@@ -91,6 +91,14 @@ const GENERATE_HONEST_REPORT_MUTATION = `
   }
 `;
 
+/** Owner's ask, 2026-08-24 — see FreeTextAmenityResolver's docblock (Booking's own "Smart
+ *  filters" AI box throws the raw text away, so we do the same translation ourselves). */
+const EXTRACT_FREE_TEXT_AMENITIES_MUTATION = `
+  mutation ExtractFreeTextAmenities($sessionId: ID!) {
+    extractFreeTextAmenities(sessionId: $sessionId)
+  }
+`;
+
 const UPDATE_SESSION_MUTATION = `
   mutation UpdateSession($id: ID!, $input: UpdateSearchSessionInput!) {
     updateSearchSession(id: $id, input: $input) {
@@ -392,6 +400,26 @@ export class WizardService {
       return data.generateHonestReport;
     } catch {
       return null;
+    }
+  }
+
+  /** Owner's ask, 2026-08-24 — see FreeTextAmenityResolver's docblock. Fire-and-forget from the
+   *  caller (WizardComponent.goNext, at the smestaj step's own screen-1/screen-2 boundary):
+   *  best-effort, never blocks or errors the wizard flow if the model call fails. Updates the
+   *  local answers cache with the server's merged amenities_yes so a later re-visit of that step
+   *  (or the results screen's filters) reflects it without a full re-fetch. */
+  async extractFreeTextAmenities(): Promise<void> {
+    const sessionId = this.sessionId();
+    if (!sessionId) return;
+
+    try {
+      const data = await this.gql.request<{ extractFreeTextAmenities: string[] }>(
+        EXTRACT_FREE_TEXT_AMENITIES_MUTATION,
+        { sessionId }
+      );
+      this.setAnswer('amenities_yes', data.extractFreeTextAmenities);
+    } catch {
+      // Best-effort, see docblock above.
     }
   }
 

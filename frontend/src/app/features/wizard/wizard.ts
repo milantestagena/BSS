@@ -789,6 +789,10 @@ export class WizardComponent implements OnInit {
       // nesto mnogo racuna". Only on the FORWARD crossing (prevStepKey check), not every time
       // this step happens to be current (e.g. re-editing something earlier and re-advancing).
       if (newStepKey === 'zemlja_regija' && prevStepKey === 'smestaj') {
+        // Owner's ask, 2026-08-24 — see FreeTextAmenityResolver's docblock. Fire-and-forget:
+        // doesn't feed destination narrowing (amenities never affect GeographyResolver), only
+        // the eventual real Booking link, so it must never delay this transition.
+        void this.wizard.extractFreeTextAmenities();
         await this.runCalculatingTransition();
       } else {
         await this.loadGeographyForCurrentStep();

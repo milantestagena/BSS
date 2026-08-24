@@ -24,8 +24,9 @@ use Illuminate\Support\Collection;
 class SearchSessionQueryCompiler
 {
     /** The taxonomy types the Big YES/NO picker spans — see AmenityPickerComponent /
-     *  applyAmenityYesFilters(). Reused by labelsForSlugs() below. */
-    private const AMENITY_TYPES = ['tip_smestaja', 'accommodation_facility', 'room_facility', 'meal_plan', 'stay_type'];
+     *  applyAmenityYesFilters(). Reused by labelsForSlugs() below, and (public since 2026-08-24)
+     *  by FreeTextAmenityResolver's catalog lookup — same vocabulary, one source of truth. */
+    public const AMENITY_TYPES = ['tip_smestaja', 'accommodation_facility', 'room_facility', 'meal_plan', 'stay_type'];
 
     public function __construct(private SearchSession $session)
     {
