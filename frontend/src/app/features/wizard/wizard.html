@@ -246,32 +246,22 @@
                    below it — owner's call, 2026-08-06: "ovo sto ide kao chat poruka da bude deo
                    chata, a ovo sto se klikce i unosi da bude van chata, da se vidi space
                    izmedju". Same bubble styling as the collapsed-history question bubbles above,
-                   just bold since it's the active one.
-
-                   Skipped for the travelers step, 2026-08-24 (owner's catch): step.label and
-                   TravelersInputComponent's own adultsLabel were independently seeded with the
-                   identical text ("How many adults are traveling?"), so this bubble and the
-                   panel's own inline label below it showed the same question twice — one framed
-                   as the system asking again, right above the exact controls the traveler is
-                   using to answer it. No duplicate-vs-other-steps risk: this is the only step
-                   whose panel already carries its own equivalent label. -->
-              @if (!showTravelersWidget) {
-                <div class="mb-6 flex items-center justify-start gap-2">
-                  <div
-                    class="max-w-[80%] rounded-2xl rounded-bl-sm bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-800"
-                  >
-                    {{ step.label }}
-                  </div>
-                  <!-- Replaces the old `hidden lg:block` left-column explainer, 2026-08-11 —
-                       that column was invisible below the lg breakpoint, which was the actual
-                       cause of the explainer not showing on mobile. Same stepDescription() copy,
-                       just relocated so it works identically everywhere. -->
-                  <ui-info-popover>
-                    <h3 class="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">{{ step.label }}</h3>
-                    <p class="whitespace-pre-line">{{ stepDescription(step) }}</p>
-                  </ui-info-popover>
+                   just bold since it's the active one. -->
+              <div class="mb-6 flex items-center justify-start gap-2">
+                <div
+                  class="max-w-[80%] rounded-2xl rounded-bl-sm bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-800"
+                >
+                  {{ step.label }}
                 </div>
-              }
+                <!-- Replaces the old `hidden lg:block` left-column explainer, 2026-08-11 —
+                     that column was invisible below the lg breakpoint, which was the actual
+                     cause of the explainer not showing on mobile. Same stepDescription() copy,
+                     just relocated so it works identically everywhere. -->
+                <ui-info-popover>
+                  <h3 class="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">{{ step.label }}</h3>
+                  <p class="whitespace-pre-line">{{ stepDescription(step) }}</p>
+                </ui-info-popover>
+              </div>
 
               <!-- Frosted panel, 2026-08-06 — the actual interactive controls (choices, text
                    fields, nav buttons), deliberately outside the chat bubble above. Most of
@@ -282,8 +272,14 @@
                    bg-slate-100 as the question chat-bubble instead of white — visually reads as
                    "the system's own surface", same idea as the bubble, one fewer distinct tone
                    on screen. backdrop-blur/white-border dropped too — those were for sitting
-                   directly on the photo, meaningless over a solid panel. -->
-              <div class="rounded-2xl bg-slate-100 p-5 shadow-lg shadow-black/10 ring-1 ring-black/5">
+                   directly on the photo, meaningless over a solid panel.
+
+                   Right-aligned, 2026-08-24 (owner's catch) — the question bubble above sits on
+                   the left (TripInele asking), so this panel, where the traveler actually types/
+                   picks their answer, shifts right to visibly read as their side of the
+                   conversation, same left/right convention the collapsed-history bubbles above
+                   already use for question vs. answer. -->
+              <div class="ml-auto w-[92%] rounded-2xl bg-slate-100 p-5 shadow-lg shadow-black/10 ring-1 ring-black/5">
 
               @if (showTravelersWidget) {
                 <app-travelers-input
