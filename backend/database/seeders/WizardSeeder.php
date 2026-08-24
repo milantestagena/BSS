@@ -414,13 +414,34 @@ class WizardSeeder extends Seeder
             ['slug' => 'vesmasina', 'en' => 'Washing machine', 'sr' => 'Veš mašina', 'id' => 34],
             ['slug' => 'frizider', 'en' => 'Refrigerator', 'sr' => 'Frižider', 'id' => 22],
             ['slug' => 'terasa', 'en' => 'Terrace', 'sr' => 'Terasa', 'id' => 123],
-            // Added 2026-08-24 from another owner "Room facilities" export — same curation call
-            // as above (dropped View/Mountain view/Pool with a view/Fireplace/Heating/
-            // Soundproofing/Outdoor furniture/Toilet/Toilet paper/Towels/Pool towels/Linen/
-            // Hairdryer/Ironing facilities/TV/Flat-screen TV/Tea-Coffee maker — near-universal
-            // or off-season, not genuinely differentiating for this campaign). High chair is the
-            // one standout: real family-relevant signal, matches the persona this site targets.
+            // Added 2026-08-24 from another owner "Room facilities" export. Deliberately NOT
+            // curated down this time — owner's correction, same day: earlier drops (Toilet,
+            // Towels, Linen, Hairdryer, TV, Ironing facilities, ...) as "near-universal, doesn't
+            // differentiate" was MY judgment call, not the owner's, and it's wrong — this whole
+            // site exists because of a real trip with 2 guests and zero hairdryer in the
+            // apartment, listening to neighboring terraces complain about the same thing all day.
+            // "Universal" is exactly the kind of gap this site is supposed to catch. Every real
+            // ID from a genuine owner export gets seeded; curation (if any) is the owner's call.
             ['slug' => 'stolica_za_hranjenje', 'en' => "Children's high chair", 'sr' => 'Stolica za hranjenje', 'id' => 127],
+            ['slug' => 'pogled', 'en' => 'View', 'sr' => 'Pogled', 'id' => 81],
+            ['slug' => 'flat_tv', 'en' => 'Flat-screen TV', 'sr' => 'TV sa ravnim ekranom', 'id' => 75],
+            ['slug' => 'kuvalo_za_vodu', 'en' => 'Electric kettle', 'sr' => 'Kuvalo za vodu', 'id' => 86],
+            ['slug' => 'toalet', 'en' => 'Toilet', 'sr' => 'Toalet', 'id' => 31],
+            ['slug' => 'aparat_kafa_caj', 'en' => 'Coffee/tea maker', 'sr' => 'Aparat za kafu/čaj', 'id' => 998],
+            ['slug' => 'televizor', 'en' => 'TV', 'sr' => 'Televizor', 'id' => 8],
+            ['slug' => 'peskiri', 'en' => 'Towels', 'sr' => 'Peškiri', 'id' => 124],
+            ['slug' => 'kamin', 'en' => 'Fireplace', 'sr' => 'Kamin', 'id' => 71],
+            ['slug' => 'pogled_na_planinu', 'en' => 'Mountain view', 'sr' => 'Pogled na planinu', 'id' => 112],
+            ['slug' => 'posteljina', 'en' => 'Linen', 'sr' => 'Posteljina', 'id' => 125],
+            ['slug' => 'bazen_sa_pogledom', 'en' => 'Pool with a view', 'sr' => 'Bazen sa pogledom', 'id' => 159],
+            ['slug' => 'zvucna_izolacija', 'en' => 'Soundproofing', 'sr' => 'Zvučna izolacija', 'id' => 79],
+            ['slug' => 'grejanje', 'en' => 'Heating', 'sr' => 'Grejanje', 'id' => 40],
+            ['slug' => 'basta_namestaj', 'en' => 'Outdoor furniture', 'sr' => 'Baštenski nameštaj', 'id' => 129],
+            ['slug' => 'aparat_caj_kafa', 'en' => 'Tea/Coffee maker', 'sr' => 'Aparat za čaj/kafu', 'id' => 1],
+            ['slug' => 'peskiri_bazen', 'en' => 'Pool towels', 'sr' => 'Peškiri za bazen', 'id' => 163],
+            ['slug' => 'fen', 'en' => 'Hairdryer', 'sr' => 'Fen', 'id' => 12],
+            ['slug' => 'toalet_papir', 'en' => 'Toilet paper', 'sr' => 'Toalet papir', 'id' => 141],
+            ['slug' => 'pegla', 'en' => 'Ironing facilities', 'sr' => 'Pegla', 'id' => 25],
         ];
         foreach ($roomFacilities as $i => $item) {
             $this->node('room_facility', $item['slug'], $item['en'], $item['sr'], $i, [
