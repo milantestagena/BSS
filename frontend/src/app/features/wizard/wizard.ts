@@ -320,39 +320,29 @@ export class WizardComponent implements OnInit {
    *  synchronously, rather than after the awaited switch below. */
   selectResultsCity(node: TaxonomyNode): void {
     this.selectedResultsCityId.set(node.id);
-    // Bug fixed 2026-08-24: passing the 'noopener' flag to window.open makes it return null by
-    // spec (no reference to redirect later), which silently broke every open here. Get a real
-    // reference by omitting it, then sever window.opener by hand — same tabnabbing protection
-    // as noopener, without losing the ability to set .location.href once bookingUrl resolves.
-    const bookingTab = window.open('', '_blank');
-    if (bookingTab) bookingTab.opener = null;
-    void this.searchResultsCity(bookingTab);
+    void this.searchResultsCity();
   }
 
   /** Re-runs the results screen against a different shortlisted city — same session, no wizard
-   *  steps re-walked. `bookingTab` (2026-08-24): a blank tab opened SYNCHRONOUSLY inside the
-   *  click handler above, before this async method's first await — browsers only honor
-   *  window.open as a real user gesture within that same call stack; opening it AFTER awaiting
-   *  switchResultsCity's network round-trip would get silently popup-blocked in most browsers.
-   *  Once the real bookingUrl resolves, that already-open tab is just redirected to it. The
-   *  results screen below still renders as a fallback (manual link) if the tab was blocked
-   *  anyway, or bookingUrl comes back null. */
-  async searchResultsCity(bookingTab: Window | null = null): Promise<void> {
+   *  steps re-walked. Redirects the SAME tab to bookingUrl once it resolves, 2026-08-24 (owner's
+   *  call, replacing an earlier open-a-blank-tab-then-redirect-it attempt): confirmed live that
+   *  a real ad/privacy-blocker extension silently ate that window.open call entirely — no tab,
+   *  no error, nothing. That "open blank now, navigate it later" shape is the exact pattern
+   *  popup/tracker blockers are built to catch, since it's the same trick abusive pop-unders
+   *  use — no purely-JS workaround gets around that reliably. A same-tab location change is
+   *  never blocked (it isn't a popup at all), at the cost of leaving tripinele.com — the owner's
+   *  explicit tradeoff, accepted on the condition that the browser's Back button still restores
+   *  this exact rendered page (standard bfcache behavior for a plain client-side navigation like
+   *  this one — nothing here should defeat it, but flag it if Back ever looks wrong). */
+  async searchResultsCity(): Promise<void> {
     const cityId = this.selectedResultsCityId();
-    if (!cityId) {
-      bookingTab?.close();
-      return;
-    }
+    if (!cityId) return;
 
     this.wizard.loading.set(true);
     try {
       await this.wizard.switchResultsCity(cityId);
-      if (bookingTab) {
-        if (this.bookingUrl) {
-          bookingTab.location.href = this.bookingUrl;
-        } else {
-          bookingTab.close();
-        }
+      if (this.bookingUrl) {
+        window.location.href = this.bookingUrl;
       }
     } finally {
       this.wizard.loading.set(false);
