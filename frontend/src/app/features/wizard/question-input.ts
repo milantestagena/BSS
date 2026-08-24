@@ -17,8 +17,10 @@ export class QuestionInputComponent {
   @Input({ required: true }) question!: WizardQuestion;
   @Input() options: TaxonomyNode[] | null = null;
   @Input() value: unknown;
-  /** Only meaningful for input_type 'text' (smestaj_preference) — see wizard.html's
-   *  aiSearchDisabled/aiSearchGateReason. Structured taxonomy questions are never gated. */
+  /** Not currently wired up to anything — smestaj_preference (the one 'text'-type question this
+   *  was built for) had its own dedicated textarea hidden entirely 2026-08-24 rather than just
+   *  disabled (see wizard.ts's SMESTAJ_PREFERENCE_KEY). Left in place as a general capability
+   *  for whatever 'text' question needs disabling next, rather than removed and re-added later. */
   @Input() disabled = false;
   @Output() valueChange = new EventEmitter<unknown>();
 

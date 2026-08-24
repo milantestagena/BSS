@@ -55,6 +55,15 @@ const AMENITY_SUMMARY_TAXONOMY_TYPES = ['tip_smestaja', 'accommodation_facility'
  *  through persistCurrentStep like every other free_text_answers field. */
 const SMESTAJ_AVOID_KEY = 'smestaj_avoid';
 
+/** Owner's ask, 2026-08-24: hid this field's own dedicated textarea — GPT can only match typed
+ *  text against our OWN known real filter catalog (see FreeTextAmenityResolver), so anything
+ *  genuinely "unusual" typed here has nowhere real to go until we have real listing-level API
+ *  access. Still gets populated another way, though — the amenity picker's own unmatched-text
+ *  routing (onAmenityUnmatchedText) writes here too, and extractFreeTextAmenities still reads
+ *  whatever lands here for catalog matches. Bring the dedicated textarea back once real API
+ *  access makes "unusual" requests actually actionable. */
+const SMESTAJ_PREFERENCE_KEY = 'smestaj_preference';
+
 /** "Screen 2" — country_region/city render as bigger cards instead of plain pills, with a
  *  hover-revealed vibe_profile description in the reserved left column. See
  *  wizard_architecture "FINAL WORKFLOW DESIGN", 2026-08-04. */
@@ -222,28 +231,6 @@ export class WizardComponent implements OnInit {
     });
   }
 
-  /** Gates the smestaj_preference free-text field — CLAUDE.md section 3/8, owner's ask
-   *  2026-08-11: it's part of step 8 (konkretne preference smeštaja), which the login/credit
-   *  gate applies to as a whole. Structured taxonomy pills and Big-YES amenities are NEVER
-   *  gated — only this free-text field. (Big-NO, the other field this used to gate, was removed
-   *  2026-08-24 — see AmenityPickerComponent's docblock.) */
-  get aiSearchEnabled(): boolean {
-    const user = this.auth.currentUser();
-    return !!user && (user.wallet?.balance ?? 0) > 0;
-  }
-
-  /** null when the AI fields are enabled; otherwise the explanation shown next to them. */
-  get aiSearchGateMessage(): string | null {
-    if (this.aiSearchEnabled) return null;
-    if (!this.auth.loaded()) return null;
-
-    return this.auth.currentUser() ? this.i18n.t('outOfCredits') : this.i18n.t('loginForAiSearch');
-  }
-
-  get aiSearchOutOfCredits(): boolean {
-    return this.auth.loaded() && !!this.auth.currentUser() && !this.aiSearchEnabled;
-  }
-
   /** Owner's call, 2026-08-12: the "Data we collected so far" debug panel is a real testing
    *  tool (caught several real bugs this way), but a raw JSON blob reads as unfinished to a
    *  normal visitor or an affiliate reviewer. Hidden by default now, opt-in via `?debug=1` in
@@ -397,7 +384,8 @@ export class WizardComponent implements OnInit {
         q.key !== HOME_CITY_QUESTION_KEY &&
         q.key !== AMENITY_YES_KEY &&
         q.key !== AMENITY_NO_KEY &&
-        q.key !== SMESTAJ_AVOID_KEY
+        q.key !== SMESTAJ_AVOID_KEY &&
+        q.key !== SMESTAJ_PREFERENCE_KEY
     );
   }
 
