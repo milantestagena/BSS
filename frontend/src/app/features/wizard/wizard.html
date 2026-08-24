@@ -91,10 +91,15 @@
       <div
         class="mb-6 rounded-xl border border-white/50 bg-white/90 px-4 py-3 shadow-lg shadow-black/10 ring-1 ring-black/5 backdrop-blur-sm"
       >
-        @if (resultsCityChoices.length > 1) {
+        @if (resultsCityChoices.length > 0) {
           <!-- Owner's ask, 2026-08-12: jump between shortlisted cities without walking back
                through the whole wizard — same session (its answers/filters aren't lost), just a
-               different city. Reuses the City step's already-fetched top matches. -->
+               different city. Reuses the City step's already-fetched top matches. Gate widened
+               2026-08-24, from length > 1 to length > 0 — the separate "Here's what we found"
+               CTA box was removed the same day (owner's call: nothing left to show without real
+               listing data), so this pill list became the ONLY way to trigger the Booking
+               redirect. A single-city result used to render zero pills here, leaving nothing
+               clickable at all. -->
           <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
             {{ i18n.t('otherShortlistedCities') }}
           </p>
@@ -146,30 +151,6 @@
         >
           {{ i18n.t('backToSession') }}
         </button>
-      </div>
-
-      <div
-        class="rounded-xl border border-white/50 bg-white/90 px-6 py-8 text-center shadow-lg shadow-black/10 ring-1 ring-black/5 backdrop-blur-sm"
-      >
-        <h2 class="text-xl font-semibold text-slate-900">{{ i18n.t('hereIsWhatWeFound') }}</h2>
-        <p class="mx-auto mt-2 max-w-md text-sm text-slate-500">{{ i18n.t('realResultsBody') }}</p>
-
-        @if (bookingUrl; as url) {
-          <!-- Plain <a>, not <ui-button> — that component only ever renders a <button type=
-               "button"> with a (clicked) emitter, no real navigation. Classes match its primary/
-               lg variant by hand instead of extending the shared component for what's currently
-               the one real outbound-link CTA in the app. -->
-          <a
-            [href]="url"
-            target="_blank"
-            rel="noopener"
-            class="mt-6 inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-8 py-3.5 text-base font-semibold text-slate-900 transition-colors duration-150 hover:bg-amber-400"
-          >
-            {{ i18n.t('searchOnBooking') }}
-          </a>
-        } @else {
-          <p class="mt-6 text-sm text-amber-700">{{ i18n.t('realResultsUnavailable') }}</p>
-        }
       </div>
     } @else {
       <!-- Warm panel, 2026-08-21 (owner's call: the direct photo behind the whole Q&A stretch
