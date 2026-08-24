@@ -17,6 +17,15 @@ echo
 
 echo "==> Frontend (Angular, port 4837) — Ctrl+C zaustavlja samo frontend, backend ostaje da radi"
 cd "$PROJECT_ROOT/frontend"
+
+# Ugasi staru ng serve instancu ako je slučajno ostala da radi na ovom portu (npr. terminal
+# zatvoren bez Ctrl+C) — inače novi serve odbije da starta ili se testira stari, zastareo build.
+if PID=$(lsof -ti :4837 2>/dev/null); then
+  echo "==> Gasim staru instancu na portu 4837 (PID $PID)"
+  kill -9 $PID 2>/dev/null || true
+  sleep 1
+fi
+
 # NAPOMENA: koristi lokalni CLI, ne "ng" iz PATH-a — Ubuntu paket "ng-common"
 # (Mg, stari tekst-editor) drži /usr/bin/ng i zaklanja pravi Angular CLI.
 ./node_modules/.bin/ng serve --port 4837 --host 0.0.0.0
