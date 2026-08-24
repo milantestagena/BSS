@@ -287,18 +287,15 @@
                                 [customTrigger]="true"
                                 (click)="$event.stopPropagation()"
                               >
-                                <!-- Explicit inline line-clamp styles, not the Tailwind
-                                     line-clamp-2 utility class, 2026-08-24 (owner's catch: it
-                                     rendered the FULL untruncated description, no clamp at all —
-                                     the utility class wasn't taking effect here for reasons not
-                                     worth chasing further; these are the exact same underlying
-                                     -webkit-line-clamp properties, just guaranteed to apply. -->
-                                <span
-                                  trigger
-                                  class="mt-0.5 block text-xs font-normal text-slate-500"
-                                  style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden"
-                                >
-                                  {{ vibeDescription(node) ?? (matchedTagLabelsFor(node) || i18n.t('destinationInfoNotDescribed')) }}
+                                <!-- Character-count truncation (truncatedVibeDescription), not
+                                     CSS line-clamp, 2026-08-24 (owner's second catch) — line-clamp
+                                     cut wherever the pixel boundary landed, sometimes right after
+                                     a "—" used as a structural pause inside a real description
+                                     ("enormously —…"), reading oddly with nothing between the
+                                     dash and the ellipsis. Trimmed text always ends on an actual
+                                     word or quote instead. -->
+                                <span trigger class="mt-0.5 block text-xs font-normal text-slate-500">
+                                  {{ truncatedVibeDescription(node) ?? (matchedTagLabelsFor(node) || i18n.t('destinationInfoNotDescribed')) }}
                                 </span>
                                 <h3 class="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">{{ node.label }}</h3>
                                 <p class="whitespace-pre-line">{{ vibeDescription(node) ?? i18n.t('destinationInfoNotDescribed') }}</p>

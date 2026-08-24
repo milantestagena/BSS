@@ -865,6 +865,25 @@ export class WizardComponent implements OnInit {
     return profile?.description ?? null;
   }
 
+  /** Owner's ask, 2026-08-24: the destination card's 2-line description preview used CSS
+   *  line-clamp, which cuts wherever the pixel boundary happens to land — sometimes right after
+   *  a "—" used as a structural pause inside a real vibe_profile description ("enormously —…"),
+   *  reading oddly with nothing between the dash and the ellipsis. Character-count truncation
+   *  instead, trimming trailing punctuation/whitespace (anything that isn't a letter, digit, or
+   *  quote mark) before adding the ellipsis, so it always ends on an actual word or a closing
+   *  quote. maxLength is a plain estimate for "about 2 lines" at this card's width/font-size,
+   *  not a pixel-exact measurement — adjust if it visibly over/under-fills. */
+  truncatedVibeDescription(node: TaxonomyNode): string | null {
+    const full = this.vibeDescription(node);
+    if (!full) return null;
+
+    const maxLength = 90;
+    if (full.length <= maxLength) return full;
+
+    const trimmed = full.slice(0, maxLength).replace(/[^a-zA-Z0-9"'‘’“”)]+$/, '');
+    return `${trimmed}…`;
+  }
+
   /** Left-column fallback when nothing's hovered — see STEP_DESCRIPTIONS. Prepends the
    *  campaign-context blurb only on the very first step (visitedStepIndices().length === 1),
    *  since that's the one place a first-time viewer hasn't yet seen enough of the flow to
