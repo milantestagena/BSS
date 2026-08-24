@@ -18,7 +18,7 @@ import type { Instance as FlatpickrInstance } from 'flatpickr/dist/types/instanc
       #inputEl
       type="text"
       [placeholder]="placeholder()"
-      class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm
+      class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm
              focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
     />
   `,
