@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\GraphQL\Resolvers\GeographyResolver;
 use App\Models\SearchSession;
 use App\Models\TaxonomyNode;
+use App\Models\TaxonomyNodeClimate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -135,6 +136,76 @@ class GeographyResolverTest extends TestCase
         $this->assertSame(['kvalitet'], $results->firstWhere('id', $jeftino->id)->excludes_slugs);
         $this->assertSame([], $results->firstWhere('id', $kvalitet->id)->excludes_slugs);
         $this->assertSame([], $results->firstWhere('id', $pivo->id)->excludes_slugs);
+    }
+
+    /** Owner's ask, 2026-08-24 — real Open-Meteo air/sea temperature for the "See more" popover.
+     *  City reads its own climate row directly for the single spanned month. */
+    public function test_climate_temp_c_reads_the_city_own_row_for_a_single_month_trip(): void
+    {
+        $grcka = $this->node('country', 'grcka');
+        $rodos = $this->node('city', 'rodos');
+        $rodos->update(['parent_id' => $grcka->id]);
+        TaxonomyNodeClimate::create(['taxonomy_node_id' => $rodos->id, 'month' => 9, 'avg_temp_c' => 27.0, 'sea_temp_c' => 24.0]);
+
+        $session = SearchSession::create(['status' => 'in_progress', 'date_from' => '2026-09-10', 'date_to' => '2026-09-17']);
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'city']);
+        $result = $results->firstWhere('id', $rodos->id);
+
+        $this->assertSame(['min' => 27.0, 'max' => 27.0], $result->climate_air_temp_c);
+        $this->assertSame(['min' => 24.0, 'max' => 24.0], $result->climate_sea_temp_c);
+    }
+
+    /** A trip spanning two calendar months returns a real min/max RANGE across both, not one
+     *  arbitrarily picked month. */
+    public function test_climate_temp_c_ranges_across_two_spanned_months(): void
+    {
+        $grcka = $this->node('country', 'grcka');
+        $rodos = $this->node('city', 'rodos');
+        $rodos->update(['parent_id' => $grcka->id]);
+        TaxonomyNodeClimate::create(['taxonomy_node_id' => $rodos->id, 'month' => 8, 'avg_temp_c' => 30.0, 'sea_temp_c' => 26.0]);
+        TaxonomyNodeClimate::create(['taxonomy_node_id' => $rodos->id, 'month' => 9, 'avg_temp_c' => 27.0, 'sea_temp_c' => 24.0]);
+
+        $session = SearchSession::create(['status' => 'in_progress', 'date_from' => '2026-08-29', 'date_to' => '2026-09-05']);
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'city']);
+        $result = $results->firstWhere('id', $rodos->id);
+
+        $this->assertSame(['min' => 27.0, 'max' => 30.0], $result->climate_air_temp_c);
+        $this->assertSame(['min' => 24.0, 'max' => 26.0], $result->climate_sea_temp_c);
+    }
+
+    /** Country cards have no climate rows of their own — averaged across whichever child cities
+     *  actually have data for that month. */
+    public function test_climate_temp_c_averages_across_child_cities_for_a_country(): void
+    {
+        $grcka = $this->node('country', 'grcka');
+        $rodos = $this->node('city', 'rodos');
+        $rodos->update(['parent_id' => $grcka->id]);
+        TaxonomyNodeClimate::create(['taxonomy_node_id' => $rodos->id, 'month' => 9, 'avg_temp_c' => 26.0, 'sea_temp_c' => 24.0]);
+        $krit = $this->node('city', 'krit');
+        $krit->update(['parent_id' => $grcka->id]);
+        TaxonomyNodeClimate::create(['taxonomy_node_id' => $krit->id, 'month' => 9, 'avg_temp_c' => 28.0, 'sea_temp_c' => 25.0]);
+
+        $session = SearchSession::create(['status' => 'in_progress', 'date_from' => '2026-09-10', 'date_to' => '2026-09-17']);
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'country']);
+        $result = $results->firstWhere('id', $grcka->id);
+
+        $this->assertSame(['min' => 27.0, 'max' => 27.0], $result->climate_air_temp_c);
+        $this->assertSame(['min' => 24.5, 'max' => 24.5], $result->climate_sea_temp_c);
+    }
+
+    /** No climate data at all for the spanned month(s) -> null, not a guess or a zero. */
+    public function test_climate_temp_c_null_when_no_data_exists(): void
+    {
+        $grcka = $this->node('country', 'grcka');
+        $rodos = $this->node('city', 'rodos');
+        $rodos->update(['parent_id' => $grcka->id]);
+
+        $session = SearchSession::create(['status' => 'in_progress', 'date_from' => '2026-09-10', 'date_to' => '2026-09-17']);
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'city']);
+        $result = $results->firstWhere('id', $rodos->id);
+
+        $this->assertNull($result->climate_air_temp_c);
+        $this->assertNull($result->climate_sea_temp_c);
     }
 
     public function test_preference_tag_overlap_ranks_matching_nodes_higher(): void

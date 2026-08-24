@@ -299,6 +299,21 @@
                                 </span>
                                 <h3 class="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">{{ node.label }}</h3>
                                 <p class="whitespace-pre-line">{{ vibeDescription(node) ?? i18n.t('destinationInfoNotDescribed') }}</p>
+                                <!-- Owner's ask, 2026-08-24: real air/sea temperature for the
+                                     trip's actual dates, right in the "See more" popover — Open-
+                                     Meteo data already imported per city/month, just not shown
+                                     anywhere until now. Only renders when at least one of the two
+                                     has real data (never both dashes). -->
+                                @if (temperatureLabel(node.climateAirTempC) || temperatureLabel(node.climateSeaTempC)) {
+                                  <p class="mt-2 flex gap-4 text-xs text-slate-500">
+                                    @if (temperatureLabel(node.climateAirTempC); as air) {
+                                      <span>{{ i18n.t('airTemp') }}: {{ air }}</span>
+                                    }
+                                    @if (temperatureLabel(node.climateSeaTempC); as sea) {
+                                      <span>{{ i18n.t('seaTemp') }}: {{ sea }}</span>
+                                    }
+                                  </p>
+                                }
                                 <!-- Owner's ask, 2026-08-19: optional "deep-dive" guide, strictly
                                      side-of-flow — gated by hasGuide so it only ever appears for
                                      destinations that actually have one (see

@@ -865,6 +865,15 @@ export class WizardComponent implements OnInit {
     return profile?.description ?? null;
   }
 
+  /** Owner's ask, 2026-08-24: "24°C" for a single-month trip, "22–26°C" once min/max genuinely
+   *  differ (a trip spanning two calendar months) — see GeographyResolver::climateSummaryFor. */
+  temperatureLabel(range: { min: number; max: number } | null | undefined): string | null {
+    if (!range) return null;
+    const min = Math.round(range.min);
+    const max = Math.round(range.max);
+    return min === max ? `${min}°C` : `${min}–${max}°C`;
+  }
+
   /** Owner's ask, 2026-08-24: the destination card's 2-line description preview used CSS
    *  line-clamp, which cuts wherever the pixel boundary happens to land — sometimes right after
    *  a "—" used as a structural pause inside a real vibe_profile description ("enormously —…"),

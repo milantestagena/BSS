@@ -139,6 +139,16 @@ type TaxonomyNode {
     hasGuide: Boolean @rename(attribute: "has_guide")
     "Populated only when returned from `suggestedGeography` — slugs of taxonomy_node_relations this node EXCLUDES (relation_type=excludes), e.g. preference_tag 'jeftino' excludes 'kvalitet'. Frontend live-deselects any of these from the same multi-choice question when this node is picked, not just filters what a later question offers."
     excludesSlugs: [String!] @rename(attribute: "excludes_slugs")
+    "Populated only when returned from `suggestedGeography` for type=country/city, when the session has resolvable trip dates and real Open-Meteo climate data exists for at least one of the months the trip spans — see GeographyResolver::climateSummaryFor. Real imported data, not estimated. Null if no data exists for any spanned month."
+    climateAirTempC: TemperatureRange @rename(attribute: "climate_air_temp_c")
+    "Same as climateAirTempC, sea surface temperature instead of air."
+    climateSeaTempC: TemperatureRange @rename(attribute: "climate_sea_temp_c")
+}
+
+"A min/max range for a real Open-Meteo temperature reading across the calendar months a trip spans (see GeographyResolver::monthsSpanned) — min === max for a single-month trip, not a range."
+type TemperatureRange {
+    min: Float!
+    max: Float!
 }
 
 "One page of the wizard, admin-orderable and toggleable."

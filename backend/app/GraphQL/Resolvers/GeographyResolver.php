@@ -132,7 +132,15 @@ class GeographyResolver
                 ->pluck('taxonomy_node_id')
             : collect();
 
-        $mapped = $nodes->map(function (TaxonomyNode $node) use ($args, $preferenceTags, $vibeTagCount, $budgetCaveatIds, $budgetFitById, $allInclusiveById, $impliedIds, $guidedIds) {
+        // Air/sea temperature for the "See more" popover, 2026-08-24 (owner's ask) — real
+        // Open-Meteo data already imported per city/month (see [[wizard_architecture]]'s
+        // climate:import), just not surfaced to the frontend anywhere yet. Months spanned once
+        // for the whole result set (same trip dates for every card); per-node lookup happens in
+        // the map below since it genuinely varies by destination.
+        [$climateCheckin, $climateCheckout] = $isGeoType ? $this->tripCheckinCheckout($session) : [null, null];
+        $climateMonths = $climateCheckin ? $this->monthsSpanned($climateCheckin, $climateCheckout) : [];
+
+        $mapped = $nodes->map(function (TaxonomyNode $node) use ($args, $preferenceTags, $vibeTagCount, $budgetCaveatIds, $budgetFitById, $allInclusiveById, $impliedIds, $guidedIds, $climateMonths) {
             $nodeTags = $this->resolveNodeTags($node);
             $matchedTags = $preferenceTags->intersect($nodeTags)->values();
 
@@ -148,6 +156,12 @@ class GeographyResolver
             // onMultiChoiceToggle. Cheap for every type (empty array when a node has no excludes
             // rows at all), not just preference_tag, so this stays generic like implied/matched_tags.
             $node->setAttribute('excludes_slugs', $node->excludes->pluck('slug')->all());
+
+            if (! empty($climateMonths)) {
+                $climate = $this->climateSummaryFor($node, $climateMonths);
+                $node->setAttribute('climate_air_temp_c', $climate['air']);
+                $node->setAttribute('climate_sea_temp_c', $climate['sea']);
+            }
 
             return $node;
         });
@@ -571,6 +585,67 @@ class GeographyResolver
         }
 
         return $narrowed->isEmpty() ? $nodes : $narrowed;
+    }
+
+    /** [checkin.month, ..., checkout.month] with no duplicates — a trip can span two calendar
+     *  months (e.g. 29 Aug -> 5 Sept), and the "See more" temperature line shows a range across
+     *  all of them rather than picking just one arbitrarily (see climateSummaryFor). */
+    private function monthsSpanned(Carbon $checkin, Carbon $checkout): array
+    {
+        $months = [];
+        $cursor = $checkin->copy();
+        while ($cursor->lte($checkout)) {
+            $months[$cursor->month] = true;
+            $cursor->addMonth()->startOfMonth();
+        }
+
+        return array_keys($months);
+    }
+
+    /**
+     * Real air/sea temperature for the "See more" popover, 2026-08-24 (owner's ask) — Open-Meteo
+     * data already imported per city/month (see climate:import), not surfaced anywhere on the
+     * frontend until now. Returns null for a metric with no data at all across the spanned
+     * months (absent, not guessed, same convention as everything else here) — never a min/max of
+     * zero data points. A single-month trip returns min === max (still a real value, not a
+     * range); the frontend shows a plain number then instead of "X - X".
+     *
+     * City nodes read their own climateFor() (which already falls back to the parent if the city
+     * itself somehow has no row — see TaxonomyNode::climateFor). Country nodes have no climate
+     * rows of their own (temperature genuinely varies by city within a country) — averaged across
+     * whichever child cities DO have data for that month, same "aggregate across children"
+     * pattern cheapestAccommodationTotal already uses for country-level price cards.
+     *
+     * @param  int[]  $months
+     * @return array{air: ?array{min: float, max: float}, sea: ?array{min: float, max: float}}
+     */
+    private function climateSummaryFor(TaxonomyNode $node, array $months): array
+    {
+        $airValues = [];
+        $seaValues = [];
+
+        foreach ($months as $month) {
+            if ($node->type === 'city') {
+                $climate = $node->climateFor($month);
+                if ($climate?->avg_temp_c !== null) $airValues[] = (float) $climate->avg_temp_c;
+                if ($climate?->sea_temp_c !== null) $seaValues[] = (float) $climate->sea_temp_c;
+                continue;
+            }
+
+            $childClimates = $node->children()->where('type', 'city')->get()
+                ->map(fn (TaxonomyNode $city) => $city->climateFor($month))
+                ->filter();
+
+            $monthAir = $childClimates->pluck('avg_temp_c')->filter(fn ($v) => $v !== null);
+            $monthSea = $childClimates->pluck('sea_temp_c')->filter(fn ($v) => $v !== null);
+            if ($monthAir->isNotEmpty()) $airValues[] = (float) $monthAir->avg();
+            if ($monthSea->isNotEmpty()) $seaValues[] = (float) $monthSea->avg();
+        }
+
+        return [
+            'air' => empty($airValues) ? null : ['min' => min($airValues), 'max' => max($airValues)],
+            'sea' => empty($seaValues) ? null : ['min' => min($seaValues), 'max' => max($seaValues)],
+        ];
     }
 
     /**
