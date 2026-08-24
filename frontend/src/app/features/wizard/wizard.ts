@@ -1,6 +1,6 @@
 import { Component, ElementRef, OnInit, effect, signal, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
 import { WizardService } from '../../core/wizard.service';
 import { AuthService } from '../../core/auth.service';
 import { I18nService } from '../../core/i18n.service';
@@ -140,7 +140,6 @@ interface ThemeIntro {
   standalone: true,
   imports: [
     CommonModule,
-    RouterLink,
     QuestionInputComponent,
     TravelersInputComponent,
     CitySearchComponent,
