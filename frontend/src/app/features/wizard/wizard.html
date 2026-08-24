@@ -321,22 +321,22 @@
                      2026-08-11 ("narrow down the list, don't disappoint him"), see
                      WizardComponent.groupedDestinations()/priceRankClass(). -->
                   <div class="mb-6">
-                    <label class="mb-2 block text-sm font-semibold text-slate-800">{{
+                    <label class="mb-2 block text-sm font-semibold text-white">{{
                       question.label
                     }}</label>
                     @if (hasRealGrouping(question)) {
-                      <p class="mb-3 text-xs text-slate-500">{{ i18n.t('destinationsGroupedIntro') }}</p>
+                      <p class="mb-3 text-xs text-sky-100">{{ i18n.t('destinationsGroupedIntro') }}</p>
                     }
 
                     @for (group of groupedDestinations(question); track group.headerLabel) {
                       <div class="mb-4">
                         @if (group.headerLabel) {
-                          <h4 class="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          <h4 class="mb-1 text-xs font-semibold uppercase tracking-wide text-sky-100">
                             {{ group.headerLabel }}
                           </h4>
                         }
                         @if (groupHasPriceRanks(group)) {
-                          <p class="mb-2 text-xs text-slate-400">{{ i18n.t('priceLegend') }}</p>
+                          <p class="mb-2 text-xs text-sky-100">{{ i18n.t('priceLegend') }}</p>
                         }
                         <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
                           @for (node of group.nodes; track node.id) {
@@ -351,7 +351,7 @@
                                    now; price-rank color is suppressed on a perfect match. -->
                               <button
                                 type="button"
-                                class="w-full rounded-xl border p-4 text-left text-sm font-medium transition hover:border-sky-400 hover:bg-sky-50"
+                                class="w-full rounded-xl border bg-white p-4 text-left text-sm font-medium transition hover:border-sky-400 hover:bg-sky-50"
                                 [class.border-sky-500]="isDestinationSelected(question, node)"
                                 [class.bg-sky-50]="isDestinationSelected(question, node)"
                                 [class.border-slate-400]="!isDestinationSelected(question, node)"
@@ -430,7 +430,7 @@
                                    bottom-right checkmark badge instead, same "small badge pinned
                                    to a corner" language as the Superstar star above. -->
                               @if (isDestinationSelected(question, node)) {
-                                <div class="absolute -bottom-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full border-2 border-sky-500 bg-sky-500 shadow-sm">
+                                <div class="absolute bottom-2 right-2 flex h-6 w-6 items-center justify-center rounded-full border-2 border-sky-500 bg-sky-500 shadow-sm">
                                   <svg class="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                                   </svg>

@@ -8,7 +8,7 @@ import { FormsModule } from '@angular/forms';
   template: `
     @if (multiline()) {
       <textarea
-        class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm
+        class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm
                focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400
                disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
         rows="3"
@@ -18,7 +18,7 @@ import { FormsModule } from '@angular/forms';
       ></textarea>
     } @else {
       <input
-        class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm
+        class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm
                [appearance:textfield] focus:outline-none focus:ring-2 focus:ring-slate-400
                focus:border-slate-400 [&::-webkit-inner-spin-button]:appearance-none
                [&::-webkit-outer-spin-button]:appearance-none

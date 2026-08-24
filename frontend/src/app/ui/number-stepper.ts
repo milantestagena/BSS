@@ -18,7 +18,7 @@ import { TextFieldComponent } from './text-field';
     <div class="inline-flex items-center gap-2">
       <button
         type="button"
-        class="h-9 w-9 shrink-0 rounded-lg border border-slate-300 text-lg font-medium text-slate-700 hover:bg-slate-50"
+        class="h-9 w-9 shrink-0 rounded-lg border border-slate-300 bg-white text-lg font-medium text-slate-700 hover:bg-slate-50"
         (click)="decrement()"
       >
         −
@@ -28,7 +28,7 @@ import { TextFieldComponent } from './text-field';
       </div>
       <button
         type="button"
-        class="h-9 w-9 shrink-0 rounded-lg border border-slate-300 text-lg font-medium text-slate-700 hover:bg-slate-50"
+        class="h-9 w-9 shrink-0 rounded-lg border border-slate-300 bg-white text-lg font-medium text-slate-700 hover:bg-slate-50"
         (click)="increment()"
       >
         +
