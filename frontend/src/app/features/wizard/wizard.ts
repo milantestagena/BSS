@@ -292,40 +292,28 @@ export class WizardComponent implements OnInit {
    *  a second click — see searchResultsCity's own docblock for why the tab opens here,
    *  synchronously, rather than after the awaited switch below.
    *
-   *  Back to a NEW tab, 2026-08-24 (owner's second reversal same day) — same-tab was tried after
-   *  a real ad/privacy-blocker extension silently ate the original window.open call (no tab, no
-   *  error, nothing), but owner wants the new tab back for this specific interaction (mid-wizard
-   *  city pick, not the final results pill — losing the whole wizard to a same-tab redirect here
-   *  is worse than the earlier tradeoff was worth). Opens a blank tab synchronously, before this
-   *  method's own async work, then redirects THAT tab once bookingUrl resolves — falls back to a
-   *  same-tab redirect if the popup got blocked anyway, so it still always ends up somewhere. */
+   *  Same tab, final answer, 2026-08-24 (owner's third call same day) — tried new-tab twice
+   *  (window.open blank-then-redirect), confirmed live BOTH times it can fail silently on real
+   *  browsers (a blank/broken tab, not a working redirect) — no purely-JS way to guarantee a
+   *  script-initiated popup survives every ad/privacy-blocker out there. Same-tab location
+   *  change is never blocked (it isn't a popup at all); the browser's Back button returns here
+   *  via normal bfcache. */
   selectResultsCity(node: TaxonomyNode): void {
     this.selectedResultsCityId.set(node.id);
-    const bookingTab = window.open('', '_blank');
-    if (bookingTab) bookingTab.opener = null;
-    void this.searchResultsCity(bookingTab);
+    void this.searchResultsCity();
   }
 
   /** Re-runs the results screen against a different shortlisted city — same session, no wizard
    *  steps re-walked. See selectResultsCity's docblock for the tab-handling story. */
-  async searchResultsCity(bookingTab: Window | null = null): Promise<void> {
+  async searchResultsCity(): Promise<void> {
     const cityId = this.selectedResultsCityId();
-    if (!cityId) {
-      bookingTab?.close();
-      return;
-    }
+    if (!cityId) return;
 
     this.wizard.loading.set(true);
     try {
       await this.wizard.switchResultsCity(cityId);
       if (this.bookingUrl) {
-        if (bookingTab) {
-          bookingTab.location.href = this.bookingUrl;
-        } else {
-          window.location.href = this.bookingUrl;
-        }
-      } else {
-        bookingTab?.close();
+        window.location.href = this.bookingUrl;
       }
     } finally {
       this.wizard.loading.set(false);
