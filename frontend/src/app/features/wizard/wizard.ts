@@ -318,21 +318,41 @@ export class WizardComponent implements OnInit {
   }
 
   /** Owner's call, 2026-08-14: clicking a shortlisted-city pill is the whole decision — no
-   *  separate Search button anymore, see wizard.html. */
+   *  separate Search button anymore, see wizard.html. Owner's ask, 2026-08-24: the click should
+   *  go straight to Booking, not stop at an intermediate "here's what we found" screen requiring
+   *  a second click — see searchResultsCity's own docblock for why the tab opens here,
+   *  synchronously, rather than after the awaited switch below. */
   selectResultsCity(node: TaxonomyNode): void {
     this.selectedResultsCityId.set(node.id);
-    void this.searchResultsCity();
+    const bookingTab = window.open('', '_blank', 'noopener');
+    void this.searchResultsCity(bookingTab);
   }
 
   /** Re-runs the results screen against a different shortlisted city — same session, no wizard
-   *  steps re-walked. */
-  async searchResultsCity(): Promise<void> {
+   *  steps re-walked. `bookingTab` (2026-08-24): a blank tab opened SYNCHRONOUSLY inside the
+   *  click handler above, before this async method's first await — browsers only honor
+   *  window.open as a real user gesture within that same call stack; opening it AFTER awaiting
+   *  switchResultsCity's network round-trip would get silently popup-blocked in most browsers.
+   *  Once the real bookingUrl resolves, that already-open tab is just redirected to it. The
+   *  results screen below still renders as a fallback (manual link) if the tab was blocked
+   *  anyway, or bookingUrl comes back null. */
+  async searchResultsCity(bookingTab: Window | null = null): Promise<void> {
     const cityId = this.selectedResultsCityId();
-    if (!cityId) return;
+    if (!cityId) {
+      bookingTab?.close();
+      return;
+    }
 
     this.wizard.loading.set(true);
     try {
       await this.wizard.switchResultsCity(cityId);
+      if (bookingTab) {
+        if (this.bookingUrl) {
+          bookingTab.location.href = this.bookingUrl;
+        } else {
+          bookingTab.close();
+        }
+      }
     } finally {
       this.wizard.loading.set(false);
     }
