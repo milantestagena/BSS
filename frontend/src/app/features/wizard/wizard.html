@@ -269,16 +269,17 @@
                    own, unlike the chat bubbles. backdrop-blur/white-border dropped 2026-08-21 —
                    those were for sitting directly on the photo, meaningless over a solid panel.
 
-                   Right-aligned AND recolored, 2026-08-24 (owner's two catches in a row) — the
-                   question bubble above sits on the left (TripInele asking, slate), so this
+                   Right-aligned AND recolored, 2026-08-24 (owner's several catches in a row) —
+                   the question bubble above sits on the left (TripInele asking, slate), so this
                    panel, where the traveler actually types/picks their answer, shifts right to
                    read as their side of the conversation — same left/right convention the
-                   collapsed-history bubbles use for question vs. answer. First pass kept the
-                   slate-100 "system surface" background from the old center-column layout, which
-                   read wrong once the panel moved to the traveler's (right/sky-blue) side —
-                   sky-50 now: same blue family as the sent-answer bubble's sky-600, just much
-                   lighter since this one hasn't been "sent" (submitted) yet. -->
-              <div class="ml-auto w-[92%] rounded-2xl bg-sky-50 p-5 shadow-lg shadow-black/10 ring-1 ring-black/5">
+                   collapsed-history bubbles use for question vs. answer. Went through slate-100,
+                   then sky-50, before landing here on the exact same sky-600 as the sent-answer
+                   bubble ("nek bude ista pa ce vidimo" — owner wanted to just try the identical
+                   color and look at it live rather than guess a tint). Internal label/text colors
+                   inside this panel still assume a light background (slate-800/500) — likely
+                   needs a follow-up contrast pass against this much darker fill, not done yet. -->
+              <div class="ml-auto w-[92%] rounded-2xl bg-sky-600 p-5 shadow-lg shadow-black/10 ring-1 ring-black/5">
 
               @if (showTravelersWidget) {
                 <app-travelers-input
