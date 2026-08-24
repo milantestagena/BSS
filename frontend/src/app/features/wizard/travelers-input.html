@@ -1,16 +1,16 @@
 <div class="mb-6 space-y-6">
   <div>
-    <label class="mb-2 block text-sm font-semibold text-slate-800">{{ adultsLabel() }}</label>
+    <label class="mb-2 block text-sm font-semibold text-white">{{ adultsLabel() }}</label>
     <ui-number-stepper [value]="adultsCount() ?? 1" [min]="1" (valueChange)="onAdultsChange($event)" />
   </div>
 
   <div>
-    <label class="mb-2 block text-sm font-semibold text-slate-800">{{ childrenSectionLabel }}</label>
+    <label class="mb-2 block text-sm font-semibold text-white">{{ childrenSectionLabel }}</label>
 
     <div class="space-y-2">
       @for (age of childrenAges(); track $index) {
         <div class="flex items-center gap-3">
-          <span class="text-sm text-slate-500">{{ i18n.t('age') }}</span>
+          <span class="text-sm text-sky-100">{{ i18n.t('age') }}</span>
           <ui-number-stepper [value]="age" [min]="0" [max]="17" (valueChange)="onChildAgeStepperChange($index, $event)" />
 
           @if (age <= 2) {

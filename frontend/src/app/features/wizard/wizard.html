@@ -456,13 +456,13 @@
                        nothing to link to; the real flight-search link lives on the results
                        screen instead, once we actually know where. -->
                   @if (question.key === 'total_budget') {
-                    <p class="-mt-4 mb-6 text-xs text-slate-400">{{ i18n.t('budgetExcludesFlightNote') }}</p>
+                    <p class="-mt-4 mb-6 text-xs text-sky-100">{{ i18n.t('budgetExcludesFlightNote') }}</p>
                   }
                 }
               }
 
               @if (hasMandatoryQuestionOnStep) {
-                <p class="mb-4 text-xs text-amber-600">{{ i18n.t('requiredLegend') }}</p>
+                <p class="mb-4 text-xs text-amber-300">{{ i18n.t('requiredLegend') }}</p>
               }
 
               @if (showRoomsTogetherQuestion) {
@@ -492,7 +492,7 @@
                   >
                 </div>
                 @if (!canProceed) {
-                  <p class="mt-2 text-xs text-amber-700">{{ i18n.t('fillRequiredFields') }}</p>
+                  <p class="mt-2 text-xs text-amber-300">{{ i18n.t('fillRequiredFields') }}</p>
                 }
               } @else {
                 <!-- City step: no Proceed button — onDestinationCardSelect already advances the
@@ -509,7 +509,7 @@
                   }
                 </div>
                 @if (!canProceed && !isCityStep) {
-                  <p class="mt-2 text-xs text-amber-700">{{ i18n.t('fillRequiredFields') }}</p>
+                  <p class="mt-2 text-xs text-amber-300">{{ i18n.t('fillRequiredFields') }}</p>
                 }
               }
             </div>
