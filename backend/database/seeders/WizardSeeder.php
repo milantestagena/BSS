@@ -1694,7 +1694,11 @@ class WizardSeeder extends Seeder
             ['key' => 'trip_type', 'en' => 'Trip type', 'sr' => 'Tip putovanja', 'questions' => [
                 ['key' => 'trip_type', 'en' => 'What kind of trip are you planning?', 'sr' => 'Kakvo putovanje planiraš?', 'input_type' => 'taxonomy_choice', 'taxonomy_type' => 'trip_type', 'session_field' => 'trip_type_id', 'allow_free_text' => true],
             ]],
-            ['key' => 'broj_putnika', 'en' => 'How many adults are traveling?', 'sr' => 'Koliko odraslih putuje?', 'questions' => [
+            // Step label deliberately distinct from the adults_count question's own label just
+            // below (owner's catch, 2026-08-24: they used to be word-for-word identical, reading
+            // as the same question asked twice; also just plain wrong on its own — children
+            // travel on this step too, not just adults).
+            ['key' => 'broj_putnika', 'en' => "Who's traveling?", 'sr' => 'Ko putuje?', 'questions' => [
                 ['key' => 'adults_count', 'en' => 'How many adults are traveling?', 'sr' => 'Koliko odraslih putuje?', 'input_type' => 'number', 'session_field' => 'adults_count'],
                 ['key' => 'children_ages', 'en' => "Children's ages (if any)", 'sr' => 'Godine dece (ako ima)', 'input_type' => 'number_array', 'session_field' => 'children_ages'],
                 ['key' => 'needs_crib', 'en' => 'Do you need a crib (per child ≤2 yrs)?', 'sr' => 'Treba li krevetac (po detetu ≤2 god.)?', 'input_type' => 'boolean', 'session_field' => 'needs_crib'],
@@ -2239,7 +2243,7 @@ class WizardSeeder extends Seeder
 
         $stepLabels = [
             'trip_type' => 'Reiseart',
-            'broj_putnika' => 'Wie viele Erwachsene reisen?',
+            'broj_putnika' => 'Wer reist mit?',
             'odakle_putujes' => 'Von wo reist du?',
             'termin' => 'Zeitraum',
             'persona' => 'Reisetyp',

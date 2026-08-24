@@ -266,20 +266,19 @@
               <!-- Frosted panel, 2026-08-06 — the actual interactive controls (choices, text
                    fields, nav buttons), deliberately outside the chat bubble above. Most of
                    what's inside here (question labels, helper text) has no background of its
-                   own, unlike the chat bubbles. Owner's catch, 2026-08-21: once the warm panel
-                   (above) went in behind the whole Q&A stretch, a separate opaque white box on
-                   top of it read as one color too many ("da nije 1 boja suvisna"). Now the same
-                   bg-slate-100 as the question chat-bubble instead of white — visually reads as
-                   "the system's own surface", same idea as the bubble, one fewer distinct tone
-                   on screen. backdrop-blur/white-border dropped too — those were for sitting
-                   directly on the photo, meaningless over a solid panel.
+                   own, unlike the chat bubbles. backdrop-blur/white-border dropped 2026-08-21 —
+                   those were for sitting directly on the photo, meaningless over a solid panel.
 
-                   Right-aligned, 2026-08-24 (owner's catch) — the question bubble above sits on
-                   the left (TripInele asking), so this panel, where the traveler actually types/
-                   picks their answer, shifts right to visibly read as their side of the
-                   conversation, same left/right convention the collapsed-history bubbles above
-                   already use for question vs. answer. -->
-              <div class="ml-auto w-[92%] rounded-2xl bg-slate-100 p-5 shadow-lg shadow-black/10 ring-1 ring-black/5">
+                   Right-aligned AND recolored, 2026-08-24 (owner's two catches in a row) — the
+                   question bubble above sits on the left (TripInele asking, slate), so this
+                   panel, where the traveler actually types/picks their answer, shifts right to
+                   read as their side of the conversation — same left/right convention the
+                   collapsed-history bubbles use for question vs. answer. First pass kept the
+                   slate-100 "system surface" background from the old center-column layout, which
+                   read wrong once the panel moved to the traveler's (right/sky-blue) side —
+                   sky-50 now: same blue family as the sent-answer bubble's sky-600, just much
+                   lighter since this one hasn't been "sent" (submitted) yet. -->
+              <div class="ml-auto w-[92%] rounded-2xl bg-sky-50 p-5 shadow-lg shadow-black/10 ring-1 ring-black/5">
 
               @if (showTravelersWidget) {
                 <app-travelers-input

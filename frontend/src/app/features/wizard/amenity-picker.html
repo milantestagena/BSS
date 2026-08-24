@@ -1,20 +1,20 @@
-<!-- Both inputs below were bg-emerald-50/40 and bg-rose-50/40 until 2026-08-21 — full opacity
-     now (design pass): a 40%-opacity tint was tuned against the panel's old white background,
-     and mixed with the panel's new bg-slate-100 (see wizard.html) into a visibly different,
-     muddier tint than the fully-opaque emerald-100/emerald-600 used a few lines away — owner
-     caught it live as "2 nijanse zelene". -->
+<!-- Standardized to the same neutral slate pill/input language as every other choice pill in
+     the wizard (see ui/choice.ts), 2026-08-24 — the emerald color used to pair meaningfully
+     against Big NO's rose (wanted vs. avoided), but with Big NO removed there was nothing left
+     to contrast against; emerald alone just read as an arbitrary extra color ("papagaja",
+     owner's word — too many colors on screen for no reason). -->
 <div class="mb-6 space-y-6">
   <div>
     <div class="mb-2 flex flex-wrap gap-2">
       @for (slug of yesSlugs(); track slug) {
-        <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-sm text-emerald-800">
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3 py-1 text-sm text-white">
           {{ labelFor(slug) }}
-          <button type="button" class="text-emerald-500 hover:text-emerald-800" (click)="removeYes(slug)">×</button>
+          <button type="button" class="text-slate-300 hover:text-white" (click)="removeYes(slug)">×</button>
         </span>
       }
       @for (text of customYes(); track text) {
         <span
-          class="inline-flex items-center gap-1 rounded-full border border-dashed border-emerald-300 px-3 py-1 text-sm text-emerald-700"
+          class="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 px-3 py-1 text-sm text-slate-600"
           title="Not in the amenity list — added to your wishlist notes below"
         >
           {{ text }}
@@ -30,14 +30,14 @@
         (keydown.enter)="onYesEnter()"
         (focus)="onYesFocus()"
         (blur)="onYesBlur()"
-        class="w-full rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm
-               focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400"
+        class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm
+               focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
       />
       @if (yesFocused() && yesSuggestions().length > 0) {
         <ul class="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
           @for (opt of yesSuggestions(); track opt.slug) {
             <li>
-              <button type="button" class="block w-full px-3 py-2 text-left text-sm hover:bg-emerald-50" (click)="addYes(opt.slug)">
+              <button type="button" class="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50" (click)="addYes(opt.slug)">
                 {{ opt.label }}
               </button>
             </li>
