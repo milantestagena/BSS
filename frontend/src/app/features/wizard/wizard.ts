@@ -872,12 +872,14 @@ export class WizardComponent implements OnInit {
    *  instead, trimming trailing punctuation/whitespace (anything that isn't a letter, digit, or
    *  quote mark) before adding the ellipsis, so it always ends on an actual word or a closing
    *  quote. maxLength is a plain estimate for "about 2 lines" at this card's width/font-size,
-   *  not a pixel-exact measurement — adjust if it visibly over/under-fills. */
+   *  not a pixel-exact measurement — first guess (90) rendered as ~5 lines on the narrower
+   *  2-column mobile card width (owner caught it live: "90 je 5 reda") — ~18 characters/line at
+   *  that width, not the ~45 assumed. 40 now; adjust again if it visibly over/under-fills. */
   truncatedVibeDescription(node: TaxonomyNode): string | null {
     const full = this.vibeDescription(node);
     if (!full) return null;
 
-    const maxLength = 90;
+    const maxLength = 40;
     if (full.length <= maxLength) return full;
 
     const trimmed = full.slice(0, maxLength).replace(/[^a-zA-Z0-9"'‘’“”)]+$/, '');
