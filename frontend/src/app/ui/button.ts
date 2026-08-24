@@ -10,7 +10,7 @@ import { SpinnerComponent } from './spinner';
       type="button"
       class="inline-flex items-center justify-center gap-2 rounded-lg font-medium
              transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2
-             disabled:cursor-not-allowed disabled:opacity-50"
+             disabled:cursor-not-allowed disabled:border-0 disabled:bg-slate-300 disabled:text-slate-500"
       [class]="variantClasses() + ' ' + sizeClasses()"
       [disabled]="disabled() || loading()"
       (click)="onClick()"

@@ -1,30 +1,40 @@
-import { Component } from '@angular/core';
+import { Component, input } from '@angular/core';
 import { I18nService } from '../core/i18n.service';
 
 let nextId = 0;
 
 /**
- * Small "i" icon button that reveals its projected content in a popover — native HTML
- * `popover` API gives free light-dismiss (click outside closes it) and Esc-to-close with no JS,
- * plus an explicit X per the owner's ask. Works identically on mobile and desktop, unlike the
- * `hidden lg:block` side column it replaces for the wizard's step explainer (2026-08-11) — that
- * column was invisible below the lg breakpoint, which was the actual cause of "uputstvo ne
- * postoji na mobilnom". `[attr.X]` bindings throughout (not property bindings) since `popover`/
- * `popovertarget` are new HTML attributes Angular's template checker doesn't know as DOM
- * properties yet.
+ * Reveals its projected content in a popover — native HTML `popover` API gives free
+ * light-dismiss (click outside closes it) and Esc-to-close with no JS, plus an explicit X per
+ * the owner's ask. Works identically on mobile and desktop, unlike the `hidden lg:block` side
+ * column it replaces for the wizard's step explainer (2026-08-11) — that column was invisible
+ * below the lg breakpoint, which was the actual cause of "uputstvo ne postoji na mobilnom".
+ * `[attr.X]` bindings throughout (not property bindings) since `popover`/`popovertarget` are new
+ * HTML attributes Angular's template checker doesn't know as DOM properties yet.
+ *
+ * Default trigger is the small "i" icon button. Owner's ask, 2026-08-24: the destination cards'
+ * cramped top-right corner (info icon + Superstar star fighting for the same spot) needed a
+ * different trigger there — `customTrigger` input swaps the "i" button out for projected
+ * `[trigger]` content (e.g. the card's own 2-line-clamped description), same popover underneath.
  */
 @Component({
   selector: 'ui-info-popover',
   standalone: true,
   template: `
-    <button
-      type="button"
-      [attr.popovertarget]="id"
-      class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white text-xs font-semibold text-slate-500 hover:border-slate-400 hover:text-slate-700"
-      [attr.aria-label]="i18n.t('moreInfo')"
-    >
-      i
-    </button>
+    @if (customTrigger()) {
+      <button type="button" [attr.popovertarget]="id" class="block w-full text-left">
+        <ng-content select="[trigger]"></ng-content>
+      </button>
+    } @else {
+      <button
+        type="button"
+        [attr.popovertarget]="id"
+        class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white text-xs font-semibold text-slate-500 hover:border-slate-400 hover:text-slate-700"
+        [attr.aria-label]="i18n.t('moreInfo')"
+      >
+        i
+      </button>
+    }
     <div
       [id]="id"
       [attr.popover]="'auto'"
@@ -46,6 +56,7 @@ let nextId = 0;
 })
 export class InfoPopoverComponent {
   readonly id = `info-popover-${nextId++}`;
+  customTrigger = input(false);
 
   constructor(public i18n: I18nService) {}
 }

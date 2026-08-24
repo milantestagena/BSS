@@ -14,7 +14,7 @@
           <ui-number-stepper [value]="age" [min]="0" [max]="17" (valueChange)="onChildAgeStepperChange($index, $event)" />
 
           @if (age <= 2) {
-            <label class="inline-flex items-center gap-1.5 text-sm text-slate-600">
+            <label class="inline-flex items-center gap-1.5 text-sm text-white">
               <input
                 type="checkbox"
                 class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
@@ -38,7 +38,7 @@
 
     <button
       type="button"
-      class="mt-3 text-sm font-medium text-slate-700 hover:text-slate-900"
+      class="mt-3 text-sm font-medium text-white hover:text-sky-100"
       (click)="addChild()"
     >
       {{ i18n.t('addChild') }}

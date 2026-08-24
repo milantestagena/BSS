@@ -165,7 +165,6 @@ export class WizardComponent implements OnInit {
    *  human-readable to show once that step collapses, and geographyOptions never gets
    *  populated for home_city (it's typeahead-driven, not a suggestedGeography list). */
   readonly homeCityLabel = signal<string | null>(null);
-  readonly finished = signal(false);
 
   readonly showCalculatingTransition = signal(false);
   readonly calculatingMessageIndex = signal(0);
@@ -256,40 +255,19 @@ export class WizardComponent implements OnInit {
     await this.startWizard();
   }
 
-  /** Owner's ask, 2026-08-19: real, live flight-search link — never a price we'd estimate
-   *  ourselves (see SearchSessionQueryCompiler::toBookingFlightsUrl's docblock). Reads off
-   *  WizardService.compiledQuery, which already refreshes after every answer (previously just a
-   *  debug aid) — null until a destination + dates are actually resolvable. */
-  get bookingFlightsUrl(): string | null {
-    return (this.wizard.compiledQuery()?.['bookingFlightsUrl'] as string | undefined) ?? null;
-  }
-
   /** The real, affiliate-tracked accommodation search — owner's ask, 2026-08-23: the old mock
    *  hotel-card results screen was never actually linked to a real Booking.com search anywhere,
-   *  so no visitor could ever complete a real, trackable booking through the site. This is now
-   *  the results screen's primary CTA (see wizard.html's finished() branch). */
+   *  so no visitor could ever complete a real, trackable booking through the site. Now the
+   *  destination for selectResultsCity()'s redirect, straight off the 'grad' step — see
+   *  onDestinationCardSelect. */
   get bookingUrl(): string | null {
     return (this.wizard.compiledQuery()?.['bookingUrl'] as string | undefined) ?? null;
   }
 
-  /**
-   * Top-10 "Best choices" cities from the wizard's own City step (now possibly spanning several
-   * selected countries, see selectedCountryIds), re-surfaced on the results screen so the
-   * traveler can jump between them without walking back through the whole flow — owner's ask,
-   * 2026-08-12 ("nek prebaci Best Choices", cap bumped from 5 to 10 as "5 je malo za prenos").
-   * Only the TOP matched-tag tier carries over, not "also/less good" ones — reuses whatever
-   * `geographyOptions['city']` already holds rather than re-querying suggestedGeography.
-   */
-  get resultsCityChoices(): TaxonomyNode[] {
-    const cities = this.geographyOptions()['city'] ?? [];
-    const bestCount = Math.max(0, ...cities.map((n) => n.matchedTags?.length ?? 0));
-    const best = bestCount > 0 ? cities.filter((n) => (n.matchedTags?.length ?? 0) === bestCount) : cities;
-
-    return [...best].sort((a, b) => (a.priceRank ?? 99) - (b.priceRank ?? 99)).slice(0, 10);
-  }
-
-  /** Locally-selected chip on the results screen, defaulting to whatever city the session is
-   *  currently on — not yet committed until switchResultsCity() actually runs. */
+  /** Locally-selected city, set by selectResultsCity() right before it redirects — not a UI
+   *  selection state to render anywhere anymore (the old results-screen city-switcher pills this
+   *  was built for are gone, 2026-08-24), just how searchResultsCity() knows which city to
+   *  persist/redirect for. */
   readonly selectedResultsCityId = signal<string | null>(null);
 
   /** Which destination's deep-dive guide modal is open, if any — see wizard.html's single
@@ -308,40 +286,46 @@ export class WizardComponent implements OnInit {
     return (this.wizard.compiledQuery()?.['bookingParams'] as { checkout?: string } | undefined)?.checkout ?? null;
   }
 
-  isResultsCitySelected(node: TaxonomyNode): boolean {
-    return (this.selectedResultsCityId() ?? (this.wizard.getAnswer('city') as string | undefined)) === node.id;
-  }
-
   /** Owner's call, 2026-08-14: clicking a shortlisted-city pill is the whole decision — no
    *  separate Search button anymore, see wizard.html. Owner's ask, 2026-08-24: the click should
    *  go straight to Booking, not stop at an intermediate "here's what we found" screen requiring
    *  a second click — see searchResultsCity's own docblock for why the tab opens here,
-   *  synchronously, rather than after the awaited switch below. */
+   *  synchronously, rather than after the awaited switch below.
+   *
+   *  Back to a NEW tab, 2026-08-24 (owner's second reversal same day) — same-tab was tried after
+   *  a real ad/privacy-blocker extension silently ate the original window.open call (no tab, no
+   *  error, nothing), but owner wants the new tab back for this specific interaction (mid-wizard
+   *  city pick, not the final results pill — losing the whole wizard to a same-tab redirect here
+   *  is worse than the earlier tradeoff was worth). Opens a blank tab synchronously, before this
+   *  method's own async work, then redirects THAT tab once bookingUrl resolves — falls back to a
+   *  same-tab redirect if the popup got blocked anyway, so it still always ends up somewhere. */
   selectResultsCity(node: TaxonomyNode): void {
     this.selectedResultsCityId.set(node.id);
-    void this.searchResultsCity();
+    const bookingTab = window.open('', '_blank');
+    if (bookingTab) bookingTab.opener = null;
+    void this.searchResultsCity(bookingTab);
   }
 
   /** Re-runs the results screen against a different shortlisted city — same session, no wizard
-   *  steps re-walked. Redirects the SAME tab to bookingUrl once it resolves, 2026-08-24 (owner's
-   *  call, replacing an earlier open-a-blank-tab-then-redirect-it attempt): confirmed live that
-   *  a real ad/privacy-blocker extension silently ate that window.open call entirely — no tab,
-   *  no error, nothing. That "open blank now, navigate it later" shape is the exact pattern
-   *  popup/tracker blockers are built to catch, since it's the same trick abusive pop-unders
-   *  use — no purely-JS workaround gets around that reliably. A same-tab location change is
-   *  never blocked (it isn't a popup at all), at the cost of leaving tripinele.com — the owner's
-   *  explicit tradeoff, accepted on the condition that the browser's Back button still restores
-   *  this exact rendered page (standard bfcache behavior for a plain client-side navigation like
-   *  this one — nothing here should defeat it, but flag it if Back ever looks wrong). */
-  async searchResultsCity(): Promise<void> {
+   *  steps re-walked. See selectResultsCity's docblock for the tab-handling story. */
+  async searchResultsCity(bookingTab: Window | null = null): Promise<void> {
     const cityId = this.selectedResultsCityId();
-    if (!cityId) return;
+    if (!cityId) {
+      bookingTab?.close();
+      return;
+    }
 
     this.wizard.loading.set(true);
     try {
       await this.wizard.switchResultsCity(cityId);
       if (this.bookingUrl) {
-        window.location.href = this.bookingUrl;
+        if (bookingTab) {
+          bookingTab.location.href = this.bookingUrl;
+        } else {
+          window.location.href = this.bookingUrl;
+        }
+      } else {
+        bookingTab?.close();
       }
     } finally {
       this.wizard.loading.set(false);
@@ -615,18 +599,19 @@ export class WizardComponent implements OnInit {
   }
 
   /** Owner's ask, 2026-08-24: the City-step badge moves from a corner text label to a tiny flag
-   *  emoji sitting right after the city name. Built from the same iso_code meta as
-   *  countryCodeFor() — a flag emoji is just two Unicode "regional indicator" characters, one
-   *  per letter (A -> 🇦, offset 0x1F1E6 from 'A'). Falls back to countryCodeFor()'s plain text
-   *  for anything that isn't exactly 2 letters (can't build a valid flag from it), same
-   *  "degrade, don't go blank" convention. */
-  countryFlagFor(parent: { label: string; meta?: Record<string, unknown> | null }): string {
+   *  sitting right after the city name. First tried as a Unicode flag emoji (two "regional
+   *  indicator" characters) — reverted the same day when it showed as plain "CY"/"GR" text on
+   *  Windows/Chrome: Windows' bundled emoji font has historically excluded most country flags,
+   *  so the browser falls back to rendering the raw regional-indicator letters instead of
+   *  ligature-ing them into an actual flag glyph — not fixable from CSS/JS, a real font gap. A
+   *  real flag IMAGE (flagcdn.com, a free public flag-image service, no API key) renders
+   *  identically everywhere regardless of the OS font. Null for anything without a valid
+   *  2-letter iso_code — no image to build, template falls back to countryCodeFor()'s plain text. */
+  countryFlagUrlFor(parent: { label: string; meta?: Record<string, unknown> | null }): string | null {
     const code = (parent.meta?.['iso_code'] as string | undefined) ?? '';
-    if (!/^[A-Za-z]{2}$/.test(code)) return this.countryCodeFor(parent);
+    if (!/^[A-Za-z]{2}$/.test(code)) return null;
 
-    return Array.from(code.toUpperCase())
-      .map((letter) => String.fromCodePoint(0x1f1e6 + letter.charCodeAt(0) - 65))
-      .join('');
+    return `https://flagcdn.com/24x18/${code.toLowerCase()}.png`;
   }
 
   /**
@@ -769,16 +754,11 @@ export class WizardComponent implements OnInit {
     try {
       const prevStepKey = this.wizard.currentStep()?.key;
       await this.wizard.goNext();
-      if (this.wizard.currentStepIndex() >= this.wizard.steps().length) {
-        this.finished.set(true);
-        // Owner's ask, 2026-08-11 ("skrol nije na top page, a to je must") — the chat-scroll
-        // flow leaves the page scrolled wherever the last question was; the results screen is a
-        // different "page" entirely and must always open at the top.
-        window.scrollTo(0, 0);
-        void this.wizard.recordEvent('results_reached');
-        return;
-      }
-
+      // Owner's ask, 2026-08-24: picking a city on the 'grad' step (the last one) now redirects
+      // straight to Booking instead of calling goNext() — see onDestinationCardSelect — so
+      // currentStepIndex can no longer reach steps.length here. The old "finished" results
+      // screen this used to gate (shortlisted-city pills, flight link, back-to-session) is gone
+      // along with it, see wizard.html.
       const newStepKey = this.wizard.currentStep()?.key;
       if (newStepKey) void this.wizard.recordEvent('step_viewed', { stepKey: newStepKey });
       // "Screen 1" -> "screen 2" boundary: all Q&A (smestaj is the last screen-1 step) just
@@ -846,6 +826,13 @@ export class WizardComponent implements OnInit {
    * left to decide once a card is clicked — the separate Proceed button on the `grad` step was
    * pure friction. Clicking a city card now answers AND advances in one tap; country_region
    * stays a plain toggle since it's multi-select (still needs its own Proceed).
+   *
+   * Owner's ask, 2026-08-24: "advances" now means straight to Booking, not to the next wizard
+   * step — picking a city here reuses the exact same selectResultsCity() the results screen's
+   * own shortlisted-city pills use (new tab, real bookingUrl once the city is persisted), instead
+   * of goNext() walking into the results screen first. Confirmed live: the redirect itself takes
+   * a beat (switchResultsCity's own network round-trip) before the tab lands anywhere — not a
+   * bug, just the real request time.
    */
   onDestinationCardSelect(question: WizardQuestion, node: TaxonomyNode): void {
     if (question.key === 'country_region') {
@@ -858,7 +845,7 @@ export class WizardComponent implements OnInit {
     this.onAnswerChange(question, node.id);
 
     if (question.key === 'city') {
-      void this.goNext();
+      this.selectResultsCity(node);
     }
   }
 
@@ -960,23 +947,6 @@ export class WizardComponent implements OnInit {
   }
 
   /**
-   * Owner's ask, 2026-08-12: from the results screen, a way back to the chat that ISN'T "pick a
-   * different city" — sometimes the tweak needed is small (a "Change" on some earlier step), not
-   * a whole new destination.
-   *
-   * Bug fixed same day: flipping `finished` alone left the City step rendering blank — reaching
-   * the results screen pushes an out-of-bounds index onto visitedStepIndices (see goNext's
-   * `currentStepIndex() >= steps().length` branch), so the wizard's OWN state still pointed past
-   * the last real step even though this component's `finished` flag said otherwise. Reuses
-   * goBack()'s existing "step back to the second-to-last visited index" logic instead of
-   * touching visitedStepIndices directly, so this stays correct if that mechanism ever changes.
-   */
-  backToSession(): void {
-    this.finished.set(false);
-    this.wizard.goBack();
-    this.scrollToActiveStep();
-  }
-
   /** Re-opens a completed (collapsed) step for editing — see WizardService.editStep for why
    *  truncating forward history is correct, not lossy. */
   editStep(index: number): void {
@@ -1045,7 +1015,13 @@ export class WizardComponent implements OnInit {
       }
 
       const value = this.wizard.getAnswer(question.key);
-      if (value === undefined || value === null || value === '') continue;
+      // Bug fixed 2026-08-24 (owner caught it live: skipping the amenities step entirely left an
+      // EMPTY, degenerate chat bubble instead of the usual "—" no-answer text). An empty array
+      // (amenities_yes with nothing picked) isn't undefined/null/'', so it slipped past this
+      // check, got formatted into an empty string by formatAnswer's Array.join, and still
+      // counted toward parts.length > 0 below — the bubble ended up with real content that was
+      // just... nothing.
+      if (value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0)) continue;
 
       parts.push(this.formatAnswer(question, value));
     }
