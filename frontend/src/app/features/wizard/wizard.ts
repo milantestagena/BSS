@@ -330,18 +330,26 @@ export class WizardComponent implements OnInit {
 
     this.wizard.loading.set(true);
     this.showCityRedirectTransition.set(true);
+    let navigatingAway = false;
     try {
       await this.wizard.switchResultsCity(cityId);
       if (this.bookingUrl) {
+        navigatingAway = true;
         window.location.href = this.bookingUrl;
       }
     } finally {
-      // Runs even when we just triggered a same-tab navigation above — finally always does,
-      // there's no "skip it, we're leaving" shortcut in JS. Harmless: the navigation is already
-      // underway synchronously, this just resets local state before the browser actually cuts
-      // over to the new page.
+      // Bug fixed 2026-08-25 (owner caught it live: still saw the scroll-jump, overlay never
+      // visible) — `finally` always runs, even right after triggering the navigation above, and
+      // `window.location.href` doesn't tear this page down synchronously — the browser keeps
+      // rendering it for a beat while Booking.com's response comes in. Clearing the overlay here
+      // unconditionally re-revealed the (reflowed/jumped) destination-card grid for that whole
+      // gap, right before the real page swap — exactly the visible sequence reported. Now only
+      // cleared when we're NOT navigating away; a bfcache restore (pageshow listener in the
+      // constructor) covers the "stuck forever" risk on the redirect path instead.
       this.wizard.loading.set(false);
-      this.showCityRedirectTransition.set(false);
+      if (!navigatingAway) {
+        this.showCityRedirectTransition.set(false);
+      }
     }
   }
 
