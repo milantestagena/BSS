@@ -184,6 +184,7 @@ class SearchSessionQueryCompilerTest extends TestCase
         TaxonomyNode::create(['type' => 'meal_plan', 'slug' => 'dorucak', 'label' => 'Breakfast', 'sort_order' => 0, 'meta' => ['booking_meal_plan_id' => 1]]);
         TaxonomyNode::create(['type' => 'meal_plan', 'slug' => 'sve_ukljuceno', 'label' => 'All-inclusive', 'sort_order' => 1, 'meta' => ['booking_meal_plan_id' => 4]]);
         TaxonomyNode::create(['type' => 'stay_type', 'slug' => 'kucni_ljubimci', 'label' => 'Pets allowed', 'sort_order' => 0, 'meta' => ['booking_stay_type_id' => 1]]);
+        TaxonomyNode::create(['type' => 'popular_activity', 'slug' => 'plazanje', 'label' => 'Beach', 'sort_order' => 0, 'meta' => ['booking_popular_activity_id' => 302]]);
         TaxonomyNode::create(['type' => 'preference_tag', 'slug' => 'porodicna_atmosfera', 'label' => 'Family-friendly', 'sort_order' => 0]);
 
         $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'melieha2', 'label' => 'Mellieħa', 'sort_order' => 0]);
@@ -194,7 +195,7 @@ class SearchSessionQueryCompilerTest extends TestCase
             'date_to' => '2026-09-27',
             'adults_count' => 1,
             'free_text_answers' => [
-                'amenities_yes' => ['wifi', 'privatno_kupatilo', 'dorucak', 'sve_ukljuceno', 'kucni_ljubimci'],
+                'amenities_yes' => ['wifi', 'privatno_kupatilo', 'dorucak', 'sve_ukljuceno', 'kucni_ljubimci', 'plazanje'],
                 'preference_tags' => ['jeftino', 'porodicna_atmosfera'],
             ],
         ]);
@@ -206,6 +207,7 @@ class SearchSessionQueryCompilerTest extends TestCase
         $this->assertStringContainsString(rawurlencode('mealplan=1'), $url);
         $this->assertStringContainsString(rawurlencode('mealplan=4'), $url);
         $this->assertStringContainsString(rawurlencode('stay_type=1'), $url);
+        $this->assertStringContainsString(rawurlencode('popular_activities=302'), $url);
         $this->assertStringContainsString('order=price', $url);
         $this->assertStringContainsString('family_friendly_property=1', $url);
     }

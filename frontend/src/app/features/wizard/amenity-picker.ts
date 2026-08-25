@@ -18,8 +18,10 @@ interface AmenityOption {
  *  step (see WizardSeeder's meal_plan_preference) instead of a budget-ratio guess pre-filled
  *  in here; picking it in two different places in the flow would just be confusing.
  *  `stay_type` added 2026-08-24 (Pets allowed) — unlike meal_plan it has no dedicated question
- *  of its own, so it belongs in this general combined vocabulary like the other facility types. */
-const AMENITY_TYPES = ['tip_smestaja', 'accommodation_facility', 'room_facility', 'stay_type'];
+ *  of its own, so it belongs in this general combined vocabulary like the other facility types.
+ *  `popular_activity` added 2026-08-25 (Beach/Snorkelling/Walking tours/Diving/Fishing), same
+ *  reasoning — no dedicated question of its own. */
+const AMENITY_TYPES = ['tip_smestaja', 'accommodation_facility', 'room_facility', 'stay_type', 'popular_activity'];
 
 const MAX_SUGGESTIONS = 6;
 

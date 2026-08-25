@@ -26,7 +26,7 @@ class SearchSessionQueryCompiler
     /** The taxonomy types the Big YES/NO picker spans — see AmenityPickerComponent /
      *  applyAmenityYesFilters(). Reused by labelsForSlugs() below, and (public since 2026-08-24)
      *  by FreeTextAmenityResolver's catalog lookup — same vocabulary, one source of truth. */
-    public const AMENITY_TYPES = ['tip_smestaja', 'accommodation_facility', 'room_facility', 'meal_plan', 'stay_type'];
+    public const AMENITY_TYPES = ['tip_smestaja', 'accommodation_facility', 'room_facility', 'meal_plan', 'stay_type', 'popular_activity'];
 
     public function __construct(private SearchSession $session)
     {
@@ -157,6 +157,9 @@ class SearchSessionQueryCompiler
         }
         foreach ($filters['stay_types'] ?? [] as $id) {
             $nfltChips[] = "stay_type={$id}";
+        }
+        foreach ($filters['popular_activities'] ?? [] as $id) {
+            $nfltChips[] = "popular_activities={$id}";
         }
         if ($ceiling = $this->accommodationNightlyPriceCeiling()) {
             $nfltChips[] = "price=EUR-min-{$ceiling}-1";
@@ -365,7 +368,7 @@ class SearchSessionQueryCompiler
             return;
         }
 
-        $nodes = TaxonomyNode::whereIn('type', ['tip_smestaja', 'accommodation_facility', 'room_facility', 'meal_plan', 'stay_type'])
+        $nodes = TaxonomyNode::whereIn('type', ['tip_smestaja', 'accommodation_facility', 'room_facility', 'meal_plan', 'stay_type', 'popular_activity'])
             ->whereIn('slug', $slugs)
             ->get();
 
@@ -379,11 +382,12 @@ class SearchSessionQueryCompiler
                 'room_facility' => $params['filters']['room_facilities'][] = $node->meta['booking_facility_id'] ?? null,
                 'meal_plan' => $params['filters']['meal_plan'][] = $node->meta['booking_meal_plan_id'] ?? null,
                 'stay_type' => $params['filters']['stay_types'][] = $node->meta['booking_stay_type_id'] ?? null,
+                'popular_activity' => $params['filters']['popular_activities'][] = $node->meta['booking_popular_activity_id'] ?? null,
                 default => null,
             };
         }
 
-        foreach (['accommodation_facilities', 'room_facilities', 'meal_plan', 'stay_types'] as $key) {
+        foreach (['accommodation_facilities', 'room_facilities', 'meal_plan', 'stay_types', 'popular_activities'] as $key) {
             if (isset($params['filters'][$key])) {
                 $params['filters'][$key] = array_values(array_filter($params['filters'][$key]));
             }

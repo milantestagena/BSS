@@ -465,6 +465,25 @@ class WizardSeeder extends Seeder
             ]);
         }
 
+        // popular_activity — new real Booking filter category, 2026-08-25 (owner's own "Fun
+        // things to do" filter-sidebar export). Same "category=id" nflt chip shape as the
+        // others, chip prefix `popular_activities=`. All 5 seeded, none dropped — see
+        // [[feedback_dont_curate_real_amenity_data]], the 2026-08-24 correction: seed every real
+        // ID from a genuine export, curation is the owner's call, not mine.
+        $popularActivities = [
+            ['slug' => 'plazanje', 'en' => 'Beach', 'sr' => 'Plaža', 'id' => 302],
+            ['slug' => 'ronjenje_disalica', 'en' => 'Snorkelling', 'sr' => 'Ronjenje sa disaljkom', 'id' => 90],
+            ['slug' => 'peske_ture', 'en' => 'Walking tours', 'sr' => 'Pešačke ture', 'id' => 404],
+            ['slug' => 'ronjenje', 'en' => 'Diving', 'sr' => 'Ronjenje', 'id' => 82],
+            ['slug' => 'pecanje', 'en' => 'Fishing', 'sr' => 'Pecanje', 'id' => 19],
+        ];
+        foreach ($popularActivities as $i => $item) {
+            $this->node('popular_activity', $item['slug'], $item['en'], $item['sr'], $i, [
+                'booking_popular_activity_id' => $item['id'],
+                'source' => 'manual_website',
+            ]);
+        }
+
         // mealplan — filters.meal_plan (verified real 2026-07-30; expanded 2026-08-13 with the
         // rest of Booking's real "Meals" filter group, owner's own export — all_inclusive/
         // pun_pansion IDs were previously left out rather than guessed, now confirmed real).
