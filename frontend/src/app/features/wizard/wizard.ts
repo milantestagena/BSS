@@ -316,17 +316,35 @@ export class WizardComponent implements OnInit {
    *  browsers (a blank/broken tab, not a working redirect) — no purely-JS way to guarantee a
    *  script-initiated popup survives every ad/privacy-blocker out there. Same-tab location
    *  change is never blocked (it isn't a popup at all); the browser's Back button returns here
-   *  via normal bfcache. */
-  selectResultsCity(node: TaxonomyNode): void {
+   *  via normal bfcache.
+   *
+   *  `lockedScrollY` (2026-08-25, owner caught the scroll-jump live twice): captured by the
+   *  caller BEFORE onAnswerChange runs (see onDestinationCardSelect) — marking the card selected
+   *  (checkmark badge, border change) can itself reflow the grid, so capturing scrollY any later
+   *  than this already missed it. See searchResultsCity's docblock for the rest. */
+  selectResultsCity(node: TaxonomyNode, lockedScrollY: number): void {
     this.selectedResultsCityId.set(node.id);
-    void this.searchResultsCity();
+    void this.searchResultsCity(lockedScrollY);
   }
 
   /** Re-runs the results screen against a different shortlisted city — same session, no wizard
-   *  steps re-walked. See selectResultsCity's docblock for the tab-handling story. */
-  async searchResultsCity(): Promise<void> {
+   *  steps re-walked. See selectResultsCity's docblock for the tab-handling story.
+   *
+   *  Bug fixed 2026-08-25 (owner caught it live, twice) — first fix (only clearing the overlay
+   *  when not navigating away) helped but didn't fully stop it: switchResultsCity's own
+   *  setAnswer('city', ...)/re-render still reflows the destination-card grid and shifts the
+   *  document's real scroll position, and a `position: fixed` overlay covering the VIEWPORT
+   *  doesn't stop the VIEWPORT itself from scrolling under it. Rather than keep hunting for the
+   *  exact reflow, this pins scrollY to wherever it actually was at the moment of the click
+   *  (passed in from onDestinationCardSelect, captured before anything else ran) and forces it
+   *  back on every 'scroll' event for the whole operation — a guarantee that holds regardless of
+   *  what causes the reflow, not a fix aimed at one specific cause. */
+  async searchResultsCity(lockedScrollY: number = window.scrollY): Promise<void> {
     const cityId = this.selectedResultsCityId();
     if (!cityId) return;
+
+    const holdScroll = (): void => window.scrollTo(0, lockedScrollY);
+    window.addEventListener('scroll', holdScroll);
 
     this.wizard.loading.set(true);
     this.showCityRedirectTransition.set(true);
@@ -338,14 +356,13 @@ export class WizardComponent implements OnInit {
         window.location.href = this.bookingUrl;
       }
     } finally {
-      // Bug fixed 2026-08-25 (owner caught it live: still saw the scroll-jump, overlay never
-      // visible) — `finally` always runs, even right after triggering the navigation above, and
-      // `window.location.href` doesn't tear this page down synchronously — the browser keeps
-      // rendering it for a beat while Booking.com's response comes in. Clearing the overlay here
-      // unconditionally re-revealed the (reflowed/jumped) destination-card grid for that whole
-      // gap, right before the real page swap — exactly the visible sequence reported. Now only
-      // cleared when we're NOT navigating away; a bfcache restore (pageshow listener in the
-      // constructor) covers the "stuck forever" risk on the redirect path instead.
+      window.removeEventListener('scroll', holdScroll);
+      // `finally` always runs, even right after triggering the navigation above —
+      // window.location.href doesn't tear this page down synchronously, the browser keeps
+      // rendering it for a beat while Booking.com's response comes in. Clearing the overlay
+      // unconditionally here would re-reveal the page for that whole gap, right before the real
+      // page swap — only cleared when NOT navigating away; a bfcache restore (pageshow listener
+      // in the constructor) covers the "stuck forever" risk on the redirect path instead.
       this.wizard.loading.set(false);
       if (!navigatingAway) {
         this.showCityRedirectTransition.set(false);
@@ -863,11 +880,16 @@ export class WizardComponent implements OnInit {
       return;
     }
 
-    this.onAnswerChange(question, node.id);
-
     if (question.key === 'city') {
-      this.selectResultsCity(node);
+      // Captured BEFORE onAnswerChange below, 2026-08-25 (owner caught the scroll-jump live,
+      // twice) — marking the card selected (checkmark badge appearing, border changing) can
+      // itself reflow the grid, so locking scrollY any later than this already missed it. See
+      // selectResultsCity's docblock for the rest of the story.
+      this.selectResultsCity(node, window.scrollY);
+      return;
     }
+
+    this.onAnswerChange(question, node.id);
   }
 
   isDestinationSelected(question: WizardQuestion, node: TaxonomyNode): boolean {
