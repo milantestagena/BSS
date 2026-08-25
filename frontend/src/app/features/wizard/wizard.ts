@@ -169,6 +169,15 @@ export class WizardComponent implements OnInit {
   readonly showCalculatingTransition = signal(false);
   readonly calculatingMessageIndex = signal(0);
 
+  /** Owner's ask, 2026-08-25: picking a city used to visibly jump-scroll to the top of the chat
+   *  right before the same-tab redirect fired (switchResultsCity's own re-render reflowing the
+   *  destination-card grid under the user mid-navigation) — "nešto glupo". A blurred full-screen
+   *  loading overlay instead, same idea as showCalculatingTransition: covers that reflow
+   *  entirely rather than trying to prevent it, and the page is about to navigate away anyway.
+   *  Reset on bfcache restore (see constructor's pageshow listener) so a Back press lands on the
+   *  normal chat, not a stuck loading screen frozen in the cached snapshot. */
+  readonly showCityRedirectTransition = signal(false);
+
   get calculatingMessages(): string[] {
     return CALCULATING_MESSAGES[this.locale.locale()];
   }
@@ -226,6 +235,16 @@ export class WizardComponent implements OnInit {
       if (!this.wizard.sessionId()) return;
 
       void this.wizard.refreshLabels().then(() => this.loadGeographyForAllVisitedSteps());
+    });
+
+    // Owner's ask, 2026-08-25 — see showCityRedirectTransition's docblock. A same-tab redirect
+    // to Booking leaves this overlay showing right up until the browser actually navigates away;
+    // if the traveler then presses Back, the browser restores this EXACT page from bfcache
+    // (`event.persisted === true`) — including whatever signal state was frozen at that moment.
+    // Without this, Back would land on a loading screen stuck open forever, never told to hide
+    // itself since no Angular code runs again on a bfcache restore.
+    window.addEventListener('pageshow', (event: PageTransitionEvent) => {
+      if (event.persisted) this.showCityRedirectTransition.set(false);
     });
   }
 
@@ -310,13 +329,19 @@ export class WizardComponent implements OnInit {
     if (!cityId) return;
 
     this.wizard.loading.set(true);
+    this.showCityRedirectTransition.set(true);
     try {
       await this.wizard.switchResultsCity(cityId);
       if (this.bookingUrl) {
         window.location.href = this.bookingUrl;
       }
     } finally {
+      // Runs even when we just triggered a same-tab navigation above — finally always does,
+      // there's no "skip it, we're leaving" shortcut in JS. Harmless: the navigation is already
+      // underway synchronously, this just resets local state before the browser actually cuts
+      // over to the new page.
       this.wizard.loading.set(false);
+      this.showCityRedirectTransition.set(false);
     }
   }
 

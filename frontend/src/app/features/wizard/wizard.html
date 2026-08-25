@@ -114,6 +114,26 @@
           } @else {
             <div #activeStepAnchor></div>
 
+            <!-- Owner's ask, 2026-08-25: picking a city used to visibly jump-scroll to the top
+                 of the chat right before the same-tab Booking redirect fired — "nešto glupo".
+                 This blurred overlay covers the destination-card grid (still rendered
+                 underneath, just hidden) instead, so whatever reflow switchResultsCity's
+                 re-render causes is never seen. Sits ALONGSIDE the calculating-transition @if
+                 below (both fixed inset-0, only ever one active at a time in practice) rather
+                 than inside it, so it can show without replacing the destination cards. Reset
+                 on bfcache restore (see constructor's pageshow listener) so a Back press never
+                 lands on a stuck loading screen. -->
+            @if (showCityRedirectTransition()) {
+              <div class="fixed inset-0 z-20 flex items-center justify-center bg-black/30 px-4 backdrop-blur-sm">
+                <div
+                  class="flex w-full max-w-xs flex-col items-center gap-4 rounded-2xl border border-white/50 bg-white/95 p-8 text-center shadow-xl shadow-black/20 ring-1 ring-black/5"
+                >
+                  <ui-spinner size="md" />
+                  <p class="text-sm font-medium text-slate-600">{{ i18n.t('openingBooking') }}</p>
+                </div>
+              </div>
+            }
+
             @if (showCalculatingTransition()) {
               <!-- "Screen 1" -> "screen 2" transition — owner's own framing: "zarolamo neki
                    loader koji kao nesto mnogo racuna :D". Real geography loading genuinely
@@ -267,8 +287,19 @@
                                    just to avoid it. City still gets a smaller push (mt-3, was
                                    mt-5); country_region never needed the push (short,
                                    single-word names). -->
+                              <!-- Owner's ask, 2026-08-25: since the description below became its
+                                   own click target (opens the popover, not selection — see
+                                   stopPropagation below), the city name needed to visibly read as
+                                   the actual "click here to pick this city" link, not just plain
+                                   bold text indistinguishable from the rest of the card. Scoped to
+                                   the city step only — country_region is a plain multi-select
+                                   toggle, not a "click = redirect" action. -->
                               <span class="block" [class.mt-3]="question.key === 'city'">
-                                {{ node.label }}
+                                @if (question.key === 'city') {
+                                  <span class="text-sky-700 underline decoration-sky-300 underline-offset-2">{{ node.label }}</span>
+                                } @else {
+                                  {{ node.label }}
+                                }
                                 @if (question.key === 'city' && node.parent; as parent) {
                                   @if (countryFlagUrlFor(parent); as flagUrl) {
                                     <img [src]="flagUrl" alt="" class="ml-1 inline-block h-3 w-4 rounded-sm align-middle" />
