@@ -853,4 +853,80 @@ class GeographyResolverTest extends TestCase
 
         $this->assertTrue($results->pluck('id')->contains($city->id));
     }
+
+    /**
+     * Real per-destination meal-plan fit, 2026-08-31 — never excludes a destination (unlike
+     * budget), only downranks it, and never penalizes a destination that just hasn't been
+     * researched yet for meal plans (same "absent data ≠ exclude" convention as climate/cultural
+     * availability). See GeographyResolver::mealPlanFitFor.
+     */
+    public function test_meal_plan_mismatch_downranks_but_never_excludes_a_destination(): void
+    {
+        $turska = $this->node('country', 'turska');
+        $grcka = $this->node('country', 'grcka');
+        $dorucak = $this->node('meal_plan', 'dorucak');
+        $dorucakRucak = $this->node('meal_plan', 'dorucak_rucak');
+
+        $turska->offersMealPlan()->attach($dorucak->id, ['relation_type' => 'offers_meal_plan']);
+        $grcka->offersMealPlan()->attach($dorucakRucak->id, ['relation_type' => 'offers_meal_plan']);
+
+        $session = SearchSession::create([
+            'status' => 'in_progress',
+            'free_text_answers' => ['meal_plan_preference' => ['dorucak_rucak']],
+        ]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'country']);
+
+        // Turkey doesn't really offer breakfast+lunch — still present, just caveated and sorted
+        // after Greece (which genuinely offers it).
+        $this->assertTrue($results->pluck('id')->contains($turska->id));
+        $ordered = $results->pluck('id')->all();
+        $this->assertSame($grcka->id, $ordered[0]);
+        $this->assertSame($turska->id, $ordered[1]);
+
+        $this->assertTrue($results->firstWhere('id', $turska->id)->meal_plan_caveat);
+        $this->assertFalse($results->firstWhere('id', $grcka->id)->meal_plan_caveat);
+    }
+
+    public function test_meal_plan_mismatch_is_not_flagged_when_destination_is_unresearched(): void
+    {
+        $turska = $this->node('country', 'turska');
+        // No offersMealPlan edges at all for Turkey — not yet researched, must never be treated
+        // as "offers nothing" (same convention as climateFor/culturalTierFor's parent fallback).
+        $session = SearchSession::create([
+            'status' => 'in_progress',
+            'free_text_answers' => ['meal_plan_preference' => ['dorucak_rucak']],
+        ]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'country']);
+
+        $this->assertFalse($results->firstWhere('id', $turska->id)->meal_plan_caveat);
+    }
+
+    public function test_all_inclusive_mismatch_is_a_stricter_tier_than_a_softer_meal_plan_mismatch(): void
+    {
+        $dorucak = $this->node('meal_plan', 'dorucak');
+
+        // Session A requested all-inclusive specifically and this country doesn't offer it —
+        // the stricter tier (all-inclusive is usually a spending-predictability choice, closer
+        // to a budget concern than a scheduling one).
+        $turska = $this->node('country', 'turska');
+        $turska->offersMealPlan()->attach($dorucak->id, ['relation_type' => 'offers_meal_plan']);
+        $sessionAllInclusive = SearchSession::create([
+            'status' => 'in_progress',
+            'free_text_answers' => ['meal_plan_preference' => ['sve_ukljuceno']],
+        ]);
+        $resultsA = (new GeographyResolver)->suggested(null, ['sessionId' => $sessionAllInclusive->id, 'type' => 'country']);
+        $this->assertSame(0, $resultsA->firstWhere('id', $turska->id)->meal_plan_fit);
+
+        // Session B requested only a softer breakfast+lunch plan — a milder downrank tier.
+        $grcka = $this->node('country', 'grcka');
+        $grcka->offersMealPlan()->attach($dorucak->id, ['relation_type' => 'offers_meal_plan']);
+        $sessionSoft = SearchSession::create([
+            'status' => 'in_progress',
+            'free_text_answers' => ['meal_plan_preference' => ['dorucak_rucak']],
+        ]);
+        $resultsB = (new GeographyResolver)->suggested(null, ['sessionId' => $sessionSoft->id, 'type' => 'country']);
+        $this->assertSame(1, $resultsB->firstWhere('id', $grcka->id)->meal_plan_fit);
+    }
 }

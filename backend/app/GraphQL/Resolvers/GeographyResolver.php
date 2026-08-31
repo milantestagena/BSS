@@ -104,6 +104,13 @@ class GeographyResolver
             ->merge($session->free_text_answers['implied_preference_tags'] ?? [])
             ->unique();
 
+        // Real per-destination meal-plan availability, 2026-08-31 — a live Booking capture
+        // showed Turkey doesn't offer "Breakfast & lunch" or "All meals included" even though
+        // meal_plan_preference lets a session pick either. Never excludes (see
+        // mealPlanFitFor's docblock) — a soft downrank, same tier as the other vibe/preference
+        // signals, not a hard filter like budget.
+        $requestedMealPlanSlugs = collect($session->free_text_answers['meal_plan_preference'] ?? []);
+
         // "Superstar" denominator (see matchesEveryVibeTag below) — only VIBE tags count toward
         // a perfect match, not cultural-availability picks (alcohol/halal/vegan/lgbt), which
         // never appear in nodeTags at all (they're a hard filter, not a vibe attribute — see
@@ -141,7 +148,7 @@ class GeographyResolver
         [$climateCheckin, $climateCheckout] = $isGeoType ? $this->tripCheckinCheckout($session) : [null, null];
         $climateMonths = $climateCheckin ? $this->monthsSpanned($climateCheckin, $climateCheckout) : [];
 
-        $mapped = $nodes->map(function (TaxonomyNode $node) use ($args, $preferenceTags, $vibeTagCount, $budgetCaveatIds, $budgetFitById, $allInclusiveById, $impliedIds, $guidedIds, $climateMonths) {
+        $mapped = $nodes->map(function (TaxonomyNode $node) use ($args, $preferenceTags, $vibeTagCount, $budgetCaveatIds, $budgetFitById, $allInclusiveById, $impliedIds, $guidedIds, $climateMonths, $requestedMealPlanSlugs, $isGeoType) {
             $nodeTags = $this->resolveNodeTags($node);
             $matchedTags = $preferenceTags->intersect($nodeTags)->values();
 
@@ -153,6 +160,12 @@ class GeographyResolver
             $node->setAttribute('all_inclusive_fits', $allInclusiveById->get($node->id, false));
             $node->setAttribute('perfect_match', $this->isPerfectMatch($node, $args['type'], $matchedTags, $vibeTagCount, $preferenceTags));
             $node->setAttribute('has_guide', $guidedIds->contains($node->id));
+
+            if ($isGeoType) {
+                [$mealPlanFit, $mealPlanCaveat] = $this->mealPlanFitFor($node, $requestedMealPlanSlugs);
+                $node->setAttribute('meal_plan_fit', $mealPlanFit);
+                $node->setAttribute('meal_plan_caveat', $mealPlanCaveat);
+            }
             // jeftino/kvalitet mutual exclusion, 2026-08-23 — see QuestionInputComponent.
             // onMultiChoiceToggle. Cheap for every type (empty array when a node has no excludes
             // rows at all), not just preference_tag, so this stays generic like implied/matched_tags.
@@ -223,6 +236,12 @@ class GeographyResolver
                     if ($a->perfect_match !== $b->perfect_match) {
                         return $b->perfect_match <=> $a->perfect_match;
                     }
+                    // Meal-plan mismatch downrank, 2026-08-31 — same tier as match_score, right
+                    // after perfect_match (a Superstar still leads even with a meal-plan caveat)
+                    // and before price/cost preference.
+                    if ($a->meal_plan_fit !== $b->meal_plan_fit) {
+                        return $b->meal_plan_fit <=> $a->meal_plan_fit;
+                    }
                     if ($a->match_score !== $b->match_score) {
                         return $b->match_score <=> $a->match_score;
                     }
@@ -255,6 +274,7 @@ class GeographyResolver
             return $mapped
                 ->sortBy([
                     ['perfect_match', 'desc'],
+                    ['meal_plan_fit', 'desc'],
                     // Laravel's array-comparator form calls this with ($a, $b) and uses the
                     // returned <=> result as-is — 'desc'/'asc' has no effect on a callable
                     // comparator (only on plain-attribute comparisons), so ascending is baked
@@ -265,10 +285,12 @@ class GeographyResolver
         }
 
         // perfect_match leads, 2026-08-21 (owner's ask — "zvezdica mora na prvo mesto") — see
-        // the identical reasoning in the $costPreference branch above.
+        // the identical reasoning in the $costPreference branch above. meal_plan_fit sits right
+        // after it, 2026-08-31, same reasoning as the $costPreference branch's comparator.
         return $mapped
             ->sortBy([
                 ['perfect_match', 'desc'],
+                ['meal_plan_fit', 'desc'],
                 ['match_score', 'desc'],
             ])
             ->values();
@@ -285,6 +307,37 @@ class GeographyResolver
             ->merge($meta['atmosphere'] ?? [])
             ->merge($meta['food'] ?? [])
             ->merge($meta['budget'] ?? []);
+    }
+
+    /**
+     * Real per-destination meal-plan fit, owner's ask 2026-08-31 — never excludes a destination
+     * (unlike budget, this stays a soft signal: meal_plan_preference is itself a multi-select
+     * where ANY picked plan satisfies it, so treating a full mismatch as a hard filter would be
+     * inconsistent with that existing "OR" semantics, and every excluded destination is a lost
+     * affiliate-conversion opportunity over what's often a negotiable preference — you eat lunch
+     * wherever you happen to be out). Returns [tier, caveat]:
+     *
+     * - tier 2, no caveat: nothing requested, this destination isn't researched yet (never
+     *   penalize on missing data — same convention as climateFor/culturalTierFor), or it offers
+     *   at least one of the requested plans.
+     * - tier 1, caveat: mismatch, but "all-inclusive" wasn't one of the requested plans — a soft
+     *   downrank, meal timing is easy to adapt to.
+     * - tier 0, caveat: mismatch AND "all-inclusive" was specifically requested — treated more
+     *   strictly, since all-inclusive is usually chosen to eliminate spending surprises, closer
+     *   to a real budget consideration than a scheduling preference.
+     */
+    private function mealPlanFitFor(TaxonomyNode $node, Collection $requestedMealPlanSlugs): array
+    {
+        if ($requestedMealPlanSlugs->isEmpty()) {
+            return [2, false];
+        }
+
+        $offered = $node->offeredMealPlanSlugs();
+        if ($offered->isEmpty() || $requestedMealPlanSlugs->intersect($offered)->isNotEmpty()) {
+            return [2, false];
+        }
+
+        return $requestedMealPlanSlugs->contains('sve_ukljuceno') ? [0, true] : [1, true];
     }
 
     /**

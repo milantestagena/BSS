@@ -139,6 +139,8 @@ type TaxonomyNode {
     hasGuide: Boolean @rename(attribute: "has_guide")
     "Populated only when returned from `suggestedGeography` — slugs of taxonomy_node_relations this node EXCLUDES (relation_type=excludes), e.g. preference_tag 'jeftino' excludes 'kvalitet'. Frontend live-deselects any of these from the same multi-choice question when this node is picked, not just filters what a later question offers."
     excludesSlugs: [String!] @rename(attribute: "excludes_slugs")
+    "Populated only when returned from `suggestedGeography` for type=country/city, when meal_plan_preference is answered — true if this destination doesn't really offer any of the requested meal plans (see TaxonomyNode::offersMealPlan / GeographyResolver::mealPlanFitFor). Never excludes the destination, only downranks it — show a 'doesn't offer exactly what you asked for meals' note."
+    mealPlanCaveat: Boolean @rename(attribute: "meal_plan_caveat")
     "Populated only when returned from `suggestedGeography` for type=country/city, when the session has resolvable trip dates and real Open-Meteo climate data exists for at least one of the months the trip spans — see GeographyResolver::climateSummaryFor. Real imported data, not estimated. Null if no data exists for any spanned month."
     climateAirTempC: TemperatureRange @rename(attribute: "climate_air_temp_c")
     "Same as climateAirTempC, sea surface temperature instead of air."
