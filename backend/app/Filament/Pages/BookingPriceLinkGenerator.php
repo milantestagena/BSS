@@ -41,6 +41,19 @@ class BookingPriceLinkGenerator extends Page implements HasForms
 
     public ?string $generatedUrl = null;
 
+    /** Raw page source pasted from the real Booking results page (Ctrl+U / View Source, or the
+     *  results container's outerHTML from dev tools) — owner's ask, 2026-08-26, after a
+     *  full-page paste into chat kept getting cut off at the 50k-character message limit before
+     *  reaching the 3rd/4th listing (the ones the price convention actually needs). Parsed
+     *  server-side instead, no size limit that matters here. Plain Livewire property, not part
+     *  of the dropdown form above — unrelated concern, its own "Extract prices" action. */
+    public ?string $pastedHtml = null;
+
+    /** @var array<int, array{name: string, price: ?float, roomType: ?string, isAnomaly: bool}> */
+    public array $extractedListings = [];
+
+    public ?float $suggestedPrice = null;
+
     public function mount(): void
     {
         $this->form->fill(['adults' => 1]);
@@ -116,5 +129,84 @@ class BookingPriceLinkGenerator extends Page implements HasForms
         ];
 
         $this->generatedUrl = 'https://www.booking.com/searchresults.html?'.http_build_query($params);
+    }
+
+    /**
+     * Parses pasted Booking.com results-page source into an ordered listing table, so the owner
+     * can read off the 3rd/4th real price (CLAUDE.md section 8 item 2's convention) without
+     * scrolling raw HTML or hitting the chat's 50k-character message truncation. Targets stable
+     * `data-testid` attributes (`property-card`, `title`, `price-and-discounted-price`,
+     * `recommended-units`'s `<h4>`), not the obfuscated CSS classes Booking ships.
+     */
+    public function extractPrices(): void
+    {
+        $this->extractedListings = [];
+        $this->suggestedPrice = null;
+
+        if (trim((string) $this->pastedHtml) === '') {
+            Notification::make()->title('Paste the page source first')->danger()->send();
+
+            return;
+        }
+
+        $dom = new \DOMDocument();
+        libxml_use_internal_errors(true);
+        $dom->loadHTML('<?xml encoding="utf-8" ?>'.$this->pastedHtml);
+        libxml_clear_errors();
+
+        $xpath = new \DOMXPath($dom);
+        $cards = $xpath->query('//*[@data-testid="property-card"]');
+
+        foreach ($cards as $card) {
+            $nameNode = $xpath->query('.//div[@data-testid="title"]', $card)->item(0);
+            $name = $nameNode
+                ? trim($nameNode->textContent)
+                : trim(str_replace(', Property', '', $card->getAttribute('aria-label')));
+
+            $priceNode = $xpath->query('.//span[@data-testid="price-and-discounted-price"]', $card)->item(0);
+            $price = null;
+            if ($priceNode) {
+                $digits = preg_replace('/[^\d.,]/u', '', $priceNode->textContent) ?? '';
+                $digits = str_replace(',', '', $digits);
+                $price = $digits !== '' ? (float) $digits : null;
+            }
+
+            $roomTypeNode = $xpath->query('.//h4', $card)->item(0);
+            $roomType = $roomTypeNode ? trim($roomTypeNode->textContent) : null;
+            $isAnomaly = $roomType !== null && preg_match('/dorm|shared|hostel bed/i', $roomType) === 1;
+
+            if ($name === '' && $price === null) {
+                continue;
+            }
+
+            $this->extractedListings[] = [
+                'name' => $name !== '' ? $name : '(unknown)',
+                'price' => $price,
+                'roomType' => $roomType,
+                'isAnomaly' => $isAnomaly,
+            ];
+        }
+
+        if (empty($this->extractedListings)) {
+            Notification::make()
+                ->title('No property cards found')
+                ->body('Paste the full page source (Ctrl+U / View Source) of the Booking results page, not a screenshot or partial copy.')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        // Cards arrive in the page's own order=price order. Reference the 3rd clean (non-anomaly,
+        // priced) listing — falling back earlier if fewer exist — then add a small safety margin,
+        // same convention as the manual capture workflow (CLAUDE.md section 8 item 2, after the
+        // Rhodes incident). This is a suggestion to sanity-check by eye, not an authoritative figure.
+        $clean = collect($this->extractedListings)
+            ->filter(fn (array $l) => ! $l['isAnomaly'] && $l['price'] !== null)
+            ->values();
+        $reference = $clean->get(2) ?? $clean->get(1) ?? $clean->first();
+        if ($reference) {
+            $this->suggestedPrice = round($reference['price'] * 1.1, 2);
+        }
     }
 }
