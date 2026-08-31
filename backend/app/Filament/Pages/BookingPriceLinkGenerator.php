@@ -219,6 +219,14 @@ class BookingPriceLinkGenerator extends Page implements HasForms
             return;
         }
 
+        // Booking's own order=price sort is occasionally out of order on the actual page (owner's
+        // observation, 2026-08-31) — re-sort here rather than trust DOM order, so the #rank shown
+        // and the 3rd-clean-listing default below are always correct regardless.
+        $this->extractedListings = collect($this->extractedListings)
+            ->sortBy(fn (array $l) => $l['price'] ?? PHP_FLOAT_MAX)
+            ->values()
+            ->all();
+
         // Prefill from the 3rd clean (non-anomaly, priced) listing, rounded DOWN to the nearest
         // €5 — a starting point to eyeball/adjust, not a computed final answer (owner's ask,
         // 2026-08-31: "odokativno", no auto margin this time, just a round number to start from).
