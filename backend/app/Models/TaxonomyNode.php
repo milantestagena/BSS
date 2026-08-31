@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 
 class TaxonomyNode extends Model
 {
@@ -91,6 +92,43 @@ class TaxonomyNode extends Model
             'from_taxonomy_node_id',
             'to_taxonomy_node_id'
         )->wherePivot('relation_type', 'excludes');
+    }
+
+    /**
+     * meal_plan nodes this country/city really offers (from = destination, to = meal_plan) —
+     * same directed-edge shape as implies/excludes, not a new table. Owner's ask, 2026-08-31,
+     * after a real Booking capture showed Turkey offers Breakfast/Breakfast&dinner/All-inclusive/
+     * Self catering but NOT "Breakfast & lunch" or "All meals included" — a session picking one
+     * of those two was passing budget-fit for a combination that isn't realistically bookable
+     * there. NOT yet consumed by GeographyResolver's filtering/ranking — how a mismatch should
+     * behave (exclude vs. downrank) is still an open decision, this is the data layer only.
+     */
+    public function offersMealPlan(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            TaxonomyNode::class,
+            'taxonomy_node_relations',
+            'from_taxonomy_node_id',
+            'to_taxonomy_node_id'
+        )->wherePivot('relation_type', 'offers_meal_plan');
+    }
+
+    /**
+     * Real, researched meal-plan slugs for this destination, falling back to the parent when
+     * this node has NO edges of its own at all — same "not yet researched" vs. "researched, and
+     * genuinely offers none of these" distinction as climateFor()/culturalTierFor(). A city with
+     * zero of its own edges inherits its country's set rather than silently offering nothing.
+     */
+    public function offeredMealPlanSlugs(): Collection
+    {
+        $own = $this->offersMealPlan()->pluck('slug');
+
+        return $own->isNotEmpty() ? $own : ($this->parent?->offeredMealPlanSlugs() ?? collect());
+    }
+
+    public function offersMealPlanSlug(string $mealPlanSlug): bool
+    {
+        return $this->offeredMealPlanSlugs()->contains($mealPlanSlug);
     }
 
     /**
