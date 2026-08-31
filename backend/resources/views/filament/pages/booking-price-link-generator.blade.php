@@ -26,17 +26,6 @@
         </x-slot>
 
         <form wire:submit.prevent="extractPrices">
-            <div class="mb-4">
-                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Total properties found (from the "N properties found" header on the results page)</label>
-                <input
-                    type="number"
-                    wire:model="totalHotelsFound"
-                    placeholder="e.g. 264"
-                    class="fi-input mt-1 block w-40 rounded-lg border-none bg-white text-sm text-gray-950 shadow-sm ring-1 ring-gray-950/10 focus:ring-2 focus:ring-primary-600 dark:bg-white/5 dark:text-white dark:ring-white/20 dark:focus:ring-primary-500"
-                />
-                <p class="mt-1 text-xs text-gray-500">Targets the ~10th percentile of the whole market as the reference listing, capped at the 25 visible on this page (so anything over ~250 total just uses the last one). Leave blank to fall back to the 3rd clean listing.</p>
-            </div>
-
             <textarea
                 wire:model="pastedHtml"
                 rows="6"
@@ -50,14 +39,8 @@
         </form>
 
         @if (! empty($extractedListings))
-            @if ($suggestedPrice)
-                <div class="mt-6 rounded-lg bg-success-50 p-3 text-sm text-success-700 ring-1 ring-success-600/20 dark:bg-success-400/10 dark:text-success-400">
-                    Suggested reference price (rank #{{ $referenceRank }} @if($totalHotelsFound) of {{ $totalHotelsFound }} total, ~10th percentile @else clean listing, no total given @endif + 10% margin): <strong>€{{ number_format($suggestedPrice, 2) }}</strong>
-                    @if ($nights)
-                        for {{ $nights }} {{ Str::plural('night', $nights) }}
-                    @endif
-                    — sanity-check by eye before storing.
-                </div>
+            @if ($nights)
+                <p class="mt-6 text-sm text-gray-500">{{ $nights }} {{ Str::plural('night', $nights) }} — pick a row below by eye and enter its €/night as the value to save.</p>
             @endif
 
             <div class="mt-4 overflow-x-auto">

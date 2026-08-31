@@ -54,28 +54,15 @@ class BookingPriceLinkGenerator extends Page implements HasForms
     /** @var array<int, array{name: string, price: ?float, pricePerNight: ?float, roomType: ?string, isAnomaly: bool}> */
     public array $extractedListings = [];
 
-    public ?float $suggestedPrice = null;
-
     public ?int $nights = null;
 
-    /** The editable value that actually gets written to
-     *  WizardCampaignDestinationWeeklyPrice.price_per_person_eur — pre-filled from
-     *  $suggestedPrice/nights/group size after extraction, but left editable since that field is
-     *  explicitly a human sanity-check, same as the reference price itself. */
+    /** The value the owner picks by eye from the table below and types in — no auto-suggested
+     *  reference/percentile anymore (tried a "~10th percentile of total market" auto-formula,
+     *  2026-08-31, but owner dropped it as confusing while doing controlled manual comparisons
+     *  across group sizes/cities to find a real occupancy-scaling formula; may come back once
+     *  that data exists). Written to WizardCampaignDestinationWeeklyPrice.price_per_person_eur —
+     *  the actual field WizardCampaignDestinationPrice::estimateAccommodationTotal() reads. */
     public ?float $priceToSaveEur = null;
-
-    /** "N properties found" read off the results page header, typed in by the owner — used to
-     *  pick the reference listing at the ~10th percentile of the WHOLE market instead of a fixed
-     *  rank, since only the cheapest 25 (one page) are ever visible in the pasted source. Owner's
-     *  call, 2026-08-31: fixed rank 3 was really "3rd of 25 visible", which is a very different
-     *  percentile depending on whether the city has 30 or 1500 hotels total. Once 10% of the
-     *  total exceeds the 25 visible, the last (25th) visible one is the best available stand-in
-     *  — still the cheapest ~10%, just can't see further into the list than one page. */
-    public ?int $totalHotelsFound = null;
-
-    /** 1-based rank actually used for $suggestedPrice, surfaced in the UI so the owner can see
-     *  which percentile they're looking at (e.g. "#25 of 24 clean — 264 total found"). */
-    public ?int $referenceRank = null;
 
     public function mount(): void
     {
@@ -165,9 +152,7 @@ class BookingPriceLinkGenerator extends Page implements HasForms
     public function extractPrices(): void
     {
         $this->extractedListings = [];
-        $this->suggestedPrice = null;
         $this->priceToSaveEur = null;
-        $this->referenceRank = null;
 
         if (trim((string) $this->pastedHtml) === '') {
             Notification::make()->title('Paste the page source first')->danger()->send();
@@ -182,7 +167,6 @@ class BookingPriceLinkGenerator extends Page implements HasForms
             $checkin = Carbon::parse($state['week_start_date']);
             $this->nights = $checkin->diffInDays($checkin->copy()->addDays(7));
         }
-        $adults = (int) ($state['adults'] ?? 1);
 
         $dom = new \DOMDocument();
         libxml_use_internal_errors(true);
@@ -232,43 +216,13 @@ class BookingPriceLinkGenerator extends Page implements HasForms
 
             return;
         }
-
-        // Cards arrive in the page's own order=price order (cheapest first), but only one page
-        // (25) is ever visible in pasted source. Target the ~10th-percentile rank across the
-        // WHOLE market (owner's ask, 2026-08-31) rather than a fixed "3rd" — "3rd of 25 visible"
-        // means something very different for a 30-hotel town than a 1500-hotel city. Capped at
-        // 25 since that's the most we can ever see; past ~250 total hotels the cap just means
-        // "last visible", still genuinely the cheapest ~10%, just page-limited.
-        $clean = collect($this->extractedListings)
-            ->filter(fn (array $l) => ! $l['isAnomaly'] && $l['price'] !== null)
-            ->values();
-
-        $targetRank = $this->totalHotelsFound && $this->totalHotelsFound > 0
-            ? max(1, min(25, (int) round($this->totalHotelsFound * 0.10)))
-            : 3; // no total given — fall back to the original "3rd clean listing" default
-
-        $reference = $clean->get($targetRank - 1) ?? $clean->last();
-
-        if ($reference) {
-            $this->referenceRank = min($targetRank, $clean->count());
-            // Small safety margin above the reference, same convention as the manual capture
-            // workflow (CLAUDE.md section 8 item 2, after the Rhodes incident) — a suggestion to
-            // sanity-check by eye, not an authoritative figure.
-            $this->suggestedPrice = round($reference['price'] * 1.1, 2);
-
-            if ($this->nights && $adults) {
-                $this->priceToSaveEur = round($this->suggestedPrice / $this->nights / $adults, 2);
-            }
-        }
     }
 
     /**
-     * Writes the owner-confirmed €/person/night value into
-     * WizardCampaignDestinationWeeklyPrice, for the same city+week picked above — the actual
-     * field WizardCampaignDestinationPrice::estimateAccommodationTotal() reads (per-person,
-     * per-night; see that model). $priceToSaveEur is pre-filled from the extraction above but
-     * stays editable — same "sanity-check by eye before storing" convention as the reference
-     * price itself.
+     * Writes the owner-typed €/person/night value into WizardCampaignDestinationWeeklyPrice,
+     * for the same city+week picked above — the actual field
+     * WizardCampaignDestinationPrice::estimateAccommodationTotal() reads (per-person, per-night;
+     * see that model).
      */
     public function savePrice(): void
     {
