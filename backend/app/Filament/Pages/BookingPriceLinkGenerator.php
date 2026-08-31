@@ -142,13 +142,13 @@ class BookingPriceLinkGenerator extends Page implements HasForms
             // Booking's "Property type" filter is include-only (checking nothing behaves as
             // "everything"), no dedicated exclude — owner's real capture, 2026-08-31, from a
             // Tenerife results page: 25 of the first 25 cheapest were hostels, drowning out the
-            // real comparison prices. So instead every real ht_id EXCEPT Hostels (203) is
-            // selected explicitly. Capsule hotels (225) dropped too — same pod/shared-sleep
-            // category as hostels, not a real family/couple room.
-            'nflt' => implode(';', array_map(
-                fn (int $id) => "ht_id={$id}",
-                [204, 206, 201, 213, 220, 228, 216, 210, 221, 223, 208, 212, 214, 224, 222, 215],
-            )),
+            // real comparison prices. First attempt selected every ht_id except Hostels/Capsule
+            // hotels, but that made the URL too long and Booking silently dropped/broke on it
+            // (owner caught it live — only the first 5 checkboxes actually landed). Narrowed to
+            // just the types that matter for family/couple leisure stays: Hotels, Apartments,
+            // Villas, Holiday homes, plus the separate "Entire homes & apartments" privacy_type
+            // chip — same 5 the broken URL happened to leave checked.
+            'nflt' => implode(';', ['ht_id=204', 'ht_id=201', 'ht_id=213', 'ht_id=220', 'privacy_type=3']),
         ];
 
         $this->generatedUrl = 'https://www.booking.com/searchresults.html?'.http_build_query($params);
