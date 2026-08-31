@@ -64,24 +64,143 @@ class BookingPriceLinkGenerator extends Page implements HasForms
      *  WizardCampaignDestinationPrice::estimateAccommodationTotal() reads. */
     public ?float $priceToSaveEur = null;
 
-    /** Oct 10 week's €/person/night — owner's simplified seasonal-decay rule, 2026-08-31, after
-     *  Alanya/Bodrum both showed roughly a 10%/step decline. Anchored specifically on Oct 10
-     *  (not the week with the most hotels, and not the last week of the season) — both cities
-     *  showed the LAST, November-crossing week behaving as an outlier (Alanya dropped further,
-     *  Bodrum rose), while Oct 10-24 was the stable plateau in both. September = Oct 10 + 10%,
-     *  rounded to the nearest €5. Purely a calculator — doesn't save anywhere on its own, the
-     *  owner still picks which real weeks get which value via the city/week/save flow above. A
-     *  quick estimate to sanity-check by eye, not a fully validated formula (only 2 cities
-     *  checked so far, and Bodrum's own curve was noisier than a clean 10%/step). */
-    public ?float $octoberPrice = null;
+    /** Two-anchor linear interpolation, 2026-08-31 — replaces the earlier flat "+10%" rule, which
+     *  broke down hard on real data (Tenerife and Albufeira both came out far off when checked
+     *  against real Sep 5 prices). This is grounded in two REAL per-city data points instead of
+     *  one point extrapolated by an assumed universal percentage: research just Sep 5 and Oct 24
+     *  (skipping the Nov-crossing last week, which both Alanya and Bodrum showed behaving as an
+     *  outlier), and every week between gets linearly interpolated and rounded to the nearest €5
+     *  independently — naturally reproduces the real plateau-then-step pattern already seen in
+     *  Alanya/Bodrum/Albufeira's actual researched data (repeated values wherever the raw step is
+     *  under €2.50). Doesn't touch Aug 29 or Oct 31 — both known edge weeks, left to manual
+     *  judgment. Still just a calculator until "Save all" is clicked — nothing written until
+     *  then, and only for the city already picked in the form above. */
+    public ?string $startWeek = null;
 
-    public ?float $septemberPrice = null;
+    public ?string $endWeek = null;
 
-    public function updatedOctoberPrice(): void
+    public ?float $startPrice = null;
+
+    public ?float $endPrice = null;
+
+    /** @var array<int, array{week: string, label: string, price: float}> */
+    public array $interpolatedWeeks = [];
+
+    public function updatedStartWeek(): void
     {
-        $this->septemberPrice = $this->octoberPrice !== null
-            ? round($this->octoberPrice * 1.1 / 5) * 5
-            : null;
+        $this->recomputeInterpolation();
+    }
+
+    public function updatedEndWeek(): void
+    {
+        $this->recomputeInterpolation();
+    }
+
+    public function updatedStartPrice(): void
+    {
+        $this->recomputeInterpolation();
+    }
+
+    public function updatedEndPrice(): void
+    {
+        $this->recomputeInterpolation();
+    }
+
+    private function recomputeInterpolation(): void
+    {
+        $this->interpolatedWeeks = [];
+
+        if (! $this->startWeek || ! $this->endWeek || $this->startPrice === null || $this->endPrice === null) {
+            return;
+        }
+
+        $campaign = WizardCampaign::where('key', 'kasno-letovanje')->first();
+        if (! $campaign) {
+            return;
+        }
+
+        $start = Carbon::parse($this->startWeek);
+        $end = Carbon::parse($this->endWeek);
+        if ($start->gte($end)) {
+            return;
+        }
+
+        $weeks = $campaign->seasonWeeks()->filter(fn ($w) => $w->gte($start) && $w->lte($end))->values();
+        if ($weeks->count() < 2) {
+            return;
+        }
+
+        $steps = $weeks->count() - 1;
+        $this->interpolatedWeeks = $weeks->map(function ($week, $i) use ($steps) {
+            $raw = $this->startPrice + ($this->endPrice - $this->startPrice) * ($i / $steps);
+
+            return [
+                'week' => $week->toDateString(),
+                'label' => $week->format('D, M j'),
+                'price' => round($raw / 5) * 5,
+            ];
+        })->all();
+    }
+
+    /**
+     * Writes every interpolated week's price for the city picked in the form above — real
+     * research still only happened at the two anchor weeks, everything between is a rounded
+     * linear estimate (see $interpolatedWeeks' docblock). Same underlying write as savePrice(),
+     * just looped.
+     */
+    public function saveInterpolatedWeeks(): void
+    {
+        $state = $this->form->getState();
+        $node = TaxonomyNode::find($state['taxonomy_node_id'] ?? null);
+        if (! $node) {
+            Notification::make()->title('Pick a city first')->danger()->send();
+
+            return;
+        }
+
+        if (empty($this->interpolatedWeeks)) {
+            Notification::make()->title('Nothing to save — set both anchor weeks and prices first')->danger()->send();
+
+            return;
+        }
+
+        $campaign = WizardCampaign::where('key', 'kasno-letovanje')->first();
+        if (! $campaign) {
+            Notification::make()->title('No active campaign found')->danger()->send();
+
+            return;
+        }
+
+        $destinationPrice = WizardCampaignDestinationPrice::firstOrCreate(
+            ['wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $node->id],
+            ['source' => 'manual_research'],
+        );
+
+        foreach ($this->interpolatedWeeks as $row) {
+            WizardCampaignDestinationWeeklyPrice::updateOrCreate(
+                ['wizard_campaign_destination_price_id' => $destinationPrice->id, 'week_start_date' => $row['week']],
+                ['price_per_person_eur' => $row['price']],
+            );
+        }
+
+        Notification::make()
+            ->title(count($this->interpolatedWeeks)." weeks saved for {$node->label}")
+            ->success()
+            ->send();
+    }
+
+    /** Same season-week list as the form's own Week dropdown, plain array for the interpolation
+     *  calculator's two anchor <select> elements (plain Livewire properties, not part of the
+     *  Filament Form/statePath above, so a real Filament Select component doesn't bind here). */
+    public function seasonWeekOptions(): array
+    {
+        $campaign = WizardCampaign::where('key', 'kasno-letovanje')->first();
+
+        return $campaign?->seasonWeeks()
+            ->mapWithKeys(fn ($week) => [
+                $week->toDateString() => $week->format('D, M j').' – '.$week->copy()->addDays(6)->format('M j'),
+            ])
+            ->all() ?? [];
     }
 
     public function mount(): void
@@ -95,7 +214,22 @@ class BookingPriceLinkGenerator extends Page implements HasForms
             ->schema([
                 Forms\Components\Select::make('taxonomy_node_id')
                     ->label('City')
-                    ->options(fn () => TaxonomyNode::where('type', 'city')->orderBy('label')->pluck('label', 'id'))
+                    // Owner's ask, 2026-08-31: only cities that actually belong to this campaign
+                    // (have a WizardCampaignDestinationPrice row for it) — was showing all 78
+                    // city nodes in the DB, only 59 of which are actually part of
+                    // kasno-letovanje. campaign:seed-destination-price-rows is what creates
+                    // these rows, so "has a row" IS "belongs to the campaign" here.
+                    ->options(function () {
+                        $campaign = WizardCampaign::where('key', 'kasno-letovanje')->first();
+
+                        return TaxonomyNode::where('type', 'city')
+                            ->when($campaign, fn ($q) => $q->whereHas(
+                                'campaignDestinationPrices',
+                                fn ($q) => $q->where('wizard_campaign_id', $campaign->id),
+                            ))
+                            ->orderBy('label')
+                            ->pluck('label', 'id');
+                    })
                     ->searchable()
                     ->required()
                     ->live()
@@ -131,8 +265,7 @@ class BookingPriceLinkGenerator extends Page implements HasForms
     public function generate(): void
     {
         $state = $this->form->getState();
-        $node = TaxonomyNode::with('parent')->find($state['taxonomy_node_id'] ?? null);
-        if (! $node) {
+        if (empty($state['taxonomy_node_id'])) {
             Notification::make()->title('Pick a city first')->danger()->send();
 
             return;
@@ -144,18 +277,34 @@ class BookingPriceLinkGenerator extends Page implements HasForms
             return;
         }
 
+        $this->generatedUrl = $this->bookingUrlFor($state['taxonomy_node_id'], $state['week_start_date'], $state['adults'] ?? 1);
         $checkin = Carbon::parse($state['week_start_date']);
+        $this->nights = $checkin->diffInDays($checkin->copy()->addDays(6));
+    }
+
+    /**
+     * Shared URL builder — `generate()` above and the two-anchor calculator's quick-links both
+     * need "this city, this week, this group size" turned into the same real Booking search URL.
+     * Extracted 2026-08-31 rather than duplicated a second time.
+     */
+    private function bookingUrlFor(int $taxonomyNodeId, string $weekStartDate, int $adults): ?string
+    {
+        $node = TaxonomyNode::with('parent')->find($taxonomyNodeId);
+        if (! $node) {
+            return null;
+        }
+
+        $checkin = Carbon::parse($weekStartDate);
         // 7-day package = 6 nights, not 7 — arrival afternoon, departure morning, no night slept
         // on the checkout day. Owner's correction, 2026-08-31.
         $checkout = $checkin->copy()->addDays(6);
-        $this->nights = $checkin->diffInDays($checkout);
         $searchTerm = $node->parent ? "{$node->label}, {$node->parent->label}" : $node->label;
 
         $params = [
             'ss' => $searchTerm,
             'checkin' => $checkin->toDateString(),
             'checkout' => $checkout->toDateString(),
-            'group_adults' => $state['adults'],
+            'group_adults' => $adults,
             'no_rooms' => 1,
             'selected_currency' => 'EUR',
             'order' => 'price',
@@ -171,7 +320,24 @@ class BookingPriceLinkGenerator extends Page implements HasForms
             'nflt' => implode(';', ['ht_id=204', 'ht_id=201', 'ht_id=213', 'ht_id=220', 'privacy_type=3']),
         ];
 
-        $this->generatedUrl = 'https://www.booking.com/searchresults.html?'.http_build_query($params);
+        return 'https://www.booking.com/searchresults.html?'.http_build_query($params);
+    }
+
+    /** Quick-link for the two-anchor calculator's Start/End week selects — same city+group size
+     *  already picked in the form above, just this section's own week. Null (renders no link)
+     *  until a city and that specific week are both chosen. */
+    public function anchorUrlFor(?string $weekStartDate): ?string
+    {
+        if (! $weekStartDate) {
+            return null;
+        }
+
+        $state = $this->form->getState();
+        if (empty($state['taxonomy_node_id'])) {
+            return null;
+        }
+
+        return $this->bookingUrlFor($state['taxonomy_node_id'], $weekStartDate, $state['adults'] ?? 1);
     }
 
     /**

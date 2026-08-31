@@ -95,27 +95,70 @@
     </x-filament::section>
 
     <x-filament::section class="mt-8">
-        <x-slot name="heading">September / October calculator</x-slot>
+        <x-slot name="heading">Two-anchor interpolation</x-slot>
         <x-slot name="description">
-            Research the Oct 10 week specifically (not the last week — both Alanya and Bodrum showed the November-crossing week behaving as an outlier) and enter it below — September is that + 10%, rounded to the nearest €5. Pure calculator, doesn't save anywhere — pick which real weeks get which value via the city/week/save flow above.
+            Research just two real weeks — e.g. Sep 5 and Oct 24, skipping the Nov-crossing last week (known outlier for both Alanya and Bodrum) — and every week between gets linearly interpolated, rounded to the nearest €5. Uses the city already picked above.
         </x-slot>
 
-        <div class="flex flex-wrap items-end gap-6">
+        <div class="flex flex-wrap items-end gap-4">
             <div>
-                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Oct 10 (researched) €/person/night</label>
-                <input
-                    type="number"
-                    step="0.01"
-                    wire:model.live="octoberPrice"
-                    class="fi-input mt-1 block w-40 rounded-lg border-none bg-white text-sm text-gray-950 shadow-sm ring-1 ring-gray-950/10 focus:ring-2 focus:ring-primary-600 dark:bg-white/5 dark:text-white dark:ring-white/20 dark:focus:ring-primary-500"
-                />
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Start week</label>
+                <select wire:model.live="startWeek" class="fi-input mt-1 block w-48 rounded-lg border-none bg-white text-sm text-gray-950 shadow-sm ring-1 ring-gray-950/10 focus:ring-2 focus:ring-primary-600 dark:bg-white/5 dark:text-white dark:ring-white/20 dark:focus:ring-primary-500">
+                    <option value="">—</option>
+                    @foreach ($this->seasonWeekOptions() as $value => $label)
+                        <option value="{{ $value }}">{{ $label }}</option>
+                    @endforeach
+                </select>
+                @if ($url = $this->anchorUrlFor($startWeek))
+                    <a href="{{ $url }}" target="_blank" class="mt-1 block text-xs text-primary-600 underline">Open on Booking.com</a>
+                @endif
+            </div>
+            <div>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Start €/person/night</label>
+                <input type="number" step="0.01" wire:model.live="startPrice" class="fi-input mt-1 block w-32 rounded-lg border-none bg-white text-sm text-gray-950 shadow-sm ring-1 ring-gray-950/10 focus:ring-2 focus:ring-primary-600 dark:bg-white/5 dark:text-white dark:ring-white/20 dark:focus:ring-primary-500" />
+            </div>
+            <div>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">End week</label>
+                <select wire:model.live="endWeek" class="fi-input mt-1 block w-48 rounded-lg border-none bg-white text-sm text-gray-950 shadow-sm ring-1 ring-gray-950/10 focus:ring-2 focus:ring-primary-600 dark:bg-white/5 dark:text-white dark:ring-white/20 dark:focus:ring-primary-500">
+                    <option value="">—</option>
+                    @foreach ($this->seasonWeekOptions() as $value => $label)
+                        <option value="{{ $value }}">{{ $label }}</option>
+                    @endforeach
+                </select>
+                @if ($url = $this->anchorUrlFor($endWeek))
+                    <a href="{{ $url }}" target="_blank" class="mt-1 block text-xs text-primary-600 underline">Open on Booking.com</a>
+                @endif
+            </div>
+            <div>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">End €/person/night</label>
+                <input type="number" step="0.01" wire:model.live="endPrice" class="fi-input mt-1 block w-32 rounded-lg border-none bg-white text-sm text-gray-950 shadow-sm ring-1 ring-gray-950/10 focus:ring-2 focus:ring-primary-600 dark:bg-white/5 dark:text-white dark:ring-white/20 dark:focus:ring-primary-500" />
+            </div>
+        </div>
+        <p class="mt-2 text-xs text-gray-500">Pick a city in the form at the top of the page first — the quick links above use it.</p>
+
+        @if (! empty($interpolatedWeeks))
+            <div class="mt-4 overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead>
+                        <tr class="border-b border-gray-200 text-gray-500 dark:border-white/10 dark:text-gray-400">
+                            <th class="py-2 pr-4">Week</th>
+                            <th class="py-2 pr-4">€/person/night</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($interpolatedWeeks as $row)
+                            <tr class="border-b border-gray-100 dark:border-white/5">
+                                <td class="py-2 pr-4">{{ $row['label'] }}</td>
+                                <td class="py-2 pr-4 font-medium">€{{ number_format($row['price'], 0) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
 
-            @if ($septemberPrice !== null)
-                <div class="text-sm text-gray-700 dark:text-gray-300">
-                    September: <strong class="text-base">€{{ number_format($septemberPrice, 0) }}</strong>
-                </div>
-            @endif
-        </div>
+            <x-filament::button wire:click="saveInterpolatedWeeks" color="success" class="mt-4">
+                Save all {{ count($interpolatedWeeks) }} weeks for this city
+            </x-filament::button>
+        @endif
     </x-filament::section>
 </x-filament-panels::page>
