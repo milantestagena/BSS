@@ -362,8 +362,8 @@
                               @if (budgetNoteFor(node); as budgetNote) {
                                 <span
                                   class="mt-0.5 block text-xs font-normal italic"
-                                  [class.text-amber-700]="node.budgetCaveat"
-                                  [class.text-emerald-700]="!node.budgetCaveat"
+                                  [class.text-amber-700]="node.budgetCaveat || node.mealPlanCaveat"
+                                  [class.text-emerald-700]="!node.budgetCaveat && !node.mealPlanCaveat"
                                 >{{ budgetNote }}</span>
                               }
                               <!-- "Superstar" — owner's ask, 2026-08-17: a soft alternative to a

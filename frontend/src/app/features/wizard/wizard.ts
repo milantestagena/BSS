@@ -605,9 +605,15 @@ export class WizardComponent implements OnInit {
    *  of a bare price-rank color. Only reachable for type=country cards (budgetFit is only
    *  computed at that level today — see GeographyResolver::filterByBudget). Returns null when
    *  there's nothing worth saying (a plain, unremarkable fit) rather than forcing a caption onto
-   *  every single card. */
+   *  every single card. mealPlanCaveat (2026-08-31) is checked first and independently of the
+   *  budget parts below — unlike budgetFit, it's computed for BOTH country and city cards (see
+   *  GeographyResolver::mealPlanFitFor), so this note now shows on the City step too. */
   budgetNoteFor(node: TaxonomyNode): string | null {
     const parts: string[] = [];
+
+    if (node.mealPlanCaveat) {
+      parts.push(this.i18n.t('mealPlanNoteCaveat'));
+    }
 
     if (node.budgetCaveat) {
       parts.push(this.i18n.t('budgetNoteCaveat'));

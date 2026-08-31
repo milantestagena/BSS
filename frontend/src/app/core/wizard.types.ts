@@ -45,6 +45,12 @@ export interface TaxonomyNode {
    *  'kvalitet', opposite Booking sort directions). Live-deselected from the same multi-choice
    *  question when this node is picked — see QuestionInputComponent.onMultiChoiceToggle. */
   excludesSlugs?: string[] | null;
+  /** Populated only when returned from suggestedGeography for type=country/city, when
+   *  meal_plan_preference is answered — true if this destination doesn't really offer any of the
+   *  requested meal plans (real, researched availability — see GeographyResolver::
+   *  mealPlanFitFor). Never excludes the destination, only downranks it — see
+   *  WizardComponent.budgetNoteFor(). */
+  mealPlanCaveat?: boolean | null;
   /** Populated only when returned from suggestedGeography for type=country/city, when real
    *  Open-Meteo climate data exists for at least one of the months the session's trip dates
    *  span — real imported data, not estimated (see GeographyResolver::climateSummaryFor). min
