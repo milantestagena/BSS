@@ -64,6 +64,24 @@ class BookingPriceLinkGenerator extends Page implements HasForms
      *  WizardCampaignDestinationPrice::estimateAccommodationTotal() reads. */
     public ?float $priceToSaveEur = null;
 
+    /** October (base) €/person/night — owner's simplified seasonal-decay rule, 2026-08-31, after
+     *  Alanya/Bodrum both showed roughly a 10%/step decline: rather than researching every week,
+     *  research whichever week has the most listed hotels (reliably 250+, where the fixed
+     *  position-25 rule applies cleanly without recomputing a percentile) and call that
+     *  "October," then September = October + 10%, rounded to the nearest €5. Purely a
+     *  calculator — doesn't save anywhere on its own, the owner still picks which real weeks get
+     *  which value via the city/week/save flow above. */
+    public ?float $octoberPrice = null;
+
+    public ?float $septemberPrice = null;
+
+    public function updatedOctoberPrice(): void
+    {
+        $this->septemberPrice = $this->octoberPrice !== null
+            ? round($this->octoberPrice * 1.1 / 5) * 5
+            : null;
+    }
+
     public function mount(): void
     {
         $this->form->fill(['adults' => 1]);

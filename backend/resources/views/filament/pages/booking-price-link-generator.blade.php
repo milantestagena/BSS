@@ -93,4 +93,29 @@
             </form>
         @endif
     </x-filament::section>
+
+    <x-filament::section class="mt-8">
+        <x-slot name="heading">September / October calculator</x-slot>
+        <x-slot name="description">
+            Research whichever week has the most listed hotels (reliably 250+, where the fixed rank-25 rule applies without recomputing a percentile) and enter it as October — September is that + 10%, rounded to the nearest €5. Pure calculator, doesn't save anywhere — pick which real weeks get which value via the city/week/save flow above.
+        </x-slot>
+
+        <div class="flex flex-wrap items-end gap-6">
+            <div>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">October (researched) €/person/night</label>
+                <input
+                    type="number"
+                    step="0.01"
+                    wire:model.live="octoberPrice"
+                    class="fi-input mt-1 block w-40 rounded-lg border-none bg-white text-sm text-gray-950 shadow-sm ring-1 ring-gray-950/10 focus:ring-2 focus:ring-primary-600 dark:bg-white/5 dark:text-white dark:ring-white/20 dark:focus:ring-primary-500"
+                />
+            </div>
+
+            @if ($septemberPrice !== null)
+                <div class="text-sm text-gray-700 dark:text-gray-300">
+                    September: <strong class="text-base">€{{ number_format($septemberPrice, 0) }}</strong>
+                </div>
+            @endif
+        </div>
+    </x-filament::section>
 </x-filament-panels::page>
