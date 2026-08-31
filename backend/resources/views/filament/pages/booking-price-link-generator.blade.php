@@ -97,12 +97,12 @@
     <x-filament::section class="mt-8">
         <x-slot name="heading">September / October calculator</x-slot>
         <x-slot name="description">
-            Research whichever week has the most listed hotels (reliably 250+, where the fixed rank-25 rule applies without recomputing a percentile) and enter it as October — September is that + 10%, rounded to the nearest €5. Pure calculator, doesn't save anywhere — pick which real weeks get which value via the city/week/save flow above.
+            Research the Oct 10 week specifically (not the last week — both Alanya and Bodrum showed the November-crossing week behaving as an outlier) and enter it below — September is that + 10%, rounded to the nearest €5. Pure calculator, doesn't save anywhere — pick which real weeks get which value via the city/week/save flow above.
         </x-slot>
 
         <div class="flex flex-wrap items-end gap-6">
             <div>
-                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">October (researched) €/person/night</label>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Oct 10 (researched) €/person/night</label>
                 <input
                     type="number"
                     step="0.01"

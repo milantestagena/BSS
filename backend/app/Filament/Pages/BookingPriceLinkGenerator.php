@@ -64,13 +64,15 @@ class BookingPriceLinkGenerator extends Page implements HasForms
      *  WizardCampaignDestinationPrice::estimateAccommodationTotal() reads. */
     public ?float $priceToSaveEur = null;
 
-    /** October (base) €/person/night — owner's simplified seasonal-decay rule, 2026-08-31, after
-     *  Alanya/Bodrum both showed roughly a 10%/step decline: rather than researching every week,
-     *  research whichever week has the most listed hotels (reliably 250+, where the fixed
-     *  position-25 rule applies cleanly without recomputing a percentile) and call that
-     *  "October," then September = October + 10%, rounded to the nearest €5. Purely a
-     *  calculator — doesn't save anywhere on its own, the owner still picks which real weeks get
-     *  which value via the city/week/save flow above. */
+    /** Oct 10 week's €/person/night — owner's simplified seasonal-decay rule, 2026-08-31, after
+     *  Alanya/Bodrum both showed roughly a 10%/step decline. Anchored specifically on Oct 10
+     *  (not the week with the most hotels, and not the last week of the season) — both cities
+     *  showed the LAST, November-crossing week behaving as an outlier (Alanya dropped further,
+     *  Bodrum rose), while Oct 10-24 was the stable plateau in both. September = Oct 10 + 10%,
+     *  rounded to the nearest €5. Purely a calculator — doesn't save anywhere on its own, the
+     *  owner still picks which real weeks get which value via the city/week/save flow above. A
+     *  quick estimate to sanity-check by eye, not a fully validated formula (only 2 cities
+     *  checked so far, and Bodrum's own curve was noisier than a clean 10%/step). */
     public ?float $octoberPrice = null;
 
     public ?float $septemberPrice = null;
