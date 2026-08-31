@@ -4,6 +4,8 @@ namespace App\Filament\Pages;
 
 use App\Models\TaxonomyNode;
 use App\Models\WizardCampaign;
+use App\Models\WizardCampaignDestinationPrice;
+use App\Models\WizardCampaignDestinationWeeklyPrice;
 use Carbon\Carbon;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -49,10 +51,18 @@ class BookingPriceLinkGenerator extends Page implements HasForms
      *  of the dropdown form above — unrelated concern, its own "Extract prices" action. */
     public ?string $pastedHtml = null;
 
-    /** @var array<int, array{name: string, price: ?float, roomType: ?string, isAnomaly: bool}> */
+    /** @var array<int, array{name: string, price: ?float, pricePerNight: ?float, roomType: ?string, isAnomaly: bool}> */
     public array $extractedListings = [];
 
     public ?float $suggestedPrice = null;
+
+    public ?int $nights = null;
+
+    /** The editable value that actually gets written to
+     *  WizardCampaignDestinationWeeklyPrice.price_per_person_eur — pre-filled from
+     *  $suggestedPrice/nights/group size after extraction, but left editable since that field is
+     *  explicitly a human sanity-check, same as the reference price itself. */
+    public ?float $priceToSaveEur = null;
 
     public function mount(): void
     {
@@ -116,6 +126,7 @@ class BookingPriceLinkGenerator extends Page implements HasForms
 
         $checkin = Carbon::parse($state['week_start_date']);
         $checkout = $checkin->copy()->addDays(7);
+        $this->nights = $checkin->diffInDays($checkout);
         $searchTerm = $node->parent ? "{$node->label}, {$node->parent->label}" : $node->label;
 
         $params = [
@@ -142,12 +153,22 @@ class BookingPriceLinkGenerator extends Page implements HasForms
     {
         $this->extractedListings = [];
         $this->suggestedPrice = null;
+        $this->priceToSaveEur = null;
 
         if (trim((string) $this->pastedHtml) === '') {
             Notification::make()->title('Paste the page source first')->danger()->send();
 
             return;
         }
+
+        $state = $this->form->getState();
+        // Nights may already be set from clicking "Generate link" first — recompute from the
+        // form's own week either way, so extraction works standalone too.
+        if (! empty($state['week_start_date'])) {
+            $checkin = Carbon::parse($state['week_start_date']);
+            $this->nights = $checkin->diffInDays($checkin->copy()->addDays(7));
+        }
+        $adults = (int) ($state['adults'] ?? 1);
 
         $dom = new \DOMDocument();
         libxml_use_internal_errors(true);
@@ -182,6 +203,7 @@ class BookingPriceLinkGenerator extends Page implements HasForms
             $this->extractedListings[] = [
                 'name' => $name !== '' ? $name : '(unknown)',
                 'price' => $price,
+                'pricePerNight' => ($price !== null && $this->nights) ? round($price / $this->nights, 2) : null,
                 'roomType' => $roomType,
                 'isAnomaly' => $isAnomaly,
             ];
@@ -207,6 +229,63 @@ class BookingPriceLinkGenerator extends Page implements HasForms
         $reference = $clean->get(2) ?? $clean->get(1) ?? $clean->first();
         if ($reference) {
             $this->suggestedPrice = round($reference['price'] * 1.1, 2);
+
+            if ($this->nights && $adults) {
+                $this->priceToSaveEur = round($this->suggestedPrice / $this->nights / $adults, 2);
+            }
         }
+    }
+
+    /**
+     * Writes the owner-confirmed €/person/night value into
+     * WizardCampaignDestinationWeeklyPrice, for the same city+week picked above — the actual
+     * field WizardCampaignDestinationPrice::estimateAccommodationTotal() reads (per-person,
+     * per-night; see that model). $priceToSaveEur is pre-filled from the extraction above but
+     * stays editable — same "sanity-check by eye before storing" convention as the reference
+     * price itself.
+     */
+    public function savePrice(): void
+    {
+        $state = $this->form->getState();
+        $node = TaxonomyNode::find($state['taxonomy_node_id'] ?? null);
+        if (! $node) {
+            Notification::make()->title('Pick a city first')->danger()->send();
+
+            return;
+        }
+
+        if (empty($state['week_start_date'])) {
+            Notification::make()->title('Pick a week first')->danger()->send();
+
+            return;
+        }
+
+        if ($this->priceToSaveEur === null || $this->priceToSaveEur <= 0) {
+            Notification::make()->title('Enter a price to save first')->danger()->send();
+
+            return;
+        }
+
+        $campaign = WizardCampaign::where('key', 'kasno-letovanje')->first();
+        if (! $campaign) {
+            Notification::make()->title('No active campaign found')->danger()->send();
+
+            return;
+        }
+
+        $destinationPrice = WizardCampaignDestinationPrice::firstOrCreate(
+            ['wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $node->id],
+            ['source' => 'manual_research'],
+        );
+
+        WizardCampaignDestinationWeeklyPrice::updateOrCreate(
+            ['wizard_campaign_destination_price_id' => $destinationPrice->id, 'week_start_date' => $state['week_start_date']],
+            ['price_per_person_eur' => $this->priceToSaveEur],
+        );
+
+        Notification::make()
+            ->title("Saved €{$this->priceToSaveEur}/person/night for {$node->label}")
+            ->success()
+            ->send();
     }
 }

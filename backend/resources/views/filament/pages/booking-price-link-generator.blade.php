@@ -41,7 +41,11 @@
         @if (! empty($extractedListings))
             @if ($suggestedPrice)
                 <div class="mt-6 rounded-lg bg-success-50 p-3 text-sm text-success-700 ring-1 ring-success-600/20 dark:bg-success-400/10 dark:text-success-400">
-                    Suggested reference price (3rd clean listing + 10% margin): <strong>€{{ number_format($suggestedPrice, 2) }}</strong> — sanity-check by eye before storing.
+                    Suggested reference price (3rd clean listing + 10% margin): <strong>€{{ number_format($suggestedPrice, 2) }}</strong>
+                    @if ($nights)
+                        for {{ $nights }} {{ Str::plural('night', $nights) }}
+                    @endif
+                    — sanity-check by eye before storing.
                 </div>
             @endif
 
@@ -53,6 +57,7 @@
                             <th class="py-2 pr-4">Property</th>
                             <th class="py-2 pr-4">Room type</th>
                             <th class="py-2 pr-4">Price</th>
+                            <th class="py-2 pr-4">€/night</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -69,11 +74,29 @@
                                 <td class="py-2 pr-4 font-medium">
                                     {{ $listing['price'] !== null ? '€'.number_format($listing['price'], 2) : '—' }}
                                 </td>
+                                <td class="py-2 pr-4">
+                                    {{ $listing['pricePerNight'] !== null ? '€'.number_format($listing['pricePerNight'], 2) : '—' }}
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>
                 </table>
             </div>
+
+            <form wire:submit.prevent="savePrice" class="mt-6 flex flex-wrap items-end gap-4 border-t border-gray-100 pt-4 dark:border-white/5">
+                <div>
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">€/person/night to save</label>
+                    <input
+                        type="number"
+                        step="0.01"
+                        wire:model="priceToSaveEur"
+                        class="fi-input mt-1 block w-40 rounded-lg border-none bg-white text-sm text-gray-950 shadow-sm ring-1 ring-gray-950/10 focus:ring-2 focus:ring-primary-600 dark:bg-white/5 dark:text-white dark:ring-white/20 dark:focus:ring-primary-500"
+                    />
+                </div>
+                <x-filament::button type="submit" color="success">
+                    Save price for this city + week
+                </x-filament::button>
+            </form>
         @endif
     </x-filament::section>
 </x-filament-panels::page>
