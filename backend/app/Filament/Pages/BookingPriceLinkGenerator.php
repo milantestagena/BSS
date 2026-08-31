@@ -139,6 +139,16 @@ class BookingPriceLinkGenerator extends Page implements HasForms
             'no_rooms' => 1,
             'selected_currency' => 'EUR',
             'order' => 'price',
+            // Booking's "Property type" filter is include-only (checking nothing behaves as
+            // "everything"), no dedicated exclude — owner's real capture, 2026-08-31, from a
+            // Tenerife results page: 25 of the first 25 cheapest were hostels, drowning out the
+            // real comparison prices. So instead every real ht_id EXCEPT Hostels (203) is
+            // selected explicitly. Capsule hotels (225) dropped too — same pod/shared-sleep
+            // category as hostels, not a real family/couple room.
+            'nflt' => implode(';', array_map(
+                fn (int $id) => "ht_id={$id}",
+                [204, 206, 201, 213, 220, 228, 216, 210, 221, 223, 208, 212, 214, 224, 222, 215],
+            )),
         ];
 
         $this->generatedUrl = 'https://www.booking.com/searchresults.html?'.http_build_query($params);
