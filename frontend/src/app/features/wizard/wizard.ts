@@ -462,12 +462,18 @@ export class WizardComponent implements OnInit {
 
   onTravelersChange(value: TravelersValue): void {
     // A group of ≤3 never gets asked about rooms at all — silently defaults to 1. A group of
-    // >3 gets the "stay together?" yes/no on this same step instead (see
+    // exactly 4 or 5 gets the "stay together?" yes/no on this same step instead (see
     // showRoomsTogetherQuestion / onRoomsTogetherChoice) — don't overwrite an answer they may
-    // have already given there if they tweak the headcount afterward and it's still >3.
+    // have already given there if they tweak the headcount afterward and it's still 4-5. A
+    // group of 6+ always splits across rooms — no real per-apartment pricing data past 5 in one
+    // unit (see WizardCampaignDestinationPrice::roomMultiplierSumFor) — so it's silently
+    // defaulted too, same as ≤3, just to a computed room count instead of 1. This also clears
+    // any stale "1" left over from a 4/5 "together" answer if the headcount is bumped past 5.
     const total = (value.adultsCount ?? 0) + value.childrenAges.length;
     if (total > 0 && total <= 3) {
       this.wizard.setAnswer('number_of_rooms', 1);
+    } else if (total > 5) {
+      this.wizard.setAnswer('number_of_rooms', Math.ceil(total / 3));
     }
 
     this.wizard.setAnswer('adults_count', value.adultsCount);
@@ -503,11 +509,16 @@ export class WizardComponent implements OnInit {
     this.homeCityLabel.set(`${city.name}, ${city.countryCode}`);
   }
 
-  /** True only for a group >3 — ≤3 is silently defaulted to 1 room in onTravelersChange, never
-   *  asked at all. See ROOMS_QUESTION_KEY. */
+  /** True only for a group of exactly 4 or 5 — ≤3 and 6+ are both silently defaulted in
+   *  onTravelersChange, never asked at all. Narrowed from ">3" to "4 or 5" specifically,
+   *  2026-08-31: real per-apartment pricing (WizardCampaignDestinationPrice::
+   *  roomMultiplierSumFor) only has a captured "everyone in one unit" rate up to 5 people —
+   *  past that there's no real single-apartment price to offer, so 6+ always splits with no
+   *  question. See ROOMS_QUESTION_KEY. */
   get showRoomsTogetherQuestion(): boolean {
     const step = this.wizard.currentStep();
-    return !!step?.questions.some((q) => q.key === ROOMS_QUESTION_KEY) && this.wizard.totalTravelers() > 3;
+    const total = this.wizard.totalTravelers();
+    return !!step?.questions.some((q) => q.key === ROOMS_QUESTION_KEY) && (total === 4 || total === 5);
   }
 
   /** Owner's call, 2026-08-14: the `grad` step is exactly-one-city-by-definition, and

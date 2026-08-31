@@ -31,8 +31,10 @@ class WizardCampaignDestinationPriceTest extends TestCase
 
         $total = $price->estimateAccommodationTotal(Carbon::parse('2026-09-19'), Carbon::parse('2026-09-27'), 2);
 
-        // 8 nights * 30 EUR * 2 travelers = 480, not 9 * 30 * 2 = 540.
-        $this->assertSame(480.0, $total);
+        // 8 nights * 30 EUR * 1.0 (2 travelers = one 2-person apartment, base rate) = 240, not
+        // 9 * 30 * 1.0 = 270. price_per_person_eur is now the PER-APARTMENT rate, not per-head —
+        // see WizardCampaignDestinationPrice::roomMultiplierSumFor's docblock, 2026-08-31.
+        $this->assertSame(240.0, $total);
     }
 
     public function test_weekly_price_splits_across_nights_not_calendar_days_present(): void
@@ -51,7 +53,8 @@ class WizardCampaignDestinationPriceTest extends TestCase
 
         $total = $price->estimateAccommodationTotal(Carbon::parse('2026-09-19'), Carbon::parse('2026-09-27'), 2);
 
-        $this->assertSame(480.0, $total);
+        // 8 nights * 30 EUR * 1.0 (2 travelers, base apartment rate) = 240.
+        $this->assertSame(240.0, $total);
     }
 
     public function test_cheapest_nightly_rate_does_not_look_past_checkout_night(): void
@@ -101,7 +104,85 @@ class WizardCampaignDestinationPriceTest extends TestCase
 
         $total = $price->estimateAccommodationTotal(Carbon::parse('2026-09-19'), Carbon::parse('2026-09-27'), 2);
 
-        // 8 nights * 24 EUR * 2 travelers = 384, NOT 0.
-        $this->assertSame(384.0, $total);
+        // 8 nights * 24 EUR * 1.0 (2 travelers, base apartment rate) = 192, NOT 0.
+        $this->assertSame(192.0, $total);
+    }
+
+    /**
+     * The root fix for the Rhodes bug, 2026-08-31: accommodation is priced per APARTMENT, not
+     * per head. price_per_person_eur is the base rate for a 2-person unit; roomMultiplierSumFor()
+     * translates a headcount into a sum of real occupancy multipliers to multiply it by instead
+     * of the raw traveler count. Multipliers derived from owner-researched comparison prices
+     * (Alanya, Rethymno): compounding ~20% per person above 2 (1.2, 1.44, 1.728 for 3/4/5).
+     */
+    public function test_solo_traveler_pays_the_same_base_rate_as_a_couple(): void
+    {
+        // No cheaper "1-person" product exists — a solo traveler still books a full 2-person unit.
+        $this->assertSame(1.0, WizardCampaignDestinationPrice::roomMultiplierSumFor(1));
+        $this->assertSame(1.0, WizardCampaignDestinationPrice::roomMultiplierSumFor(2));
+    }
+
+    public function test_three_travelers_pay_twenty_percent_more_for_one_apartment(): void
+    {
+        $this->assertSame(1.2, WizardCampaignDestinationPrice::roomMultiplierSumFor(3));
+    }
+
+    public function test_four_or_five_travelers_use_the_compounded_rate_only_when_same_unit_requested(): void
+    {
+        $this->assertSame(1.44, WizardCampaignDestinationPrice::roomMultiplierSumFor(4, sameUnit: true));
+        $this->assertSame(1.728, WizardCampaignDestinationPrice::roomMultiplierSumFor(5, sameUnit: true));
+    }
+
+    public function test_four_or_five_travelers_split_into_two_apartments_by_default(): void
+    {
+        // 4 = 2+2 (1.0 + 1.0). 5 = 3+2 (1.2 + 1.0) — cheaper than 2+3 reversed only in naming,
+        // same total either way. Default (no answer) behaves exactly like an explicit "no".
+        $this->assertSame(2.0, WizardCampaignDestinationPrice::roomMultiplierSumFor(4));
+        $this->assertSame(2.0, WizardCampaignDestinationPrice::roomMultiplierSumFor(4, sameUnit: false));
+        $this->assertSame(2.2, WizardCampaignDestinationPrice::roomMultiplierSumFor(5));
+    }
+
+    public function test_six_or_more_travelers_always_split_even_if_same_unit_is_true(): void
+    {
+        // sameUnit only ever applies at exactly 4 or 5 — WizardCampaignDestinationPriceTest and
+        // the frontend's showRoomsTogetherQuestion agree on that boundary. A stale "true" past 5
+        // must never accidentally price a single huge apartment that doesn't exist as a product.
+        $this->assertSame(2.4, WizardCampaignDestinationPrice::roomMultiplierSumFor(6, sameUnit: true));
+    }
+
+    public function test_room_splitting_avoids_a_lone_leftover_of_one(): void
+    {
+        // 6 = 3+3 (2.4). 7 = 3+2+2 (3.2, not 3+3+1 which would need a 4th 1-person unit). 8 =
+        // 3+3+2 (3.4). Owner-verified against these exact three examples, 2026-08-31.
+        $this->assertSame(2.4, WizardCampaignDestinationPrice::roomMultiplierSumFor(6));
+        $this->assertSame(3.2, WizardCampaignDestinationPrice::roomMultiplierSumFor(7));
+        $this->assertSame(3.4, WizardCampaignDestinationPrice::roomMultiplierSumFor(8));
+    }
+
+    public function test_wants_same_unit_only_true_for_four_or_five_travelers_answered_yes(): void
+    {
+        $this->assertTrue(WizardCampaignDestinationPrice::wantsSameUnit(4, 1));
+        $this->assertTrue(WizardCampaignDestinationPrice::wantsSameUnit(5, 1));
+        $this->assertFalse(WizardCampaignDestinationPrice::wantsSameUnit(4, 2));
+        $this->assertFalse(WizardCampaignDestinationPrice::wantsSameUnit(4, null));
+        $this->assertFalse(WizardCampaignDestinationPrice::wantsSameUnit(3, 1));
+        $this->assertFalse(WizardCampaignDestinationPrice::wantsSameUnit(6, 1));
+    }
+
+    public function test_estimate_accommodation_total_uses_same_unit_flag_end_to_end(): void
+    {
+        $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'testgrad', 'label' => 'test', 'sort_order' => 0]);
+        $campaign = WizardCampaign::create(['key' => 'testcamp', 'label' => 'test', 'is_active' => true, 'sort_order' => 0]);
+        $price = WizardCampaignDestinationPrice::create([
+            'wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $city->id, 'price_per_person_eur' => 50,
+        ]);
+
+        // 6 nights, 4 travelers, same unit requested: 6 * 50 * 1.44 = 432.
+        $together = $price->estimateAccommodationTotal(Carbon::parse('2026-09-05'), Carbon::parse('2026-09-11'), 4, true);
+        $this->assertSame(432.0, $together);
+
+        // Same trip, split into 2+2 instead: 6 * 50 * 2.0 = 600.
+        $split = $price->estimateAccommodationTotal(Carbon::parse('2026-09-05'), Carbon::parse('2026-09-11'), 4, false);
+        $this->assertSame(600.0, $split);
     }
 }

@@ -24,6 +24,16 @@ class WizardCampaignDestinationPrice extends Model
         'includes_meals' => 'boolean',
     ];
 
+    /**
+     * `price_per_person_eur` is really "price of a 2-person apartment, per night" — the base
+     * rate `x` a 1 or 2-person booking pays as a whole unit, NOT a literal per-head rate
+     * (renamed in meaning, not in column, 2026-08-31 — see roomMultiplierSumFor's docblock for
+     * why). These are the real occupancy-scaling multipliers on top of that base, derived from
+     * owner-researched comparison prices across Alanya/Rethymno (compounding ~20% per person
+     * above 2 — 1.2, 1.2², 1.2³ — matched real captured prices within a few percent at both).
+     */
+    private const APARTMENT_MULTIPLIERS = [2 => 1.0, 3 => 1.2, 4 => 1.44, 5 => 1.728];
+
     public function campaign(): BelongsTo
     {
         return $this->belongsTo(WizardCampaign::class, 'wizard_campaign_id');
@@ -48,9 +58,16 @@ class WizardCampaignDestinationPrice extends Model
      * estimate beats a silent gap). If this destination has NO weekly rows at all yet (not
      * migrated to weekly pricing, or a future campaign that never needs it), falls back to the
      * old flat `price_per_person_eur` scalar entirely — same behavior as before this feature.
+     *
+     * The root fix for the Rhodes bug (2026-08 session): accommodation was priced as a straight
+     * linear `price_per_person_eur * $totalTravelers`, which silently divided a solo-studio
+     * price across a whole family. `$totalTravelers` is now translated into a sum of real
+     * apartment-occupancy multipliers via roomMultiplierSumFor() instead of used directly — see
+     * that method's docblock for the full occupancy model.
      */
-    public function estimateAccommodationTotal(CarbonInterface $checkin, CarbonInterface $checkout, int $totalTravelers): float
+    public function estimateAccommodationTotal(CarbonInterface $checkin, CarbonInterface $checkout, int $totalTravelers, bool $sameUnit = false): float
     {
+        $roomMultiplierSum = self::roomMultiplierSumFor($totalTravelers, $sameUnit);
         $seasonStart = $this->campaign?->season_start_date;
         // Bug fixed 2026-08-14: this used to check `$this->weeklyPrices->isEmpty()` — whether
         // any weekly ROWS exist at all — not whether any of them actually have a price. Weekly
@@ -68,18 +85,85 @@ class WizardCampaignDestinationPrice extends Model
         // `diffInDays` with no +1 — the +1 convention belongs to FOOD estimates only (you still
         // eat on checkout day, but you don't sleep there), and had been wrongly copied over here.
         if (! $seasonStart || $pricedWeeks->isEmpty()) {
-            return ($this->price_per_person_eur ?? 0.0) * $totalTravelers * $checkin->diffInDays($checkout);
+            return ($this->price_per_person_eur ?? 0.0) * $roomMultiplierSum * $checkin->diffInDays($checkout);
         }
 
-        $totalPerPerson = 0.0;
+        $totalPerNight = 0.0;
         $cursor = $checkin->copy();
         while ($cursor->lt($checkout)) {
             $weekStart = self::weekStartFor($cursor, $seasonStart);
-            $totalPerPerson += self::nightlyPriceForWeek($weekStart, $pricedWeeks) ?? 0.0;
+            $totalPerNight += self::nightlyPriceForWeek($weekStart, $pricedWeeks) ?? 0.0;
             $cursor = $cursor->addDay();
         }
 
-        return $totalPerPerson * $totalTravelers;
+        return $totalPerNight * $roomMultiplierSum;
+    }
+
+    /**
+     * Translates a headcount into a sum of real apartment-occupancy multipliers, to multiply
+     * against the base 2-person nightly rate — replaces the old straight `* $totalTravelers`.
+     *
+     * - 1-3 travelers: always exactly 1 apartment, sized max(travelers, 2) — a solo traveler
+     *   still books (and pays for) a 2-person unit, there's no cheaper "1-person" product.
+     * - 4-5 travelers with $sameUnit: 1 apartment sized to the headcount (real captured prices
+     *   for both sizes — Alanya 75/85€, Rethymno 100/120€ per night, both close to the
+     *   compounding curve). $sameUnit only ever applies at exactly 4 or 5 — see
+     *   WizardCampaignDestinationPriceTest and the frontend's showRoomsTogetherQuestion, which
+     *   only asks the "stay together?" question for those two sizes.
+     * - Everything else (6+, or 4-5 without $sameUnit): split across multiple 2-3 person
+     *   apartments via roomSizesFor() and sum each room's multiplier. No extra margin on top —
+     *   owner's explicit call, 2026-08-31 ("moje [1.1] je bilo gruba procena", dropped in favor
+     *   of summing the real per-room multipliers precisely).
+     */
+    public static function roomMultiplierSumFor(int $totalTravelers, bool $sameUnit = false): float
+    {
+        if ($totalTravelers <= 0) {
+            return 0.0;
+        }
+
+        if ($totalTravelers <= 3) {
+            return self::APARTMENT_MULTIPLIERS[max(2, $totalTravelers)];
+        }
+
+        if ($sameUnit && ($totalTravelers === 4 || $totalTravelers === 5)) {
+            return self::APARTMENT_MULTIPLIERS[$totalTravelers];
+        }
+
+        return collect(self::roomSizesFor($totalTravelers))
+            ->sum(fn (int $size) => self::APARTMENT_MULTIPLIERS[$size]);
+    }
+
+    /** True only when a "stay together?" answer is actually meaningful — exactly 4 or 5
+     *  travelers, and the session answered "yes" (number_of_rooms === 1). Anything else (≤3, 6+,
+     *  or 4-5 answered "no"/unanswered) splits across rooms regardless of this value — see
+     *  roomMultiplierSumFor(). Centralized here so the 4 call sites (GeographyResolver ×3,
+     *  SearchSessionQueryCompiler ×1) can't drift on the "4 or 5 only" condition. */
+    public static function wantsSameUnit(int $totalTravelers, ?int $numberOfRooms): bool
+    {
+        return ($totalTravelers === 4 || $totalTravelers === 5) && $numberOfRooms === 1;
+    }
+
+    /**
+     * Bin-packs a headcount into apartments of size 2 or 3, preferring 3s (cheaper per person
+     * per the multiplier table — two 3-person apartments cost 2.4x total vs three 2-person
+     * apartments at 3x for the same 6 people) but never leaving a lone room of 1 (a solo
+     * leftover still needs a full 2-person-priced unit, so it's cheaper to trade one 3 for two
+     * 2s instead). Owner-verified against real examples: 6→[3,3], 7→[3,2,2], 8→[3,3,2].
+     */
+    private static function roomSizesFor(int $totalTravelers): array
+    {
+        $threes = intdiv($totalTravelers, 3);
+        $remainder = $totalTravelers % 3;
+
+        if ($remainder === 0) {
+            return array_fill(0, $threes, 3);
+        }
+
+        if ($remainder === 1) {
+            return array_merge(array_fill(0, max(0, $threes - 1), 3), [2, 2]);
+        }
+
+        return array_merge(array_fill(0, $threes, 3), [2]);
     }
 
     /**

@@ -5,6 +5,7 @@ namespace App\GraphQL\Resolvers;
 use App\Models\DestinationGuide;
 use App\Models\SearchSession;
 use App\Models\TaxonomyNode;
+use App\Models\WizardCampaignDestinationPrice;
 use App\Services\BudgetEstimationEngine;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -352,7 +353,9 @@ class GeographyResolver
                 ->with(['campaign', 'weeklyPrices'])
                 ->first();
 
-            return $priceRow?->estimateAccommodationTotal($checkin, $checkout, $totalTravelers);
+            $sameUnit = WizardCampaignDestinationPrice::wantsSameUnit($totalTravelers, $session->number_of_rooms);
+
+            return $priceRow?->estimateAccommodationTotal($checkin, $checkout, $totalTravelers, $sameUnit);
         }
 
         // Nights, not calendar days present — see WizardCampaignDestinationPrice's night-count
@@ -688,7 +691,10 @@ class GeographyResolver
             ->filter(fn ($v) => $v !== null)
             ->min();
 
-        return $cheapestPerNight !== null ? $cheapestPerNight * $totalTravelers * $nights : 0.0;
+        $sameUnit = WizardCampaignDestinationPrice::wantsSameUnit($totalTravelers, $session->number_of_rooms);
+        $roomMultiplierSum = WizardCampaignDestinationPrice::roomMultiplierSumFor($totalTravelers, $sameUnit);
+
+        return $cheapestPerNight !== null ? $cheapestPerNight * $roomMultiplierSum * $nights : 0.0;
     }
 
     /**
@@ -724,7 +730,10 @@ class GeographyResolver
             ->filter(fn ($v) => $v !== null)
             ->avg();
 
-        return $avgPerNight !== null ? $avgPerNight * $totalTravelers * $nights : 0.0;
+        $sameUnit = WizardCampaignDestinationPrice::wantsSameUnit($totalTravelers, $session->number_of_rooms);
+        $roomMultiplierSum = WizardCampaignDestinationPrice::roomMultiplierSumFor($totalTravelers, $sameUnit);
+
+        return $avgPerNight !== null ? $avgPerNight * $roomMultiplierSum * $nights : 0.0;
     }
 
     /**

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\SearchSession;
 use App\Models\TaxonomyNode;
 use App\Models\TaxonomyNodeRelation;
+use App\Models\WizardCampaignDestinationPrice;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
@@ -549,11 +550,13 @@ class SearchSessionQueryCompiler
         }
 
         $totalTravelers = $this->session->adults_count + count($this->session->children_ages ?? []);
+        $sameUnit = WizardCampaignDestinationPrice::wantsSameUnit($totalTravelers, $this->session->number_of_rooms);
         // Splits nights across whichever campaign weeks they fall in, priced per-week — see
         // WizardCampaignDestinationPrice::estimateAccommodationTotal(), 2026-08-11. Falls back
         // to the old flat price_per_person_eur * days math internally if this destination has
-        // no weekly rows yet.
-        $accommodationTotal = $priceRow !== null ? $priceRow->estimateAccommodationTotal($checkin, $checkout, $totalTravelers) : 0.0;
+        // no weekly rows yet. $totalTravelers is translated into a sum of real apartment-
+        // occupancy multipliers internally (roomMultiplierSumFor()), not multiplied directly.
+        $accommodationTotal = $priceRow !== null ? $priceRow->estimateAccommodationTotal($checkin, $checkout, $totalTravelers, $sameUnit) : 0.0;
 
         return [
             'country' => $country,
