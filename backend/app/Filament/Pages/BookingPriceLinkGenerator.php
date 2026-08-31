@@ -56,12 +56,12 @@ class BookingPriceLinkGenerator extends Page implements HasForms
 
     public ?int $nights = null;
 
-    /** The value the owner picks by eye from the table below and types in — no auto-suggested
-     *  reference/percentile anymore (tried a "~10th percentile of total market" auto-formula,
-     *  2026-08-31, but owner dropped it as confusing while doing controlled manual comparisons
-     *  across group sizes/cities to find a real occupancy-scaling formula; may come back once
-     *  that data exists). Written to WizardCampaignDestinationWeeklyPrice.price_per_person_eur —
-     *  the actual field WizardCampaignDestinationPrice::estimateAccommodationTotal() reads. */
+    /** Pre-filled from the 3rd clean listing's €/person/night, rounded DOWN to the nearest €5 —
+     *  a starting point to eyeball/adjust, not a computed final answer (tried a "~10th percentile
+     *  of total market" auto-formula, 2026-08-31, dropped as confusing — this is the simpler
+     *  fallback the owner actually wanted). Fully editable before saving. Written to
+     *  WizardCampaignDestinationWeeklyPrice.price_per_person_eur — the actual field
+     *  WizardCampaignDestinationPrice::estimateAccommodationTotal() reads. */
     public ?float $priceToSaveEur = null;
 
     public function mount(): void
@@ -217,6 +217,19 @@ class BookingPriceLinkGenerator extends Page implements HasForms
                 ->send();
 
             return;
+        }
+
+        // Prefill from the 3rd clean (non-anomaly, priced) listing, rounded DOWN to the nearest
+        // €5 — a starting point to eyeball/adjust, not a computed final answer (owner's ask,
+        // 2026-08-31: "odokativno", no auto margin this time, just a round number to start from).
+        $clean = collect($this->extractedListings)
+            ->filter(fn (array $l) => ! $l['isAnomaly'] && $l['pricePerNight'] !== null)
+            ->values();
+        $reference = $clean->get(2) ?? $clean->get(1) ?? $clean->first();
+        if ($reference) {
+            $adults = max(1, (int) ($state['adults'] ?? 1));
+            $perPersonPerNight = $reference['pricePerNight'] / $adults;
+            $this->priceToSaveEur = floor($perPersonPerNight / 5) * 5;
         }
     }
 
