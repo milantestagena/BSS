@@ -64,6 +64,19 @@ class BookingPriceLinkGenerator extends Page implements HasForms
      *  explicitly a human sanity-check, same as the reference price itself. */
     public ?float $priceToSaveEur = null;
 
+    /** "N properties found" read off the results page header, typed in by the owner — used to
+     *  pick the reference listing at the ~10th percentile of the WHOLE market instead of a fixed
+     *  rank, since only the cheapest 25 (one page) are ever visible in the pasted source. Owner's
+     *  call, 2026-08-31: fixed rank 3 was really "3rd of 25 visible", which is a very different
+     *  percentile depending on whether the city has 30 or 1500 hotels total. Once 10% of the
+     *  total exceeds the 25 visible, the last (25th) visible one is the best available stand-in
+     *  — still the cheapest ~10%, just can't see further into the list than one page. */
+    public ?int $totalHotelsFound = null;
+
+    /** 1-based rank actually used for $suggestedPrice, surfaced in the UI so the owner can see
+     *  which percentile they're looking at (e.g. "#25 of 24 clean — 264 total found"). */
+    public ?int $referenceRank = null;
+
     public function mount(): void
     {
         $this->form->fill(['adults' => 1]);
@@ -154,6 +167,7 @@ class BookingPriceLinkGenerator extends Page implements HasForms
         $this->extractedListings = [];
         $this->suggestedPrice = null;
         $this->priceToSaveEur = null;
+        $this->referenceRank = null;
 
         if (trim((string) $this->pastedHtml) === '') {
             Notification::make()->title('Paste the page source first')->danger()->send();
@@ -219,15 +233,27 @@ class BookingPriceLinkGenerator extends Page implements HasForms
             return;
         }
 
-        // Cards arrive in the page's own order=price order. Reference the 3rd clean (non-anomaly,
-        // priced) listing — falling back earlier if fewer exist — then add a small safety margin,
-        // same convention as the manual capture workflow (CLAUDE.md section 8 item 2, after the
-        // Rhodes incident). This is a suggestion to sanity-check by eye, not an authoritative figure.
+        // Cards arrive in the page's own order=price order (cheapest first), but only one page
+        // (25) is ever visible in pasted source. Target the ~10th-percentile rank across the
+        // WHOLE market (owner's ask, 2026-08-31) rather than a fixed "3rd" — "3rd of 25 visible"
+        // means something very different for a 30-hotel town than a 1500-hotel city. Capped at
+        // 25 since that's the most we can ever see; past ~250 total hotels the cap just means
+        // "last visible", still genuinely the cheapest ~10%, just page-limited.
         $clean = collect($this->extractedListings)
             ->filter(fn (array $l) => ! $l['isAnomaly'] && $l['price'] !== null)
             ->values();
-        $reference = $clean->get(2) ?? $clean->get(1) ?? $clean->first();
+
+        $targetRank = $this->totalHotelsFound && $this->totalHotelsFound > 0
+            ? max(1, min(25, (int) round($this->totalHotelsFound * 0.10)))
+            : 3; // no total given — fall back to the original "3rd clean listing" default
+
+        $reference = $clean->get($targetRank - 1) ?? $clean->last();
+
         if ($reference) {
+            $this->referenceRank = min($targetRank, $clean->count());
+            // Small safety margin above the reference, same convention as the manual capture
+            // workflow (CLAUDE.md section 8 item 2, after the Rhodes incident) — a suggestion to
+            // sanity-check by eye, not an authoritative figure.
             $this->suggestedPrice = round($reference['price'] * 1.1, 2);
 
             if ($this->nights && $adults) {
