@@ -125,7 +125,9 @@ class BookingPriceLinkGenerator extends Page implements HasForms
         }
 
         $checkin = Carbon::parse($state['week_start_date']);
-        $checkout = $checkin->copy()->addDays(7);
+        // 7-day package = 6 nights, not 7 — arrival afternoon, departure morning, no night slept
+        // on the checkout day. Owner's correction, 2026-08-31.
+        $checkout = $checkin->copy()->addDays(6);
         $this->nights = $checkin->diffInDays($checkout);
         $searchTerm = $node->parent ? "{$node->label}, {$node->parent->label}" : $node->label;
 
@@ -165,7 +167,7 @@ class BookingPriceLinkGenerator extends Page implements HasForms
         // form's own week either way, so extraction works standalone too.
         if (! empty($state['week_start_date'])) {
             $checkin = Carbon::parse($state['week_start_date']);
-            $this->nights = $checkin->diffInDays($checkin->copy()->addDays(7));
+            $this->nights = $checkin->diffInDays($checkin->copy()->addDays(6));
         }
 
         $dom = new \DOMDocument();
