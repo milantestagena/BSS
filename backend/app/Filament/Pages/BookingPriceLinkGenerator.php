@@ -69,10 +69,10 @@ class BookingPriceLinkGenerator extends Page implements HasForms
 
     public ?string $pastedHtmlEnd = null;
 
-    /** @var array<int, array{name: string, price: ?float, pricePerNight: ?float, roomType: ?string, isAnomaly: bool}> */
+    /** @var array<int, array{name: string, price: ?float, pricePerNight: ?float, roomType: ?string, isAnomaly: bool, taxIncluded: bool}> */
     public array $extractedListingsStart = [];
 
-    /** @var array<int, array{name: string, price: ?float, pricePerNight: ?float, roomType: ?string, isAnomaly: bool}> */
+    /** @var array<int, array{name: string, price: ?float, pricePerNight: ?float, roomType: ?string, isAnomaly: bool, taxIncluded: bool}> */
     public array $extractedListingsEnd = [];
 
     /**
@@ -321,14 +321,16 @@ class BookingPriceLinkGenerator extends Page implements HasForms
         $this->endWeek = self::ANCHOR_END_WEEK;
     }
 
-    /** Country ids the live wizard never actually shows for this campaign — same
-     *  taxonomy_node_relations `excludes` edge GeographyResolver reads (termin_category
-     *  'kasno_kupanje' excludes 'hrvatska': "najhladnija, nikad nije dobila prave cene", see
-     *  CLAUDE.md §8). Owner's catch, 2026-09-01: Croatia's 3 cities still have real
-     *  WizardCampaignDestinationPrice rows left over from before that exclusion, so the "has a
-     *  price row" filter alone let them leak into the dropdown even though no real visitor will
-     *  ever see them — researching their prices further would be wasted time. */
-    private function excludedCountryIds(): \Illuminate\Support\Collection
+    /** Node ids (countries AND individual cities — both really occur, e.g. hrvatska at the
+     *  country level, linosa/rim/atina at the city level) the live wizard never actually shows
+     *  for this campaign — same taxonomy_node_relations `excludes` edge GeographyResolver reads
+     *  (termin_category 'kasno_kupanje' excludes them, e.g. hrvatska: "najhladnija, nikad nije
+     *  dobila prave cene", linosa: "2 apartmana ukupno zadnje nedelje oktobra" — see CLAUDE.md
+     *  §8). Owner's catch, 2026-09-01: excluded destinations can still have real
+     *  WizardCampaignDestinationPrice rows left over from before they were excluded, so the "has
+     *  a price row" filter alone lets them leak into the dropdown even though no real visitor
+     *  will ever see them — researching their prices further is wasted time. */
+    private function excludedNodeIds(): \Illuminate\Support\Collection
     {
         return TaxonomyNode::where('type', 'termin_category')
             ->where('slug', 'kasno_kupanje')
@@ -349,20 +351,22 @@ class BookingPriceLinkGenerator extends Page implements HasForms
                     // these rows, so "has a row" IS "belongs to the campaign" here. Labels get a
                     // "✓ 9/9" / "3/9" progress suffix, 2026-09-01 (owner's ask — track progress
                     // across 59 cities without a separate screen) — see filledWeekCountsByCity().
-                    // Also excludes cities whose country the live wizard itself excludes (Croatia,
-                    // caught live 2026-09-01) — see excludedCountryIds().
+                    // Also excludes cities (or cities whose country) the live wizard itself
+                    // excludes — Croatia and Linosa both caught live 2026-09-01 — see
+                    // excludedNodeIds().
                     ->options(function () {
                         $campaign = WizardCampaign::where('key', 'kasno-letovanje')->first();
                         $totalWeeks = $campaign ? $this->futureSeasonWeeks($campaign)->count() : 0;
                         $filled = $this->filledWeekCountsByCity($campaign);
-                        $excludedCountryIds = $this->excludedCountryIds();
+                        $excludedNodeIds = $this->excludedNodeIds();
 
                         return TaxonomyNode::where('type', 'city')
                             ->when($campaign, fn ($q) => $q->whereHas(
                                 'campaignDestinationPrices',
                                 fn ($q) => $q->where('wizard_campaign_id', $campaign->id),
                             ))
-                            ->whereNotIn('parent_id', $excludedCountryIds)
+                            ->whereNotIn('id', $excludedNodeIds)
+                            ->whereNotIn('parent_id', $excludedNodeIds)
                             ->orderBy('label')
                             ->get()
                             ->mapWithKeys(function (TaxonomyNode $city) use ($filled, $totalWeeks) {
@@ -442,11 +446,13 @@ class BookingPriceLinkGenerator extends Page implements HasForms
      * stable `data-testid` attributes (`property-card`, `title`, `price-and-discounted-price`,
      * `recommended-units`'s `<h4>`), not the obfuscated CSS classes Booking ships.
      *
-     * Doesn't yet separate out city/tourist tax shown alongside the headline price on some
-     * listings — owner's note, 2026-09-01: improve this parser once that's common enough to
-     * actually distort a reference price, not before.
+     * Adds any real "taxes and charges" amount shown separately into the price, 2026-09-01
+     * (owner's real catch, Larnaka: "+€ 25 taxes and charges" next to a €212 headline price) —
+     * without this the reference price would be quietly understated by exactly that amount,
+     * same category of mistake as the Rhodes incident. A vague "Additional charges may apply"
+     * (no real number) is left untouched rather than guessed.
      *
-     * @return array<int, array{name: string, price: ?float, pricePerNight: ?float, roomType: ?string, isAnomaly: bool}>
+     * @return array<int, array{name: string, price: ?float, pricePerNight: ?float, roomType: ?string, isAnomaly: bool, taxIncluded: bool}>
      */
     private function parseListings(?string $html): array
     {
@@ -477,6 +483,26 @@ class BookingPriceLinkGenerator extends Page implements HasForms
                 $price = $digits !== '' ? (float) $digits : null;
             }
 
+            // Taxes/charges shown separately from the headline price, 2026-09-01 (owner's real
+            // catch, Larnaka: "+€ 25 taxes and charges" sitting right next to €212). Two real
+            // shapes seen: a concrete "+€X taxes and charges" (extractable, added in) or a vague
+            // "Additional charges may apply" (no number to extract — stripping non-digits leaves
+            // an empty string, so it's naturally left at 0 rather than guessed).
+            $taxNode = $xpath->query('.//div[@data-testid="taxes-and-charges"]', $card)->item(0);
+            $taxAmount = 0.0;
+            $taxIncluded = false;
+            if ($taxNode) {
+                $taxDigits = preg_replace('/[^\d.,]/u', '', $taxNode->textContent) ?? '';
+                $taxDigits = str_replace(',', '', $taxDigits);
+                if ($taxDigits !== '') {
+                    $taxAmount = (float) $taxDigits;
+                    $taxIncluded = true;
+                }
+            }
+            if ($price !== null) {
+                $price += $taxAmount;
+            }
+
             $roomTypeNode = $xpath->query('.//h4', $card)->item(0);
             $roomType = $roomTypeNode ? trim($roomTypeNode->textContent) : null;
             $isAnomaly = $roomType !== null && preg_match('/dorm|shared|hostel bed/i', $roomType) === 1;
@@ -491,6 +517,7 @@ class BookingPriceLinkGenerator extends Page implements HasForms
                 'pricePerNight' => $price !== null ? round($price / self::NIGHTS, 2) : null,
                 'roomType' => $roomType,
                 'isAnomaly' => $isAnomaly,
+                'taxIncluded' => $taxIncluded,
             ];
         }
 

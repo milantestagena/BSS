@@ -88,6 +88,9 @@
                                                 </td>
                                                 <td class="py-1.5 pr-3 font-medium">
                                                     {{ $listing['pricePerNight'] !== null ? '€'.number_format($listing['pricePerNight'], 2) : '—' }}
+                                                    @if($listing['taxIncluded'] ?? false)
+                                                        <span class="ml-1 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500 dark:bg-white/10 dark:text-gray-400" title="Taxes and charges added into this price">+tax</span>
+                                                    @endif
                                                 </td>
                                             </tr>
                                         @endforeach
