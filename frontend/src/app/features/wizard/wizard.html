@@ -94,7 +94,7 @@
               </div>
               <div class="flex flex-col items-end gap-1">
                 <div
-                  class="max-w-[80%] rounded-2xl rounded-br-sm bg-amber-700 px-4 py-2.5 text-sm text-white"
+                  class="max-w-[80%] rounded-2xl rounded-br-sm bg-[#c08761] px-4 py-2.5 text-sm text-white"
                 >
                   {{ stepSummary(step) }}
                 </div>
@@ -104,7 +104,7 @@
                      for bare text on a busy image) would be low-contrast here instead. -->
                 <button
                   type="button"
-                  class="text-xs font-medium text-slate-500 hover:text-amber-700 hover:underline"
+                  class="text-xs font-medium text-slate-500 hover:text-[#c08761] hover:underline"
                   (click)="editStep(index)"
                 >
                   {{ i18n.t('change') }}
@@ -185,16 +185,16 @@
                    panel, where the traveler actually types/picks their answer, shifts right to
                    read as their side of the conversation — same left/right convention the
                    collapsed-history bubbles use for question vs. answer. Went through slate-100,
-                   then sky-50, then sky-600 (the exact same blue as the sent-answer bubble),
-                   before landing on amber-700 here, 2026-09-01 — the cool blue read as an
-                   unrelated color against the warm sunset-photo backdrop and the orange/amber/
-                   rose gradient this whole panel sits on (owner: "neka je nesto u tonu sa
-                   pozadinom"). Deliberately a step darker/more saturated than the amber-500
-                   Proceed button (see ui/button.ts) rather than identical — same warm family,
-                   but still visually distinct from the CTA. Internal label/text colors inside
-                   this panel still assume a light-on-dark scheme (text-white/amber-100) — see
-                   question-input.html/travelers-input.html, recolored the same day. -->
-              <div class="ml-auto w-[92%] rounded-2xl bg-amber-700 p-5 shadow-lg shadow-black/10 ring-1 ring-black/5">
+                   then sky-50, then sky-600 (the exact same blue as the sent-answer bubble) —
+                   the cool blue read as an unrelated color against the warm sunset-photo backdrop
+                   and the orange/amber/rose gradient this panel sits on (owner: "neka je nesto u
+                   tonu sa pozadinom"). Tried stock amber-700/stone-600 next, both still not quite
+                   right ("mnogo drecavo"/too loud, then too gray) — landed on this exact custom
+                   terracotta/clay #c08761, 2026-09-02, matched directly to a swatch the owner
+                   sent. Internal label/text colors inside this panel still assume a light-on-dark
+                   scheme (text-white/stone-200) — see question-input.html/travelers-input.html,
+                   recolored the same day. -->
+              <div class="ml-auto w-[92%] rounded-2xl bg-[#c08761] p-5 shadow-lg shadow-black/10 ring-1 ring-black/5">
 
               @if (showTravelersWidget) {
                 <app-travelers-input
@@ -240,18 +240,18 @@
                       question.label
                     }}</label>
                     @if (hasRealGrouping(question)) {
-                      <p class="mb-3 text-xs text-amber-100">{{ i18n.t('destinationsGroupedIntro') }}</p>
+                      <p class="mb-3 text-xs text-stone-200">{{ i18n.t('destinationsGroupedIntro') }}</p>
+                    }
+                    @if (anyGroupHasBudgetFitData(question)) {
+                      <p class="mb-3 text-xs text-stone-200">{{ i18n.t('priceLegend') }}</p>
                     }
 
                     @for (group of groupedDestinations(question); track group.headerLabel) {
                       <div class="mb-4">
                         @if (group.headerLabel) {
-                          <h4 class="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-100">
+                          <h4 class="mb-1 text-xs font-semibold uppercase tracking-wide text-stone-200">
                             {{ group.headerLabel }}
                           </h4>
-                        }
-                        @if (groupHasBudgetFitData(group)) {
-                          <p class="mb-2 text-xs text-amber-100">{{ i18n.t('priceLegend') }}</p>
                         }
                         <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
                           @for (node of group.nodes; track node.id) {
@@ -416,7 +416,7 @@
                        nothing to link to; the real flight-search link lives on the results
                        screen instead, once we actually know where. -->
                   @if (question.key === 'total_budget') {
-                    <p class="-mt-4 mb-6 text-xs text-amber-100">{{ i18n.t('budgetExcludesFlightNote') }}</p>
+                    <p class="-mt-4 mb-6 text-xs text-stone-200">{{ i18n.t('budgetExcludesFlightNote') }}</p>
                   }
                 }
               }

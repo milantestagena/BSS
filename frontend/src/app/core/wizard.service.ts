@@ -471,12 +471,6 @@ export class WizardService {
     if (question.key === 'relationship_type') {
       return !this.hasChildren() && (this.answers()['adults_count'] as number) === 2;
     }
-    // Redesigned 2026-08-14 (owner's catch) — meal_style is a pure flow gate now: "Local
-    // restaurants" skips this question entirely, "At the accommodation" reveals the full
-    // picker (breakfast/half-board/full-board/all-inclusive/self-catering all live here).
-    if (question.key === 'meal_plan_preference') {
-      return this.answers()['meal_style'] === 'u_smestaju';
-    }
     // needs_crib no longer has a visibility gate here — it's now a per-child array fully
     // owned by <app-travelers-input> (each row shows its own crib toggle only for that child's
     // age ≤2). This used to gate the OLD single blanket checkbox, but since needs_crib is

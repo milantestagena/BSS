@@ -383,6 +383,7 @@ export class WizardComponent implements OnInit {
     await this.loadGeographyForCurrentStep();
     this.prefillRecommendedDates();
     this.prefillDefaultAdultsCount();
+    this.prefillAccommodationTypePreference();
     this.syncDefaultBudget();
   }
 
@@ -743,12 +744,14 @@ export class WizardComponent implements OnInit {
     return !!node.perfectMatch;
   }
 
-  /** True if ANY node within this specific group has a budgetFitPercent — the legend line
-   *  renders per group (owner's ask, 2026-08-12: "ispod opisa" — right under that group's
-   *  header, since a single legend way at the bottom of a long, undifferentiated group read as
-   *  disconnected from the actual cheaper->pricier order the cards are already in). */
-  groupHasBudgetFitData(group: { nodes: TaxonomyNode[] }): boolean {
-    return group.nodes.some((n) => n.budgetFitPercent != null);
+  /** True if ANY card for this question has a budgetFitPercent — the legend line renders ONCE
+   *  near the top of the whole destination list, not per match-tier group (owner's catch,
+   *  2026-09-02: repeating the same line under every group header read as noisy — "ova poruka
+   *  nema potrebe da se ponavlja"). Originally rendered per-group (2026-08-12 ask), moved back
+   *  to a single top-level line the same session once real budgetFitPercent data made every
+   *  group actually carry it, unlike the sparser priceRank days this was first written for. */
+  anyGroupHasBudgetFitData(question: WizardQuestion): boolean {
+    return this.groupedDestinations(question).some((group) => group.nodes.some((n) => n.budgetFitPercent != null));
   }
 
   /** Absolute %-of-budget coloring for a destination card — owner-confirmed thresholds,
@@ -834,6 +837,7 @@ export class WizardComponent implements OnInit {
         await this.loadGeographyForCurrentStep();
         this.prefillRecommendedDates();
         this.prefillDefaultAdultsCount();
+        this.prefillAccommodationTypePreference();
         this.syncDefaultBudget();
         this.scrollToActiveStep();
       }
@@ -1004,6 +1008,28 @@ export class WizardComponent implements OnInit {
     if (this.showTravelersWidget && this.wizard.getAnswer('adults_count') == null) {
       this.wizard.setAnswer('adults_count', 1);
     }
+  }
+
+  /** Owner's ask, 2026-09-02: the first live UI for `tip_smestaja` (Hotel/Apartment/Villa/
+   *  Holiday home/Guest house/Chalet) defaults to every option SELECTED, opt-out rather than
+   *  opt-in — "sto manje koraka manje odustajanja," most travelers don't care about property
+   *  type specifically, so forcing a pick would be pure friction; the minority with a real
+   *  preference just unchecks what they don't want. Same "prefill, never overwrite a real pick"
+   *  rule as prefillRecommendedDates/prefillDefaultAdultsCount — only fires once, before the
+   *  traveler has touched this question at all. Depends on loadGeographyForCurrentStep() having
+   *  already populated geographyOptions for this step (same ordering as the other two prefills). */
+  private prefillAccommodationTypePreference(): void {
+    const step = this.wizard.currentStep();
+    if (!step?.questions.some((q) => q.key === 'accommodation_type_preference')) return;
+    if (this.wizard.getAnswer('accommodation_type_preference') != null) return;
+
+    const options = this.geographyOptions()['accommodation_type_preference'];
+    if (!options?.length) return;
+
+    this.wizard.setAnswer(
+      'accommodation_type_preference',
+      options.map((o) => o.slug)
+    );
   }
 
   /** Trip length in days, best-effort across whichever source is actually available yet: a real

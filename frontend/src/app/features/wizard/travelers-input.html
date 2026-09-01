@@ -10,7 +10,7 @@
     <div class="space-y-2">
       @for (age of childrenAges(); track $index) {
         <div class="flex items-center gap-3">
-          <span class="text-sm text-amber-100">{{ i18n.t('age') }}</span>
+          <span class="text-sm text-stone-200">{{ i18n.t('age') }}</span>
           <ui-number-stepper [value]="age" [min]="0" [max]="17" (valueChange)="onChildAgeStepperChange($index, $event)" />
 
           @if (age <= 2) {
@@ -27,7 +27,7 @@
 
           <button
             type="button"
-            class="ml-auto text-sm text-amber-100 hover:text-red-300"
+            class="ml-auto text-sm text-stone-200 hover:text-red-300"
             (click)="removeChild($index)"
           >
             {{ i18n.t('remove') }}
@@ -38,7 +38,7 @@
 
     <button
       type="button"
-      class="mt-3 text-sm font-medium text-white hover:text-amber-100"
+      class="mt-3 text-sm font-medium text-white hover:text-stone-200"
       (click)="addChild()"
     >
       {{ i18n.t('addChild') }}

@@ -276,6 +276,46 @@ class SearchSessionQueryCompilerTest extends TestCase
         $this->assertStringNotContainsString('price%3DEUR', $unansweredUrl);
     }
 
+    /** Bug fixed 2026-09-02: applyMealStyleFilter checked for slug 'kuva_sam', which no
+     *  meal_style node has ever carried (seedMealStyles seeds 'sam_se_snalazim') — the real
+     *  mealplan=999 (Self catering) filter silently never applied to a single self-catering
+     *  session's Booking link. */
+    public function test_self_catering_meal_style_applies_the_real_mealplan_filter(): void
+    {
+        TaxonomyNode::create([
+            'type' => 'meal_style', 'slug' => 'sam_se_snalazim', 'label' => "I'll organize myself (cook)",
+            'sort_order' => 0, 'meta' => ['booking_meal_plan_id' => 999],
+        ]);
+        $session = SearchSession::create(['status' => 'in_progress', 'free_text_answers' => ['meal_style' => 'sam_se_snalazim']]);
+
+        $params = (new SearchSessionQueryCompiler($session))->toBookingParams();
+
+        $this->assertSame([999], $params['filters']['meal_plan']);
+    }
+
+    /** accommodation_type_preference (2026-09-02, first live UI for `tip_smestaja`) -> real
+     *  Booking accommodation_types (ht_id) filter, merged with (not replacing) the dormant
+     *  FK-based path. */
+    public function test_accommodation_type_preference_maps_to_real_accommodation_types_filter(): void
+    {
+        TaxonomyNode::create([
+            'type' => 'tip_smestaja', 'slug' => 'hotel', 'label' => 'Hotel',
+            'sort_order' => 0, 'meta' => ['booking_accommodation_type_ids' => [204]],
+        ]);
+        TaxonomyNode::create([
+            'type' => 'tip_smestaja', 'slug' => 'vila', 'label' => 'Villa',
+            'sort_order' => 1, 'meta' => ['booking_accommodation_type_ids' => [213]],
+        ]);
+        $session = SearchSession::create([
+            'status' => 'in_progress',
+            'free_text_answers' => ['accommodation_type_preference' => ['hotel', 'vila']],
+        ]);
+
+        $params = (new SearchSessionQueryCompiler($session))->toBookingParams();
+
+        $this->assertEqualsCanonicalizing([204, 213], $params['filters']['accommodation_types']);
+    }
+
     public function test_booking_flights_url_is_null_without_a_destination_or_dates(): void
     {
         $session = SearchSession::create(['status' => 'in_progress']);

@@ -68,8 +68,10 @@ class SearchSessionQueryCompiler
             }
         }
 
-        // FK-based single pick — no wizard question drives this today (tip_smestaja has no UI
-        // of its own, see wizard_architecture), left in place for whatever eventually does.
+        // FK-based single pick — dormant, no wizard question ever wrote to `tip_smestaja_id`
+        // (see wizard_architecture) — left in place in case that ever changes. Merges with (does
+        // not replace) applyAccommodationTypePreferenceFilter() below, same "both can contribute,
+        // deduped" pattern as everywhere else multiple sources feed one Booking filter.
         $tipSmestaja = $this->session->tipSmestaja;
         if ($tipSmestaja && ! empty($tipSmestaja->meta['booking_accommodation_type_ids'])) {
             $params['filters']['accommodation_types'] = $tipSmestaja->meta['booking_accommodation_type_ids'];
@@ -78,6 +80,7 @@ class SearchSessionQueryCompiler
         $this->applyAmenityYesFilters($params);
         $this->applyFamilyFriendlyFilter($params);
         $this->applyMealStyleFilter($params);
+        $this->applyAccommodationTypePreferenceFilter($params);
 
         // meal_plan_preference (the hotel board-tier question) deliberately does NOT map to a
         // Booking `mealplan=` filter — removed 2026-09-02 (owner's call, same session as the
@@ -305,22 +308,57 @@ class SearchSessionQueryCompiler
     }
 
     /**
-     * meal_style=kuva_sam ("I'll cook for myself") -> Booking's real `mealplan=999` (Self
-     * catering) filter. Split off from applyMealPlanPreferenceFilter, 2026-08-13, alongside
-     * meal_style becoming its own mandatory question — the `kuva_sam` taxonomy node itself
-     * carries the real booking_meal_plan_id (999), same value the old `samostalno_kuvanje`
-     * meal_plan-type node used to carry before it was removed.
+     * meal_style=sam_se_snalazim ("I'll organize myself / cook") -> Booking's real
+     * `mealplan=999` (Self catering) filter. Split off from applyMealPlanPreferenceFilter,
+     * 2026-08-13, alongside meal_style becoming its own mandatory question — the
+     * `sam_se_snalazim` taxonomy node itself carries the real booking_meal_plan_id (999), same
+     * value the old `samostalno_kuvanje` meal_plan-type node used to carry before it was removed.
+     *
+     * Bug fixed 2026-09-02: this checked for slug `'kuva_sam'`, which no meal_style node has ever
+     * carried (seedMealStyles seeds `sam_se_snalazim`) — the real ht_id=999 filter silently never
+     * applied to a single self-catering session's Booking link since this method was split out.
      */
     private function applyMealStyleFilter(array &$params): void
     {
-        if (($this->session->free_text_answers['meal_style'] ?? null) !== 'kuva_sam') {
+        if (($this->session->free_text_answers['meal_style'] ?? null) !== 'sam_se_snalazim') {
             return;
         }
 
-        $meta = TaxonomyNode::where('type', 'meal_style')->where('slug', 'kuva_sam')->value('meta');
+        $meta = TaxonomyNode::where('type', 'meal_style')->where('slug', 'sam_se_snalazim')->value('meta');
         $bookingId = $meta['booking_meal_plan_id'] ?? null;
         if ($bookingId) {
             $params['filters']['meal_plan'] = array_values(array_unique([...($params['filters']['meal_plan'] ?? []), $bookingId]));
+        }
+    }
+
+    /**
+     * accommodation_type_preference (2026-09-02, first live UI for the `tip_smestaja` taxonomy
+     * type — see toBookingParams()'s dormant FK comment) -> real Booking `accommodation_types`
+     * (ht_id) filter. Default-all-selected/opt-out at the wizard-question level (see
+     * WizardComponent.prefillAccommodationTypePreference) means an untouched answer already
+     * contains every seeded tip_smestaja slug — sending all of their ht_ids is harmless (only 6
+     * types total exist, nowhere near the URL-length limit that broke an earlier, much larger
+     * attempt — see BookingPriceLinkGenerator's docblock) and behaviorally identical to omitting
+     * the filter (Booking's own "nothing/everything checked = show everything" default). Merges
+     * with (does not replace) the dormant FK-based path above.
+     */
+    private function applyAccommodationTypePreferenceFilter(array &$params): void
+    {
+        $slugs = $this->session->free_text_answers['accommodation_type_preference'] ?? [];
+        if (empty($slugs)) {
+            return;
+        }
+
+        $ids = TaxonomyNode::where('type', 'tip_smestaja')
+            ->whereIn('slug', $slugs)
+            ->pluck('meta')
+            ->flatMap(fn (?array $meta) => $meta['booking_accommodation_type_ids'] ?? [])
+            ->unique()
+            ->values()
+            ->all();
+
+        if (! empty($ids)) {
+            $params['filters']['accommodation_types'] = array_values(array_unique([...($params['filters']['accommodation_types'] ?? []), ...$ids]));
         }
     }
 

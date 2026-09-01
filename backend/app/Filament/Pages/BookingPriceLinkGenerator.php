@@ -432,10 +432,11 @@ class BookingPriceLinkGenerator extends Page implements HasForms
             // real comparison prices. First attempt selected every ht_id except Hostels/Capsule
             // hotels, but that made the URL too long and Booking silently dropped/broke on it
             // (owner caught it live — only the first 5 checkboxes actually landed). Narrowed to
-            // just the types that matter for family/couple leisure stays: Hotels, Apartments,
-            // Villas, Holiday homes, plus the separate "Entire homes & apartments" privacy_type
-            // chip — same 5 the broken URL happened to leave checked.
-            'nflt' => implode(';', ['ht_id=204', 'ht_id=201', 'ht_id=213', 'ht_id=220', 'privacy_type=3']),
+            // just the types that matter for family/couple leisure stays: Hotels, Resorts,
+            // Apartments, Villas, Holiday homes, plus the separate "Entire homes & apartments"
+            // privacy_type chip. Resorts (ht_id=206) added 2026-09-02 — owner's real DOM capture
+            // (`data-filters-item="ht_id:ht_id=206"`, label "Resorts").
+            'nflt' => implode(';', ['ht_id=204', 'ht_id=206', 'ht_id=201', 'ht_id=213', 'ht_id=220', 'privacy_type=3']),
         ];
 
         return 'https://www.booking.com/searchresults.html?'.http_build_query($params);

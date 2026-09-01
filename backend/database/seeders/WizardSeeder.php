@@ -159,32 +159,30 @@ class WizardSeeder extends Seeder
      * group_type/relationship_type.
      */
     /**
-     * Redesigned 2026-08-14 (owner's catch, second pass) — three top-level options now, each
-     * mapping to one of BudgetEstimationEngine's three real spending styles directly:
+     * Two top-level options, each mapping to one of BudgetEstimationEngine's real spending
+     * styles directly:
      * - jede_napolju (Local restaurants) -> pure eating_out budget path.
-     * - u_smestaju (At the accommodation) -> reveals meal_plan_preference's hotel-tier picker
-     *   (breakfast/half-board/full-board/all-inclusive — self-catering pulled back OUT of that
-     *   list, see seedAmenities' $mealPlans, since it's its own top-level option again now).
      * - sam_se_snalazim (I'll organize myself / cook) -> pure self_catering budget path
      *   directly, no follow-up question (nothing to ask — there's no "tier" of self-catering).
      *
-     * Why the earlier "At the accommodation" design (2026-08-14, first pass) bundling self-
-     * catering INTO the hotel-tier list was wrong: owner's own catch — "kaže ješću tamo gde
-     * odsedam... a tamo je i hotelski restoran i opcija kupiću kačkavalj i praviću sendviče" —
-     * both technically happen "at the accommodation," but self-catering isn't a hotel AMENITY
-     * the way a meal-plan tier is, so it read as an odd fit inside that list. Splitting it back
-     * out as its own top-level choice also fixes a real budget-fit bug: the OLD 2-option design
-     * meant an eating_out-only session (jede_napolju) still silently fell back to a self_catering
-     * fit when eating_out didn't fit some country's budget — showing "Fits if you cook for
-     * yourself" to someone who explicitly said they'd eat at restaurants. With 3 clean options,
-     * BudgetEstimationEngine::fitFor() can gate the fallback by the ACTUAL stated style instead
-     * of guessing (see its updated docblock).
+     * 'u_smestaju' (At the accommodation, hotel meal plan) REMOVED entirely, 2026-09-02 (owner's
+     * call, same session as the accommodationNightlyPriceCeiling/mealplan= filter removal) —
+     * once neither the price ceiling nor the Booking search filter could safely use a meal-plan
+     * answer (see SearchSessionQueryCompiler's docblocks on both), offering the choice was
+     * actively misleading: a traveler picks it, answers the meal_plan_preference follow-up, and
+     * none of it does anything useful downstream anymore. Deleted (not just unlisted) below, so
+     * it also stops being offered as a choice on an already-seeded install — see the explicit
+     * delete after this method's loop. meal_plan_preference itself is removed from
+     * seedWizardSteps()/seedWizardCampaigns() for the same reason — its trigger condition
+     * (meal_style === 'u_smestaju') can never fire anymore. The underlying `meal_plan` taxonomy
+     * type (dorucak/dorucak_vecera/pun_pansion/sve_ukljuceno) stays — still referenced directly
+     * by slug elsewhere (BudgetEstimationEngine::MEAL_PLAN_COVERAGE_RATIOS, allInclusiveFits,
+     * TaxonomyNode::offersMealPlan edges), none of which route through this wizard question.
      */
     private function seedMealStyles(): void
     {
         $items = [
             ['slug' => 'jede_napolju', 'en' => 'Local restaurants', 'sr' => 'Lokalni restorani'],
-            ['slug' => 'u_smestaju', 'en' => 'At the accommodation', 'sr' => 'U okviru smeštaja'],
             // Carries the real Booking `mealplan=999` (Self catering) filter ID directly, same
             // as it did on the old separate 'samostalno_kuvanje' meal_plan node.
             ['slug' => 'sam_se_snalazim', 'en' => "I'll organize myself (cook)", 'sr' => 'Sam ću da se snalazim (spremam)', 'meta' => ['booking_meal_plan_id' => 999]],
@@ -193,6 +191,9 @@ class WizardSeeder extends Seeder
         foreach ($items as $i => $item) {
             $this->node('meal_style', $item['slug'], $item['en'], $item['sr'], $i, $item['meta'] ?? []);
         }
+
+        TaxonomyNode::where('type', 'meal_style')->where('slug', 'u_smestaju')->delete();
+        WizardQuestion::where('key', 'meal_plan_preference')->delete();
     }
 
     private function seedTerminCategories(): void
@@ -1754,20 +1755,8 @@ class WizardSeeder extends Seeder
                 ['key' => 'meal_style', 'en' => 'Where do you plan to eat?', 'sr' => 'Gde planiraš da jedeš?', 'input_type' => 'taxonomy_choice', 'taxonomy_type' => 'meal_style', 'session_field' => 'free_text_answers.meal_style', 'mandatory' => true],
                 ['key' => 'termin_category', 'en' => 'When are you planning to travel?', 'sr' => 'Kada planiraš put?', 'input_type' => 'taxonomy_choice', 'taxonomy_type' => 'termin_category', 'session_field' => 'termin_category'],
                 ['key' => 'date_range', 'en' => 'Exact dates (optional)', 'sr' => 'Tačan datum (opciono)', 'input_type' => 'date_range', 'session_field' => 'date_from,date_to'],
-                // Moved here from 'budzet', 2026-09-01 (owner's second thought, same session) —
-                // "how will you eat" reads more naturally as a Timing/logistics detail alongside
-                // meal_style than as a Budget-step line item, even though it's still consumed as
-                // budget input server-side (see BudgetEstimationEngine::fitFor). Owner's call:
-                // "replaces AmenitySuggestionEngine's old budget-ratio meal_plan guess... board
-                // type is an independent personal habit, not something budget/persona predicts,
-                // so just ask directly instead of guessing." Own dedicated field (NOT
-                // amenities_yes, which the Big-YES picker further down the flow also writes to —
-                // see SearchSessionResolver's array_merge docblock: two questions sharing one
-                // free_text_answers key would have the later one silently wipe out the earlier
-                // one's picks, not merge). Optional — no pick just means "no hotel meal plan,"
-                // and only asked at all if meal_style says "at the accommodation" (see
-                // WizardService.isQuestionVisible) — someone self-catering has no use for it.
-                ['key' => 'meal_plan_preference', 'en' => 'Want meals included?', 'sr' => 'Želiš li obroke uključene?', 'input_type' => 'taxonomy_multi_choice', 'taxonomy_type' => 'meal_plan', 'session_field' => 'free_text_answers.meal_plan_preference'],
+                // meal_plan_preference removed entirely, 2026-09-02 — see seedMealStyles'
+                // docblock for why (its trigger, meal_style === 'u_smestaju', no longer exists).
             ]],
             // New step, 2026-09-01 (owner's call) — total_budget moved out of 'broj_putnika' into
             // its own step, placed AFTER 'termin' so the trip length (termin_category/date_range)
@@ -1799,6 +1788,18 @@ class WizardSeeder extends Seeder
                 // Relabeled 2026-08-04 (owner's call) — 'Atmosphere / Vibe' frames these tags
                 // as describing the PLACE's mood, distinct from persona (the TRAVELER's type).
                 ['key' => 'preference_tags', 'en' => 'Atmosphere / Vibe of this trip', 'sr' => 'Atmosfera / vajb putovanja', 'input_type' => 'taxonomy_multi_choice', 'taxonomy_type' => 'preference_tag', 'session_field' => 'free_text_answers.preference_tags', 'allow_free_text' => true],
+                // Owner's ask, 2026-09-02 — the first real UI for `tip_smestaja` (a
+                // taxonomy_type that's existed since 2026-07-11 with no wizard question driving
+                // it, see SearchSessionQueryCompiler's "left in place for whatever eventually
+                // does" comment). Placed right on this SAME step, right after Vibe — "sto manje
+                // koraka manje odustajanja" (fewer steps, less drop-off). Default-all-selected,
+                // opt-OUT rather than opt-in (see WizardComponent.prefillAccommodationTypePreference)
+                // — most travelers don't care about property TYPE specifically, so forcing a pick
+                // would be pure friction for them; the minority with a real preference (e.g.
+                // "never a hotel") just unchecks what they don't want. free_text_answers, not a
+                // single FK like the old dormant `tip_smestaja_id` — a real preference here is
+                // "any of these are fine," not one exclusive pick.
+                ['key' => 'accommodation_type_preference', 'en' => 'Accommodation type', 'sr' => 'Tip smeštaja', 'input_type' => 'taxonomy_multi_choice', 'taxonomy_type' => 'tip_smestaja', 'session_field' => 'free_text_answers.accommodation_type_preference'],
                 ['key' => 'budget_tier', 'en' => 'What is your budget per night?', 'sr' => 'Koji ti je budžet po noćenju?', 'input_type' => 'taxonomy_choice', 'taxonomy_type' => 'budget_tier', 'session_field' => 'budget_tier_id', 'allow_free_text' => true],
             ]],
             ['key' => 'zemlja_regija', 'en' => 'Country / region', 'sr' => 'Zemlja / regija', 'questions' => [
@@ -1913,19 +1914,16 @@ class WizardSeeder extends Seeder
             // campaign's flow is driven by THIS array, not that grouping.
             'adults_count', 'children_ages', 'needs_crib', 'number_of_rooms', 'group_type', 'relationship_type',
             'home_city',
-            // meal_style/date_range/meal_plan_preference grouped here, 2026-09-01 (mirrors the
-            // 'termin' step reorder in seedWizardSteps — termin_category itself absent from this
-            // list, it's preset for this campaign so it's never a rendered question at all).
-            // meal_plan_preference sits right after meal_style/date_range (moved back here from
-            // right after total_budget, same session — owner's second thought: "how will you
-            // eat" reads more naturally as a Timing detail than a Budget-step line item).
-            // total_budget itself still needs a known trip length (from date_range, or the
-            // campaign's own presetTripLengthDays()) to suggest a realistic default, so it must
-            // come AFTER these, not before. Same "this campaign's order is its own pivot, not the
-            // generic wizard_step_id grouping" gotcha noted above: had to be reordered here
-            // explicitly too, or it silently renders in the old, now-wrong order in the live
-            // kasno-letovanje flow.
-            'meal_style', 'date_range', 'meal_plan_preference',
+            // meal_style/date_range grouped here, 2026-09-01 (mirrors the 'termin' step reorder
+            // in seedWizardSteps — termin_category itself absent from this list, it's preset for
+            // this campaign so it's never a rendered question at all). total_budget needs a
+            // known trip length (from date_range, or the campaign's own presetTripLengthDays())
+            // to suggest a realistic default, so it must come AFTER these, not before. Same
+            // "this campaign's order is its own pivot, not the generic wizard_step_id grouping"
+            // gotcha noted above: had to be reordered here explicitly too, or it silently
+            // renders in the old, now-wrong order in the live kasno-letovanje flow.
+            // meal_plan_preference removed entirely, 2026-09-02 — see seedMealStyles' docblock.
+            'meal_style', 'date_range',
             'total_budget',
             'persona', 'persona_group',
             // budget_tier (accommodation price/night) deliberately excluded from this campaign
@@ -1933,7 +1931,9 @@ class WizardSeeder extends Seeder
             // "korak 11 suvisan, vec si me pitao za budzet"). Booking's filters.price simply
             // stays absent for this campaign's sessions — no code change needed, see
             // SearchSessionQueryCompiler's "absent = no error" convention.
-            'preference_tags',
+            // accommodation_type_preference added 2026-09-02, right after preference_tags — same
+            // "this campaign's order is its own pivot" gotcha as everywhere else in this array.
+            'preference_tags', 'accommodation_type_preference',
             // Big YES/NO + wishlist now come BEFORE country/city — owner's call, 2026-08-04:
             // all of "screen 1" (the chat-scroll Q&A) finishes first, THEN a calculating
             // transition, THEN "screen 2" (fancy country/city cards) — see wizard_architecture
@@ -2217,7 +2217,6 @@ class WizardSeeder extends Seeder
             ],
             'meal_style' => [
                 'jede_napolju' => 'Lokale Restaurants',
-                'u_smestaju' => 'In der Unterkunft',
                 'sam_se_snalazim' => 'Ich organisiere mich selbst (Selbstverpflegung)',
             ],
             'cost_category' => [
@@ -2307,6 +2306,7 @@ class WizardSeeder extends Seeder
             'persona' => 'Was für ein Reisetyp bist du?',
             'persona_group' => 'Wofür interessiert sich diese Gruppe?',
             'preference_tags' => 'Atmosphäre / Stimmung dieser Reise',
+            'accommodation_type_preference' => 'Unterkunftstyp',
             'budget_tier' => 'Was ist dein Budget pro Nacht?',
             'region_theme' => 'Welcher Teil der Welt interessiert dich?',
             'country_region' => 'Vorgeschlagenes Land/Region',
@@ -2317,7 +2317,6 @@ class WizardSeeder extends Seeder
             'relationship_type' => 'Nur Freunde, oder etwas mehr?',
             'meal_style' => 'Kochst du selbst, oder isst du auswärts?',
             'total_budget' => 'Wie viel möchtest du für Unterkunft & Verpflegung ausgeben? (€)',
-            'meal_plan_preference' => 'Möchtest du Mahlzeiten inklusive?',
             'smestaj_preference' => 'Etwas Ungewöhnliches auf deiner Wunschliste? (Übliche Dinge wie Pool oder Parkplatz? Trag sie stattdessen oben ein)',
         ];
 
