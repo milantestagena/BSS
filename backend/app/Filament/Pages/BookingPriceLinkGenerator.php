@@ -245,8 +245,12 @@ class BookingPriceLinkGenerator extends Page implements HasForms
      *  ask, 2026-09-01. */
     public function currentWeeklyPricesFor(): array
     {
-        $state = $this->form->getState();
-        if (empty($state['taxonomy_node_id'])) {
+        // $this->data directly, NOT $this->form->getState() — getState() runs full form
+        // validation (including the required Week field), which throws a 500 the instant a city
+        // is picked but no week yet (real bug caught live, 2026-09-01). This is a read-only
+        // display helper, it only needs the raw value.
+        $taxonomyNodeId = $this->data['taxonomy_node_id'] ?? null;
+        if (empty($taxonomyNodeId)) {
             return [];
         }
 
@@ -256,7 +260,7 @@ class BookingPriceLinkGenerator extends Page implements HasForms
         }
 
         $destinationPrice = WizardCampaignDestinationPrice::where('wizard_campaign_id', $campaign->id)
-            ->where('taxonomy_node_id', $state['taxonomy_node_id'])
+            ->where('taxonomy_node_id', $taxonomyNodeId)
             ->first();
 
         // Keyed by the cast Carbon date's own toDateString(), not a raw pluck() — pluck() bypasses
@@ -275,7 +279,7 @@ class BookingPriceLinkGenerator extends Page implements HasForms
 
     public function mount(): void
     {
-        $this->form->fill(['adults' => 1]);
+        $this->form->fill(['adults' => 2]);
     }
 
     public function form(Form $form): Form
@@ -335,7 +339,7 @@ class BookingPriceLinkGenerator extends Page implements HasForms
                     ->label('Group size')
                     ->options([1 => '1 (solo)', 2 => '2', 3 => '3'])
                     ->helperText('4+ books as two separate apartments/rooms, not a single bigger search — no real comparison price to read there.')
-                    ->default(1)
+                    ->default(2)
                     ->required()
                     ->live()
                     ->afterStateUpdated(fn () => $this->generatedUrl = null),
@@ -413,12 +417,15 @@ class BookingPriceLinkGenerator extends Page implements HasForms
             return null;
         }
 
-        $state = $this->form->getState();
-        if (empty($state['taxonomy_node_id'])) {
+        // $this->data directly, not $this->form->getState() — same reason as
+        // currentWeeklyPricesFor(): getState() validates the whole form (including the required
+        // Week field, which this section doesn't use) and throws a 500 before a week is picked.
+        $taxonomyNodeId = $this->data['taxonomy_node_id'] ?? null;
+        if (empty($taxonomyNodeId)) {
             return null;
         }
 
-        return $this->bookingUrlFor($state['taxonomy_node_id'], $weekStartDate, $state['adults'] ?? 1);
+        return $this->bookingUrlFor($taxonomyNodeId, $weekStartDate, $this->data['adults'] ?? 1);
     }
 
     /**
