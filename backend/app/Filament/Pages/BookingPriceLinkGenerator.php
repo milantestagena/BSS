@@ -84,12 +84,15 @@ class BookingPriceLinkGenerator extends Page implements HasForms
      * dropped further, Bodrum rose), and every week between gets linearly interpolated and
      * rounded to the nearest €5 independently — naturally reproduces the real plateau-then-step
      * pattern already seen in Alanya/Bodrum/Albufeira's actual researched data (repeated values
-     * wherever the raw step is under €2.50). Doesn't touch Aug 29 or Oct 31 — both known edge
-     * weeks, and both already covered by WizardCampaignDestinationPrice's own nearest-priced-
-     * neighbor fallback even if left empty. As of 2026-09-01 this is THE workflow (was one of
-     * several) — $startWeek/$endWeek default to the two anchors above and stay that way in
-     * practice, kept as real properties (not hardcoded into the save) only so a future season's
-     * different anchor pair doesn't need a code change.
+     * wherever the raw step is under €2.50). The one real week past End (Oct 31 for the current
+     * anchors) gets extrapolated one more step at the same slope, 2026-09-01 (owner's catch,
+     * Antalya: "nisi iskopirao predzadnju u zadnju") — a flat last step naturally extrapolates
+     * flat, a sloped one continues the trend, no special-casing needed. Doesn't touch Aug 29 —
+     * already past by the time this campaign matters, and covered by
+     * WizardCampaignDestinationPrice's own nearest-priced-neighbor fallback regardless. As of
+     * 2026-09-01 this is THE workflow (was one of several) — $startWeek/$endWeek default to the
+     * two anchors above and stay that way in practice, kept as real properties (not hardcoded
+     * into the save) only so a future season's different anchor pair doesn't need a code change.
      */
     public ?string $startWeek = null;
 
@@ -147,8 +150,10 @@ class BookingPriceLinkGenerator extends Page implements HasForms
         }
 
         $steps = $weeks->count() - 1;
-        $this->interpolatedWeeks = $weeks->map(function ($week, $i) use ($steps) {
-            $raw = $this->startPrice + ($this->endPrice - $this->startPrice) * ($i / $steps);
+        $slope = ($this->endPrice - $this->startPrice) / $steps;
+
+        $this->interpolatedWeeks = $weeks->map(function ($week, $i) use ($slope) {
+            $raw = $this->startPrice + $slope * $i;
 
             return [
                 'week' => $week->toDateString(),
@@ -156,6 +161,22 @@ class BookingPriceLinkGenerator extends Page implements HasForms
                 'price' => round($raw / 5) * 5,
             ];
         })->all();
+
+        // Extrapolate exactly one more week past End, same per-week slope as the interpolation
+        // itself — owner's ask, 2026-09-01: the season's real last week (e.g. Oct 31) is
+        // deliberately never one of the two research anchors (known outlier for Alanya/Bodrum),
+        // so it needs covering too rather than left for the runtime's nearest-neighbor fallback
+        // alone. A flat last step naturally extrapolates flat (slope 0); a sloped one continues
+        // the trend one more step — same rule either way, no special-casing.
+        $afterEnd = $campaign->seasonWeeks()->first(fn ($w) => $w->gt($end));
+        if ($afterEnd) {
+            $raw = $this->endPrice + $slope;
+            $this->interpolatedWeeks[] = [
+                'week' => $afterEnd->toDateString(),
+                'label' => $afterEnd->format('D, M j'),
+                'price' => round($raw / 5) * 5,
+            ];
+        }
     }
 
     /**
