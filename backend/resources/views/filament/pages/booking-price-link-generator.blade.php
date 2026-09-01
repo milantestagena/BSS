@@ -19,6 +19,16 @@
         @endif
     </form>
 
+    @if (! empty($data['taxonomy_node_id'] ?? null))
+        <div class="mt-6 flex flex-wrap gap-3">
+            @foreach ($this->currentWeeklyPricesFor() as $row)
+                <div class="rounded-lg px-3 py-1.5 text-xs {{ $row['price'] !== null ? 'bg-success-50 text-success-700 dark:bg-success-400/10 dark:text-success-400' : 'bg-gray-100 text-gray-400 dark:bg-white/5 dark:text-gray-500' }}">
+                    {{ $row['label'] }}: <strong>{{ $row['price'] !== null ? '€'.number_format($row['price'], 0) : '—' }}</strong>
+                </div>
+            @endforeach
+        </div>
+    @endif
+
     <x-filament::section class="mt-8">
         <x-slot name="heading">Extract prices from pasted page source</x-slot>
         <x-slot name="description">

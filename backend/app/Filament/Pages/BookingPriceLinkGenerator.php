@@ -203,6 +203,61 @@ class BookingPriceLinkGenerator extends Page implements HasForms
             ->all() ?? [];
     }
 
+    /** Non-null weekly-price count per city, for this campaign — one query for the whole
+     *  dropdown, not N+1 per city. */
+    private function filledWeekCountsByCity(?WizardCampaign $campaign): \Illuminate\Support\Collection
+    {
+        if (! $campaign) {
+            return collect();
+        }
+
+        return WizardCampaignDestinationWeeklyPrice::query()
+            ->join(
+                'wizard_campaign_destination_prices',
+                'wizard_campaign_destination_weekly_prices.wizard_campaign_destination_price_id',
+                '=',
+                'wizard_campaign_destination_prices.id',
+            )
+            ->where('wizard_campaign_destination_prices.wizard_campaign_id', $campaign->id)
+            ->whereNotNull('wizard_campaign_destination_weekly_prices.price_per_person_eur')
+            ->selectRaw('wizard_campaign_destination_prices.taxonomy_node_id, count(*) as filled')
+            ->groupBy('wizard_campaign_destination_prices.taxonomy_node_id')
+            ->pluck('filled', 'taxonomy_node_id');
+    }
+
+    /** What's already saved for the city currently picked in the form above — every campaign
+     *  week with its current value (or null for a gap), so the owner can see progress and spot
+     *  gaps without clicking through each week individually. Owner's ask, 2026-09-01. */
+    public function currentWeeklyPricesFor(): array
+    {
+        $state = $this->form->getState();
+        if (empty($state['taxonomy_node_id'])) {
+            return [];
+        }
+
+        $campaign = WizardCampaign::where('key', 'kasno-letovanje')->first();
+        if (! $campaign) {
+            return [];
+        }
+
+        $destinationPrice = WizardCampaignDestinationPrice::where('wizard_campaign_id', $campaign->id)
+            ->where('taxonomy_node_id', $state['taxonomy_node_id'])
+            ->first();
+
+        // Keyed by the cast Carbon date's own toDateString(), not a raw pluck() — pluck() bypasses
+        // the model's date cast and returns whatever the DB driver gives back for the column,
+        // which isn't guaranteed to match Carbon's format exactly.
+        $existing = $destinationPrice
+            ? $destinationPrice->weeklyPrices->keyBy(fn ($w) => $w->week_start_date->toDateString())
+            : collect();
+
+        return $campaign->seasonWeeks()->map(fn ($week) => [
+            'week' => $week->toDateString(),
+            'label' => $week->format('D, M j'),
+            'price' => $existing->get($week->toDateString())?->price_per_person_eur,
+        ])->all();
+    }
+
     public function mount(): void
     {
         $this->form->fill(['adults' => 1]);
@@ -218,9 +273,14 @@ class BookingPriceLinkGenerator extends Page implements HasForms
                     // (have a WizardCampaignDestinationPrice row for it) — was showing all 78
                     // city nodes in the DB, only 59 of which are actually part of
                     // kasno-letovanje. campaign:seed-destination-price-rows is what creates
-                    // these rows, so "has a row" IS "belongs to the campaign" here.
+                    // these rows, so "has a row" IS "belongs to the campaign" here. Labels get a
+                    // "✓ 10/10" / "3/10" progress suffix, 2026-09-01 (owner's ask — track
+                    // progress across 59 cities without a separate screen) — see
+                    // filledWeekCountsByCity().
                     ->options(function () {
                         $campaign = WizardCampaign::where('key', 'kasno-letovanje')->first();
+                        $totalWeeks = $campaign?->seasonWeeks()->count() ?? 0;
+                        $filled = $this->filledWeekCountsByCity($campaign);
 
                         return TaxonomyNode::where('type', 'city')
                             ->when($campaign, fn ($q) => $q->whereHas(
@@ -228,7 +288,13 @@ class BookingPriceLinkGenerator extends Page implements HasForms
                                 fn ($q) => $q->where('wizard_campaign_id', $campaign->id),
                             ))
                             ->orderBy('label')
-                            ->pluck('label', 'id');
+                            ->get()
+                            ->mapWithKeys(function (TaxonomyNode $city) use ($filled, $totalWeeks) {
+                                $count = $filled->get($city->id, 0);
+                                $mark = $count >= $totalWeeks && $totalWeeks > 0 ? '✓ ' : '';
+
+                                return [$city->id => "{$mark}{$city->label} ({$count}/{$totalWeeks})"];
+                            });
                     })
                     ->searchable()
                     ->required()
