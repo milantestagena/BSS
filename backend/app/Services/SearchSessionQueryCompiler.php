@@ -207,12 +207,17 @@ class SearchSessionQueryCompiler
         // method as everything else here — owner found it while testing the price sort. jeftino/
         // kvalitet are mutually exclusive selections (see seedPreferenceTags' excludes relation),
         // so at most one of these ever fires; jeftino checked first only as a stable tie-break
-        // if that relation is ever bypassed (e.g. a session seeded directly in a test).
+        // if that relation is ever bypassed (e.g. a session seeded directly in a test). Neither
+        // picked -> order=review_score_and_price ("Best reviewed and lowest price", owner's real
+        // capture 2026-09-02) instead of leaving order unset — a real default sort beats
+        // whatever arbitrary order Booking falls back to on its own.
         $tags = $this->allPreferenceTagSlugs();
         if ($tags->contains('jeftino')) {
             $params['order'] = 'price';
         } elseif ($tags->contains('kvalitet')) {
             $params['order'] = 'class';
+        } else {
+            $params['order'] = 'review_score_and_price';
         }
 
         $query = [];
