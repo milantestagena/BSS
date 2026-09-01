@@ -51,33 +51,43 @@ import { LocaleService } from '../../core/locale.service';
           DE
         </button>
       </div>
-      @if (auth.currentUser(); as user) {
-        <a
-          routerLink="/account"
-          class="flex items-center gap-2 rounded-full border border-white/50 bg-white/95 py-1.5 pl-1.5 pr-3 text-sm shadow-lg backdrop-blur-sm transition hover:bg-white"
-        >
-          @if (user.avatarUrl) {
-            <img [src]="user.avatarUrl" alt="" class="h-6 w-6 rounded-full" />
-          } @else {
-            <span class="flex h-6 w-6 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-600">
-              {{ user.name.charAt(0) }}
-            </span>
-          }
-          <span class="font-medium text-slate-800">{{ user.wallet?.balance ?? 0 }} {{ i18n.t('credits') }}</span>
-        </a>
-      } @else if (auth.loaded()) {
-        <a
-          [href]="auth.signInUrl"
-          class="rounded-full border border-white/50 bg-white/95 px-3 py-1.5 text-sm font-medium text-slate-800 shadow-lg backdrop-blur-sm transition hover:bg-white"
-        >
-          {{ i18n.t('signInWithGoogle') }}
-        </a>
+      @if (SHOW_ACCOUNT_BADGE) {
+        @if (auth.currentUser(); as user) {
+          <a
+            routerLink="/account"
+            class="flex items-center gap-2 rounded-full border border-white/50 bg-white/95 py-1.5 pl-1.5 pr-3 text-sm shadow-lg backdrop-blur-sm transition hover:bg-white"
+          >
+            @if (user.avatarUrl) {
+              <img [src]="user.avatarUrl" alt="" class="h-6 w-6 rounded-full" />
+            } @else {
+              <span class="flex h-6 w-6 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-600">
+                {{ user.name.charAt(0) }}
+              </span>
+            }
+            <span class="font-medium text-slate-800">{{ user.wallet?.balance ?? 0 }} {{ i18n.t('credits') }}</span>
+          </a>
+        } @else if (auth.loaded()) {
+          <a
+            [href]="auth.signInUrl"
+            class="rounded-full border border-white/50 bg-white/95 px-3 py-1.5 text-sm font-medium text-slate-800 shadow-lg backdrop-blur-sm transition hover:bg-white"
+          >
+            {{ i18n.t('signInWithGoogle') }}
+          </a>
+        }
       }
     </div>
   `,
   imports: [RouterLink],
 })
 export class AccountBadgeComponent {
+  /** Owner's call, 2026-09-01: sign-in/credits chip hidden until "napredna pretraga" (advanced
+   *  search, the actual credit-gated feature) ships — nothing currently gates on login (see this
+   *  class's own docblock), so showing "Sign in" / a credits count promises a feature that isn't
+   *  live yet. EN/DE switch stays visible regardless — unrelated to login. Flip back to true once
+   *  advanced search is ready; the auth/credits machinery underneath is untouched, only display
+   *  is suppressed. */
+  protected readonly SHOW_ACCOUNT_BADGE = false;
+
   constructor(
     public auth: AuthService,
     public i18n: I18nService,
