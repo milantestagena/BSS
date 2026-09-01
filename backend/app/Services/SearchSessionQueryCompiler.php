@@ -126,9 +126,14 @@ class SearchSessionQueryCompiler
      * — computed from total_budget minus an estimated food cost, see
      * accommodationNightlyPriceCeiling()'s docblock — also confirmed the same day
      * ("price=EUR-min-140-1"). `stay_type` chips (e.g. Pets allowed) added 2026-08-24, same real
-     * "Travel group" filter-sidebar export as the amenity IDs. Deliberately does NOT yet forward
-     * accommodation_types — no real `nflt` key confirmed for it, and no wizard question sets it
-     * today anyway.
+     * "Travel group" filter-sidebar export as the amenity IDs. `accommodation_types` (ht_id)
+     * chips added 2026-09-02 — real key confirmed via BookingPriceLinkGenerator's own already-
+     * working research links (same `ht_id={id}` nflt chip) plus a fresh owner DOM capture for
+     * Resorts (`data-filters-item="ht_id:ht_id=206"`). Bug caught live the same day: the new
+     * accommodation_type_preference question (see applyAccommodationTypePreferenceFilter) was
+     * correctly populating `filters['accommodation_types']`, but this method's nflt builder
+     * never read that key at all — a real wizard session's Booking link never actually filtered
+     * by property type despite the traveler's (or the default-all-selected prefill's) picks.
      *
      * Null whenever there isn't yet a chosen destination or resolvable dates — same "absent, not
      * an error" convention as the rest of this compiler.
@@ -175,6 +180,12 @@ class SearchSessionQueryCompiler
         }
         foreach ($filters['stay_types'] ?? [] as $id) {
             $nfltChips[] = "stay_type={$id}";
+        }
+        foreach ($filters['accommodation_types'] ?? [] as $id) {
+            $nfltChips[] = "ht_id={$id}";
+        }
+        foreach ($filters['privacy_types'] ?? [] as $id) {
+            $nfltChips[] = "privacy_type={$id}";
         }
         foreach ($filters['popular_activities'] ?? [] as $id) {
             $nfltChips[] = "popular_activities={$id}";
@@ -334,13 +345,16 @@ class SearchSessionQueryCompiler
     /**
      * accommodation_type_preference (2026-09-02, first live UI for the `tip_smestaja` taxonomy
      * type — see toBookingParams()'s dormant FK comment) -> real Booking `accommodation_types`
-     * (ht_id) filter. Default-all-selected/opt-out at the wizard-question level (see
-     * WizardComponent.prefillAccommodationTypePreference) means an untouched answer already
-     * contains every seeded tip_smestaja slug — sending all of their ht_ids is harmless (only 6
-     * types total exist, nowhere near the URL-length limit that broke an earlier, much larger
-     * attempt — see BookingPriceLinkGenerator's docblock) and behaviorally identical to omitting
-     * the filter (Booking's own "nothing/everything checked = show everything" default). Merges
-     * with (does not replace) the dormant FK-based path above.
+     * (ht_id) filter, PLUS `privacy_types` (Booking's separate `privacy_type=` dimension — only
+     * 'ceo_smestaj'/"Entire homes & apartments" lives there today, added 2026-09-02, real DOM
+     * capture: `data-filters-item="ht_id:privacy_type=3"`). Default-all-selected/opt-out at the
+     * wizard-question level (see WizardComponent.prefillAccommodationTypePreference) means an
+     * untouched answer already contains every seeded tip_smestaja slug — sending all of their
+     * ids is harmless (only 7 types total exist, nowhere near the URL-length limit that broke an
+     * earlier, much larger attempt — see BookingPriceLinkGenerator's docblock) and behaviorally
+     * identical to omitting the filter (Booking's own "nothing/everything checked = show
+     * everything" default). accommodation_types merges with (does not replace) the dormant
+     * FK-based path above.
      */
     private function applyAccommodationTypePreferenceFilter(array &$params): void
     {
@@ -349,16 +363,16 @@ class SearchSessionQueryCompiler
             return;
         }
 
-        $ids = TaxonomyNode::where('type', 'tip_smestaja')
-            ->whereIn('slug', $slugs)
-            ->pluck('meta')
-            ->flatMap(fn (?array $meta) => $meta['booking_accommodation_type_ids'] ?? [])
-            ->unique()
-            ->values()
-            ->all();
+        $metas = TaxonomyNode::where('type', 'tip_smestaja')->whereIn('slug', $slugs)->pluck('meta');
 
-        if (! empty($ids)) {
-            $params['filters']['accommodation_types'] = array_values(array_unique([...($params['filters']['accommodation_types'] ?? []), ...$ids]));
+        $accommodationTypeIds = $metas->flatMap(fn (?array $meta) => $meta['booking_accommodation_type_ids'] ?? [])->unique()->values()->all();
+        if (! empty($accommodationTypeIds)) {
+            $params['filters']['accommodation_types'] = array_values(array_unique([...($params['filters']['accommodation_types'] ?? []), ...$accommodationTypeIds]));
+        }
+
+        $privacyTypeIds = $metas->flatMap(fn (?array $meta) => $meta['booking_privacy_type_ids'] ?? [])->unique()->values()->all();
+        if (! empty($privacyTypeIds)) {
+            $params['filters']['privacy_types'] = array_values(array_unique([...($params['filters']['privacy_types'] ?? []), ...$privacyTypeIds]));
         }
     }
 
@@ -762,26 +776,29 @@ class SearchSessionQueryCompiler
             return [null, null];
         }
 
-        $checkin = $this->nextOccurrenceOf($windowStart);
-        $checkout = $checkin->copy()->addDays($durationDays);
+        // Bug fixed 2026-09-02 (owner's ask, live on the real kasno-letovanje flow): the
+        // recommended date default used to anchor to `window_start` (kasno_kupanje's fixed
+        // "09-19" marker), landing weeks into the future the moment today passed that date —
+        // not a useful "here's a starting point" suggestion. Anchoring to the next upcoming
+        // Saturday instead (checkin today if today IS Saturday) always gives an immediately
+        // actionable default, and lines up with the campaign's own Saturday-aligned pricing
+        // weeks (see WizardCampaign::seasonWeeks()) — checkout one week later, not
+        // `$durationDays` (still used elsewhere, e.g. presetTripLengthDays for the budget
+        // default — this date-picker default is now a separate concern from that trip-length
+        // estimate). `window_start`/`window_end` remain meaningful elsewhere (climate month
+        // filtering, campaign season boundaries) — only the date-DEFAULT anchor changed here.
+        $checkin = $this->nextSaturday();
+        $checkout = $checkin->copy()->addDays(7);
 
         return [$checkin, $checkout];
     }
 
-    /**
-     * The next real calendar date matching a "MM-DD" window marker, never in the past — this
-     * year's occurrence if it hasn't passed yet, otherwise next year's.
-     */
-    private function nextOccurrenceOf(string $monthDay): Carbon
+    /** The next Saturday from today, inclusive — today itself if today already is Saturday. */
+    private function nextSaturday(): Carbon
     {
         $today = Carbon::today();
-        $thisYear = Carbon::createFromFormat('Y-m-d', $today->year.'-'.$monthDay)->startOfDay();
 
-        if ($thisYear->lt($today)) {
-            return $thisYear->addYear();
-        }
-
-        return $thisYear;
+        return $today->copy()->addDays((Carbon::SATURDAY - $today->dayOfWeek + 7) % 7);
     }
 
     /**

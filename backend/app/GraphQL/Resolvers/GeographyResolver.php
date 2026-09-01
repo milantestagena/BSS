@@ -855,12 +855,16 @@ class GeographyResolver
             return [null, null];
         }
 
+        // Bug fixed 2026-09-02, same day/reason as SearchSessionQueryCompiler::resolveDates():
+        // anchoring to `window_start` (a fixed "MM-DD" marker) landed weeks into the future the
+        // moment today passed that date. Next upcoming Saturday instead (today if today IS
+        // Saturday), one week out — matches the campaign's own Saturday-aligned pricing weeks
+        // (see WizardCampaign::seasonWeeks()). $windowStart/$durationDays still gate WHETHER a
+        // recommendation exists at all (only termin_categories with both configured get one) —
+        // only the actual computed dates changed.
         $today = Carbon::today();
-        $checkin = Carbon::createFromFormat('Y-m-d', $today->year.'-'.$windowStart)->startOfDay();
-        if ($checkin->lt($today)) {
-            $checkin->addYear();
-        }
+        $checkin = $today->copy()->addDays((Carbon::SATURDAY - $today->dayOfWeek + 7) % 7);
 
-        return [$checkin, $checkin->copy()->addDays($durationDays)];
+        return [$checkin, $checkin->copy()->addDays(7)];
     }
 }

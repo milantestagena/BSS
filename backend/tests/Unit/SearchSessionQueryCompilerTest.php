@@ -48,7 +48,13 @@ class SearchSessionQueryCompilerTest extends TestCase
         $this->assertSame(2, $params['guests']['number_of_adults']);
     }
 
-    public function test_booking_params_recommend_dates_from_termin_category_window_when_none_given(): void
+    /** Bug fixed 2026-09-02 (owner's ask, caught live on the real kasno-letovanje flow): the
+     *  recommended date default used to anchor to `window_start` (a fixed "MM-DD" marker),
+     *  landing weeks into the future the moment today passed that date — not an immediately
+     *  actionable suggestion. Anchors to the next upcoming Saturday instead (today if today IS
+     *  Saturday), checkout exactly one week later — matches the campaign's own Saturday-aligned
+     *  pricing weeks. July 30, 2026 is a Thursday; the next Saturday is Aug 1. */
+    public function test_booking_params_recommend_dates_from_next_saturday_when_none_given(): void
     {
         Carbon::setTestNow('2026-07-30');
 
@@ -61,8 +67,29 @@ class SearchSessionQueryCompilerTest extends TestCase
 
         $params = (new SearchSessionQueryCompiler($session))->toBookingParams();
 
-        $this->assertSame('2026-09-20', $params['checkin']);
-        $this->assertSame('2026-09-25', $params['checkout']);
+        $this->assertSame('2026-08-01', $params['checkin']);
+        $this->assertSame('2026-08-08', $params['checkout']);
+
+        Carbon::setTestNow();
+    }
+
+    /** Same next-Saturday anchor, the one edge case where today itself already IS a Saturday —
+     *  Aug 1, 2026 is a Saturday, so checkin should be today, not next week. */
+    public function test_booking_params_recommend_dates_use_today_when_today_is_already_saturday(): void
+    {
+        Carbon::setTestNow('2026-08-01');
+
+        TaxonomyNode::create([
+            'type' => 'termin_category', 'slug' => 'kasno_kupanje', 'label' => 'test', 'sort_order' => 0,
+            'meta' => ['window_start' => '09-20', 'default_duration_days' => 5],
+        ]);
+
+        $session = SearchSession::create(['status' => 'in_progress', 'termin_category' => 'kasno_kupanje']);
+
+        $params = (new SearchSessionQueryCompiler($session))->toBookingParams();
+
+        $this->assertSame('2026-08-01', $params['checkin']);
+        $this->assertSame('2026-08-08', $params['checkout']);
 
         Carbon::setTestNow();
     }
@@ -186,6 +213,8 @@ class SearchSessionQueryCompilerTest extends TestCase
         TaxonomyNode::create(['type' => 'stay_type', 'slug' => 'kucni_ljubimci', 'label' => 'Pets allowed', 'sort_order' => 0, 'meta' => ['booking_stay_type_id' => 1]]);
         TaxonomyNode::create(['type' => 'popular_activity', 'slug' => 'plazanje', 'label' => 'Beach', 'sort_order' => 0, 'meta' => ['booking_popular_activity_id' => 302]]);
         TaxonomyNode::create(['type' => 'preference_tag', 'slug' => 'porodicna_atmosfera', 'label' => 'Family-friendly', 'sort_order' => 0]);
+        TaxonomyNode::create(['type' => 'tip_smestaja', 'slug' => 'hotel', 'label' => 'Hotel', 'sort_order' => 0, 'meta' => ['booking_accommodation_type_ids' => [204]]]);
+        TaxonomyNode::create(['type' => 'tip_smestaja', 'slug' => 'resort', 'label' => 'Resort', 'sort_order' => 1, 'meta' => ['booking_accommodation_type_ids' => [206]]]);
 
         $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'melieha2', 'label' => 'Mellieħa', 'sort_order' => 0]);
         $session = SearchSession::create([
@@ -197,6 +226,7 @@ class SearchSessionQueryCompilerTest extends TestCase
             'free_text_answers' => [
                 'amenities_yes' => ['wifi', 'privatno_kupatilo', 'dorucak', 'sve_ukljuceno', 'kucni_ljubimci', 'plazanje'],
                 'preference_tags' => ['jeftino', 'porodicna_atmosfera'],
+                'accommodation_type_preference' => ['hotel', 'resort'],
             ],
         ]);
 
@@ -208,6 +238,11 @@ class SearchSessionQueryCompilerTest extends TestCase
         $this->assertStringContainsString(rawurlencode('mealplan=4'), $url);
         $this->assertStringContainsString(rawurlencode('stay_type=1'), $url);
         $this->assertStringContainsString(rawurlencode('popular_activities=302'), $url);
+        // Bug fixed 2026-09-02: toBookingUrl()'s nflt builder never read filters['accommodation_types']
+        // at all — accommodation_type_preference correctly reached toBookingParams() but never
+        // made it into the real Booking link.
+        $this->assertStringContainsString(rawurlencode('ht_id=204'), $url);
+        $this->assertStringContainsString(rawurlencode('ht_id=206'), $url);
         $this->assertStringContainsString('order=price', $url);
         $this->assertStringContainsString('family_friendly_property=1', $url);
     }
@@ -402,7 +437,9 @@ class SearchSessionQueryCompilerTest extends TestCase
 
     public function test_honest_report_signals_surface_climate_caveat_below_threshold(): void
     {
-        Carbon::setTestNow('2026-07-30');
+        // 2026-09-01 (Tuesday) -> next Saturday Sep 5, still September, matching the seeded
+        // month=9 climate row below (see resolveDates()'s 2026-09-02 next-Saturday-anchor fix).
+        Carbon::setTestNow('2026-09-01');
 
         $termin = TaxonomyNode::create([
             'type' => 'termin_category', 'slug' => 'kasno_kupanje', 'label' => 'test', 'sort_order' => 0,
@@ -425,7 +462,7 @@ class SearchSessionQueryCompilerTest extends TestCase
 
     public function test_honest_report_signals_have_no_caveat_when_above_threshold(): void
     {
-        Carbon::setTestNow('2026-07-30');
+        Carbon::setTestNow('2026-09-01');
 
         $termin = TaxonomyNode::create([
             'type' => 'termin_category', 'slug' => 'kasno_kupanje', 'label' => 'test', 'sort_order' => 0,
@@ -535,11 +572,12 @@ class SearchSessionQueryCompilerTest extends TestCase
         $this->assertSame(0.0, $signals['budget']['estimate']['eating_out_total_eur']);
         $this->assertSame(0.0, $signals['budget']['estimate']['self_catering_total_eur']);
         // accommodation alone: 30 (per-apartment base rate) * 1.0 (2 travelers = one 2-person
-        // unit, see WizardCampaignDestinationPrice::roomMultiplierSumFor) * 5 nights
-        // (window_start 09-20 + 5 duration days — checkin Sep 20, checkout Sep 25, 5 nights
-        // slept, no night charged for checkout day itself; owner's catch 2026-08-12) = 150, well
-        // within the 400 budget once food is correctly zeroed instead of added on top.
-        $this->assertSame(150.0, $signals['budget']['accommodation_total_eur']);
+        // unit, see WizardCampaignDestinationPrice::roomMultiplierSumFor) * 7 nights (the
+        // recommended-date default is always exactly one week — next Saturday to the following
+        // Saturday, see resolveDates()'s 2026-09-02 next-Saturday-anchor fix; termin_category's
+        // own default_duration_days no longer drives this specific default) = 210, well within
+        // the 400 budget once food is correctly zeroed instead of added on top.
+        $this->assertSame(210.0, $signals['budget']['accommodation_total_eur']);
         $this->assertSame('eating_out', $signals['budget']['fit']);
 
         Carbon::setTestNow();
@@ -563,7 +601,7 @@ class SearchSessionQueryCompilerTest extends TestCase
      */
     public function test_country_only_session_still_gets_location_climate_and_budget(): void
     {
-        Carbon::setTestNow('2026-07-30');
+        Carbon::setTestNow('2026-09-01');
 
         $location = Location::create(['booking_dest_id' => 'test_malta', 'dest_type' => 'country', 'name' => 'Malta', 'source' => 'manual_test']);
         $country = TaxonomyNode::create([

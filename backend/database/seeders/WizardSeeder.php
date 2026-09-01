@@ -373,6 +373,17 @@ class WizardSeeder extends Seeder
             ]);
         }
 
+        // "Entire homes & apartments" — owner's ask, 2026-09-02, real DOM capture
+        // (`data-filters-item="ht_id:privacy_type=3"`, 120 properties — real demand, "bas se
+        // trazi"). A DIFFERENT Booking filter dimension than the ht_id property-type chips
+        // above (Booking's `privacy_type=` filter, not `ht_id=`) — own meta key
+        // (`booking_privacy_type_ids`) so applyAccommodationTypePreferenceFilter can route it to
+        // the right nflt chip prefix instead of mixing it into the ht_id bucket.
+        $this->node('tip_smestaja', 'ceo_smestaj', 'Entire homes & apartments', 'Ceo smeštaj (bez deljenja)', count($tipSmestaja), [
+            'booking_privacy_type_ids' => [3],
+            'source' => 'manual_website',
+        ]);
+
         // hotelfacility — property-level amenities (filters.accommodation_facilities).
         $accommodationFacilities = [
             ['slug' => 'bazen', 'en' => 'Swimming pool', 'sr' => 'Bazen', 'id' => 433],

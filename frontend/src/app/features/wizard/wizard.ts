@@ -41,15 +41,19 @@ const AMENITY_YES_KEY = 'amenities_yes';
  *  SMESTAJ_AVOID_KEY just below. */
 const AMENITY_NO_KEY = 'amenities_no';
 
-/** Same 3 types as amenity-picker.ts's own AMENITY_TYPES — duplicated here (not read from
- *  that component) because this class needs them in the SHARED geographyOptions map for
+/** Same types as amenity-picker.ts's own AMENITY_TYPES — duplicated here (not read from that
+ *  component) because this class needs them in the SHARED geographyOptions map for
  *  optionLabel()/stepSummary(), not just inside the picker widget's own local state. Bug
  *  fixed 2026-08-13: amenities_yes/no questions have no `taxonomyType` of their own (they span
- *  3 types), so the generic per-step loader below always skipped them — the collapsed
+ *  multiple types), so the generic per-step loader below always skipped them — the collapsed
  *  chat-bubble summary fell back to raw slugs ("klima" instead of the localized "Air
  *  conditioning"/"Klimaanlage"), which happened to look like real Serbian text so it read as
- *  "stuck in Serbian" even under the EN/DE toggle. */
-const AMENITY_SUMMARY_TAXONOMY_TYPES = ['tip_smestaja', 'accommodation_facility', 'room_facility'];
+ *  "stuck in Serbian" even under the EN/DE toggle. Bug fixed AGAIN 2026-09-02 (owner caught it
+ *  live, "kakvo bre plazanje" — raw slug for the Beach popular_activity tag): this list had
+ *  drifted out of sync with AMENITY_TYPES, missing stay_type/popular_activity entirely (only
+ *  ever manually kept in sync, no shared import) — any pick from either type hit the exact same
+ *  fallback-to-raw-slug bug all over again. */
+const AMENITY_SUMMARY_TAXONOMY_TYPES = ['tip_smestaja', 'accommodation_facility', 'room_facility', 'stay_type', 'popular_activity'];
 
 /** No UI of its own — see onAmenityUnmatchedText. Exists purely so its session_field flows
  *  through persistCurrentStep like every other free_text_answers field. */
@@ -636,15 +640,13 @@ export class WizardComponent implements OnInit {
       parts.push(this.i18n.t('budgetNoteRoomToSpare'));
     }
 
-    // Owner's ask, 2026-08-14 (second refinement): a purely informational cross-check, tacked
-    // on regardless of the primary reason above — "biram restoran... mozemo mu kazemo negde
-    // imas all inclusive za te pare" / "bira kuvanje... proverimo mi all inclusive." Only
-    // relevant when the session's own meal_style wouldn't already have found this (u_smestaju
-    // sessions get their real matched tier from budgetFit above already).
-    const mealStyle = this.wizard.getAnswer('meal_style');
-    if (node.allInclusiveFits && (mealStyle === 'jede_napolju' || mealStyle === 'sam_se_snalazim')) {
-      parts.push(this.i18n.t('budgetNoteAllInclusiveAlsoFits'));
-    }
+    // "All-inclusive also fits" cross-check removed, 2026-09-02 (owner's call, same session as
+    // dropping meal_plan_preference/the mealplan= URL filter) — we have no real all-inclusive
+    // price data to back this claim, only a country-level hospitality-meta ESTIMATE
+    // (BudgetEstimationEngine::allInclusiveFits), the exact kind of guess the day's live
+    // research showed can be wildly wrong for board-plan pricing specifically (2x-12x swings
+    // between destinations). node.allInclusiveFits is still populated server-side but
+    // deliberately unused here now.
 
     return parts.length > 0 ? parts.join(' · ') : null;
   }
