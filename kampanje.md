@@ -41,6 +41,43 @@ Cilj: kad bliže destinacije (Mediteran/Atlantik) počnu da hlade prema novembru
 
 ---
 
+## LateSummerAllInclusive (nova, odvojena kampanja — brza, gradi se na postojećem)
+
+Ideja vlasnika, 2026-09-02, izašla direktno iz istog session-a koji je otkrio zašto se `mealplan=`
+filter morao izbaciti sa Booking linka za `kasno-letovanje`: unutar JEDNE mešovite kampanje
+(budžetski + povremeno all-inclusive smeštaj u istom gradu), ponuda pansiona je previše tanka/
+šarena da bi bilo koja formula pouzdano procenila cenu — realni primeri iz istog dana: Öludeniz
+440€/8 noći bez jela naspram 880€ sa polupansionom (2x), Retimno 200€ bez jela naspram 2500€ sa
+polupansionom (12.5x), sve za ISTI grad/datume. Rešenje NIJE bolja formula — rešenje je posebna
+kampanja gde je all-inclusive NORMA, ne izuzetak, pa taj problem prirodno nestaje.
+
+### Zašto je jeftino graditi (skoro sve već postoji)
+
+- `WizardCampaign.preset_answers` mehanizam (isti kao `termin_category` za kasno-letovanje) —
+  `meal_style` i `meal_plan_preference` (npr. `sve_ukljuceno`) se presetuju, pitanja se nikad ne
+  renderuju
+- Realne all-inclusive cene idu direktno u `WizardCampaignDestinationPrice.includes_meals=true` —
+  ovo POTPUNO zaobilazi `BudgetEstimationEngine`-ov food-estimate mehanizam (vidi `fitFor()`-ov
+  `$mealsIncluded` granu), nema pogađanja, samo prava cena naspram budžeta
+- Cela ostala mašinerija (taxonomy, klima, cultural_availability, GeographyResolver filtriranje,
+  `budgetFitPercent`) radi bez izmena — nov red u istoj arhitekturi, ne redizajn
+
+### Kandidati (5-6 destinacija poznatih po all-inclusive ponudi)
+
+- Tunis, Egipat (očigledni, vlasnikovi prvi predlozi) — gradovi već postoje kao taxonomy node-ovi
+  iz `kasno-letovanje` (Hurghada/Sharm El Sheikh/Marsa Alam već i imaju `includes_meals` napomenu
+  u kodu za Egipat)
+- Turska (predlog, nije još potvrđen vlasnikom) — možda i najpoznatija all-inclusive destinacija
+  od sve tri; Alanya/Antalya i drugi gradovi već postoje, samo bi dobili drugi cenovni red za ovu
+  kampanju (jedan grad može imati cene za VIŠE kampanja istovremeno, `(campaign, destination)` par)
+
+### Status
+
+- Samo ideja, nije počelo — vlasnikov stav 2026-09-02: "onda nas ceka ozbiljniji posao", zapisano
+  za sledeću sesiju, ne za usred trenutnog šminkanja
+
+---
+
 ## Jesenjovanje (nova, odvojena kampanja — city-break)
 
 Ideja vlasnika, 2026-08-19 (naziv = jesen + letovanje, isti duh kao "kasno-letovanje"). Odvojeno od Zimskog sunca — ovo je `trip_type=city_break`, ne produžetak swim kampanje.

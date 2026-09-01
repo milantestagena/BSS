@@ -77,8 +77,22 @@ class SearchSessionQueryCompiler
 
         $this->applyAmenityYesFilters($params);
         $this->applyFamilyFriendlyFilter($params);
-        $this->applyMealPlanPreferenceFilter($params);
         $this->applyMealStyleFilter($params);
+
+        // meal_plan_preference (the hotel board-tier question) deliberately does NOT map to a
+        // Booking `mealplan=` filter — removed 2026-09-02 (owner's call, same session as the
+        // accommodationNightlyPriceCeiling fix above). Real live research showed board-plan
+        // inventory is too thin/inconsistent per destination for a mealplan= filter to be safe:
+        // within the SAME town, breakfast-only jumped from ~equal-to-no-meal price straight to a
+        // lone, wildly expensive outlier listing once dinner was added (owner's examples:
+        // Rethymno 200€/no-meal -> 220€/breakfast -> 2500€/half-board, all for the same 8
+        // nights) — narrowing the search to mealplan= risked surfacing that one skewed property,
+        // or nothing at all, instead of the traveler's real best options. The price ceiling
+        // already reflects the full stated budget with no board-plan deduction (see
+        // accommodationNightlyPriceCeiling); matched_tags/Honest Report still communicate what
+        // was asked for. A future campaign scoped to genuinely all-inclusive-heavy destinations
+        // (see kampanje.md) is the right place to reintroduce a real mealplan filter, backed by
+        // real captured includes_meals prices instead of an estimate.
 
         return $params;
     }
@@ -307,34 +321,6 @@ class SearchSessionQueryCompiler
         $bookingId = $meta['booking_meal_plan_id'] ?? null;
         if ($bookingId) {
             $params['filters']['meal_plan'] = array_values(array_unique([...($params['filters']['meal_plan'] ?? []), $bookingId]));
-        }
-    }
-
-    /**
-     * The direct meal_plan_preference question (WizardSeeder's broj_putnika step, 2026-08-13,
-     * replacing AmenitySuggestionEngine's old budget-ratio guess) -> real Booking mealplan
-     * filter. Deliberately a SEPARATE field from amenities_yes (not routed through
-     * applyAmenityYesFilters) — two questions writing to the same free_text_answers key would
-     * have whichever step persists last silently overwrite the other's picks, see
-     * SearchSessionResolver's array_merge docblock.
-     */
-    private function applyMealPlanPreferenceFilter(array &$params): void
-    {
-        $slugs = $this->session->free_text_answers['meal_plan_preference'] ?? [];
-        if (empty($slugs)) {
-            return;
-        }
-
-        $ids = TaxonomyNode::where('type', 'meal_plan')
-            ->whereIn('slug', $slugs)
-            ->pluck('meta')
-            ->map(fn (?array $meta) => $meta['booking_meal_plan_id'] ?? null)
-            ->filter()
-            ->values()
-            ->all();
-
-        if (! empty($ids)) {
-            $params['filters']['meal_plan'] = array_values(array_unique([...($params['filters']['meal_plan'] ?? []), ...$ids]));
         }
     }
 
@@ -583,12 +569,21 @@ class SearchSessionQueryCompiler
      * values elsewhere in this class):
      *  - 'jede_napolju' (restaurants): subtract the full eating-out estimate.
      *  - 'sam_se_snalazim' (self-catering): subtract the full self-catering estimate.
-     *  - 'u_smestaju' (hotel meal plan): subtract only the OUT-OF-POCKET slice for whichever
-     *    meals aren't covered by the plan (BudgetEstimationEngine::outOfPocketMealTotal) — the
-     *    covered portion is already priced into whatever room rate Booking shows for a
-     *    mealplan=-filtered property, not something to double-subtract here. Multiple picks use
-     *    the MOST inclusive one (smallest leftover) — same "best case they're open to" spirit as
-     *    fitFor()'s own ranking.
+     *  - 'u_smestaju' (hotel meal plan): subtracts NOTHING — the full total_budget becomes the
+     *    ceiling. Bug fixed 2026-09-02: this used to subtract only the out-of-pocket leftover
+     *    (BudgetEstimationEngine::outOfPocketMealTotal), on the assumption that the covered
+     *    portion is "already priced into" whatever room rate Booking shows — true in principle,
+     *    but the real board-supplement premium a meal-plan room actually charges over an
+     *    equivalent no-meal room varies wildly by destination (owner's live research, same day:
+     *    Öludeniz ~2x for half-board, another town ~2.5x, Rethymno ~12x on its cheapest available
+     *    half-board listing) — no single markup factor comes close to fitting all of them, and
+     *    UNDER-shooting the ceiling silently excludes the very meal-plan rooms Booking's own
+     *    `mealplan=` filter is supposed to surface (blank/near-blank results, same failure mode
+     *    as the earlier Alanya nights-vs-days ceiling bug). Trusting the full stated budget as
+     *    the ceiling, combined with Booking's own mealplan filter already narrowing to matching
+     *    properties, is the honest option: if the traveler's budget genuinely can't cover a
+     *    real meal-plan room here, that surfaces as few/no results rather than a falsely
+     *    confident (and wrong) price cutoff.
      *  - anything else (not yet answered): null, no price filter added at all — same "absent,
      *    not a guess" convention as everything else in this class.
      *
@@ -637,9 +632,11 @@ class SearchSessionQueryCompiler
         $foodTotal = match (true) {
             $mealStyle === 'jede_napolju' => $estimate['eating_out_total_eur'],
             $mealStyle === 'sam_se_snalazim' => $estimate['self_catering_total_eur'],
-            $mealStyle === 'u_smestaju' && ! empty($mealPlanSlugs) => collect($mealPlanSlugs)
-                ->map(fn (string $slug) => $engine->outOfPocketMealTotal($country, $slug, $estimate['eating_out_total_eur']))
-                ->min(),
+            // 0.0, not outOfPocketMealTotal() — see this method's docblock, 2026-09-02: the real
+            // board-supplement premium a meal-plan room charges varies too wildly by destination
+            // (2x-12x, owner's live research) for any subtracted estimate to avoid silently
+            // under-shooting the ceiling and excluding real meal-plan rooms from the search.
+            $mealStyle === 'u_smestaju' && ! empty($mealPlanSlugs) => 0.0,
             default => null,
         };
 

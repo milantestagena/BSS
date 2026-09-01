@@ -250,13 +250,25 @@ class SearchSessionQueryCompilerTest extends TestCase
         $selfCateringUrl = (new SearchSessionQueryCompiler($selfCateringSession))->toBookingUrl();
         $this->assertStringContainsString(rawurlencode('price=EUR-min-157-1'), $selfCateringUrl);
 
-        // u_smestaju + sve_ukljuceno: fully covered, 0 out-of-pocket. 1000 / 6 nights = 166.67 -> floor 166.
+        // u_smestaju (any hotel meal plan): subtracts NOTHING, 2026-09-02 fix — the full
+        // total_budget becomes the ceiling regardless of which plan is picked. 1000 / 6 nights =
+        // 166.67 -> floor 166, same for sve_ukljuceno (all-inclusive) and dorucak_vecera
+        // (breakfast+dinner) alike — real board-supplement premiums vary too wildly by
+        // destination (owner's live research, 2026-09-02: 2x-12x) for a subtracted estimate to
+        // avoid silently under-shooting the ceiling and excluding real meal-plan rooms.
         $allInclusiveSession = SearchSession::create([
             ...$baseSession,
             'free_text_answers' => ['meal_style' => 'u_smestaju', 'meal_plan_preference' => ['sve_ukljuceno']],
         ]);
         $allInclusiveUrl = (new SearchSessionQueryCompiler($allInclusiveSession))->toBookingUrl();
         $this->assertStringContainsString(rawurlencode('price=EUR-min-166-1'), $allInclusiveUrl);
+
+        $halfBoardSession = SearchSession::create([
+            ...$baseSession,
+            'free_text_answers' => ['meal_style' => 'u_smestaju', 'meal_plan_preference' => ['dorucak_vecera']],
+        ]);
+        $halfBoardUrl = (new SearchSessionQueryCompiler($halfBoardSession))->toBookingUrl();
+        $this->assertStringContainsString(rawurlencode('price=EUR-min-166-1'), $halfBoardUrl);
 
         // No meal_style answered yet: no price filter at all, not a guess.
         $unansweredSession = SearchSession::create([...$baseSession, 'free_text_answers' => []]);

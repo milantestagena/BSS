@@ -1031,9 +1031,12 @@ export class WizardComponent implements OnInit {
    *  of the old flat per-head meta rate, which ignored trip length entirely and double-counted
    *  accommodation for solo travelers (a single person pays the same apartment price as a
    *  couple, so their per-person burden is higher, not lower — hence the 1.6x solo multiplier
-   *  below rather than a flat 1x). €125/adult/day, €75/child/day, × trip length, rounded UP to
-   *  the nearest €50 (same "never let the default undersell reality" principle as the post-
-   *  Rhodes screenshot-margin convention — see kampanje.md/CLAUDE.md §8). Replaces the old
+   *  below rather than a flat 1x). €100/adult/day (owner's downward revision, 2026-09-01, same
+   *  day as the original €125 pick — the €129 all-in Stiftung figure likely already bundles
+   *  travel/flight costs this app's accommodation+food-only budget shouldn't inherit, and the
+   *  live default read as too generous), €75/child/day, × trip length, rounded UP to the nearest
+   *  €50 (same "never let the default undersell reality" principle as the post-Rhodes
+   *  screenshot-margin convention — see kampanje.md/CLAUDE.md §8). Replaces the old
    *  WizardCampaign.meta.default_budget_per_adult_eur/default_budget_per_child_eur mechanism
    *  entirely — the formula is now global, not per-campaign-configurable. Stops touching the
    *  field entirely once budgetManuallyEdited is set (the user typed a value or used the +/-
@@ -1052,7 +1055,7 @@ export class WizardComponent implements OnInit {
     const days = this.tripLengthDays();
     if (days == null) return;
 
-    let daily = adults * 125 + children * 75;
+    let daily = adults * 100 + children * 75;
     if (adults === 1 && children === 0) daily *= 1.6;
 
     this.wizard.setAnswer('total_budget', Math.ceil((daily * days) / 50) * 50);

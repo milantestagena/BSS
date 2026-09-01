@@ -1754,13 +1754,28 @@ class WizardSeeder extends Seeder
                 ['key' => 'meal_style', 'en' => 'Where do you plan to eat?', 'sr' => 'Gde planiraš da jedeš?', 'input_type' => 'taxonomy_choice', 'taxonomy_type' => 'meal_style', 'session_field' => 'free_text_answers.meal_style', 'mandatory' => true],
                 ['key' => 'termin_category', 'en' => 'When are you planning to travel?', 'sr' => 'Kada planiraš put?', 'input_type' => 'taxonomy_choice', 'taxonomy_type' => 'termin_category', 'session_field' => 'termin_category'],
                 ['key' => 'date_range', 'en' => 'Exact dates (optional)', 'sr' => 'Tačan datum (opciono)', 'input_type' => 'date_range', 'session_field' => 'date_from,date_to'],
+                // Moved here from 'budzet', 2026-09-01 (owner's second thought, same session) —
+                // "how will you eat" reads more naturally as a Timing/logistics detail alongside
+                // meal_style than as a Budget-step line item, even though it's still consumed as
+                // budget input server-side (see BudgetEstimationEngine::fitFor). Owner's call:
+                // "replaces AmenitySuggestionEngine's old budget-ratio meal_plan guess... board
+                // type is an independent personal habit, not something budget/persona predicts,
+                // so just ask directly instead of guessing." Own dedicated field (NOT
+                // amenities_yes, which the Big-YES picker further down the flow also writes to —
+                // see SearchSessionResolver's array_merge docblock: two questions sharing one
+                // free_text_answers key would have the later one silently wipe out the earlier
+                // one's picks, not merge). Optional — no pick just means "no hotel meal plan,"
+                // and only asked at all if meal_style says "at the accommodation" (see
+                // WizardService.isQuestionVisible) — someone self-catering has no use for it.
+                ['key' => 'meal_plan_preference', 'en' => 'Want meals included?', 'sr' => 'Želiš li obroke uključene?', 'input_type' => 'taxonomy_multi_choice', 'taxonomy_type' => 'meal_plan', 'session_field' => 'free_text_answers.meal_plan_preference'],
             ]],
-            // New step, 2026-09-01 (owner's call) — total_budget/meal_plan_preference moved out
-            // of 'broj_putnika' into their own step, placed AFTER 'termin' so the trip length
-            // (termin_category/date_range) is already known by the time the budget default is
-            // computed — see WizardComponent.syncDefaultBudget()/tripLengthDays(). Previously
-            // total_budget was asked before the season was even picked, making a realistic
-            // default impossible.
+            // New step, 2026-09-01 (owner's call) — total_budget moved out of 'broj_putnika' into
+            // its own step, placed AFTER 'termin' so the trip length (termin_category/date_range)
+            // is already known by the time the budget default is computed — see
+            // WizardComponent.syncDefaultBudget()/tripLengthDays(). Previously total_budget was
+            // asked before the season was even picked, making a realistic default impossible.
+            // meal_plan_preference itself moved BACK to 'termin' the same day (see above) — a
+            // one-question step of just total_budget.
             ['key' => 'budzet', 'en' => 'Budget', 'sr' => 'Budžet', 'questions' => [
                 // Total trip spending budget (2026-07-30) — see BudgetEstimationEngine /
                 // GeographyResolver filterByBudget. Mandatory (2026-08-06, owner's call: "ako
@@ -1768,19 +1783,6 @@ class WizardSeeder extends Seeder
                 // use of the generic `mandatory` flag (see its migration's docblock);
                 // WizardComponent.canProceed() blocks Proceed on this step until it's answered.
                 ['key' => 'total_budget', 'en' => 'How much do you plan to spend on accommodation & food? (€)', 'sr' => 'Koliko planirate da potrošite na smeštaj i hranu? (€)', 'input_type' => 'number', 'session_field' => 'total_budget', 'mandatory' => true],
-                // Owner's call, 2026-08-13: replaces AmenitySuggestionEngine's old budget-ratio
-                // meal_plan guess ("all inclusive i pun pansion ne moze da se sa sigurnoscu
-                // izvuce iz ostalih izbora... sta god da stavimo - moze da bude ili cu sam da
-                // placam kafanama il necu da se cimam da idem do kafane") — board type is an
-                // independent personal habit, not something budget/persona predicts, so just
-                // ask directly instead of guessing. Own dedicated field (NOT amenities_yes,
-                // which the Big-YES picker further down the flow also writes to — see
-                // SearchSessionResolver's array_merge docblock: two questions sharing one
-                // free_text_answers key would have the later one silently wipe out the
-                // earlier one's picks, not merge). Optional — no pick just means "no hotel meal
-                // plan," and only asked at all if meal_style says "eating out" (see
-                // WizardService.isQuestionVisible) — someone self-catering has no use for it.
-                ['key' => 'meal_plan_preference', 'en' => 'Want meals included?', 'sr' => 'Želiš li obroke uključene?', 'input_type' => 'taxonomy_multi_choice', 'taxonomy_type' => 'meal_plan', 'session_field' => 'free_text_answers.meal_plan_preference'],
             ]],
             // Two questions, mutually exclusive visibility by group size (see
             // wizard.service.ts isQuestionVisible) — 2026-07-30, owner's group-size taxonomy:
@@ -1911,16 +1913,20 @@ class WizardSeeder extends Seeder
             // campaign's flow is driven by THIS array, not that grouping.
             'adults_count', 'children_ages', 'needs_crib', 'number_of_rooms', 'group_type', 'relationship_type',
             'home_city',
-            // meal_style/date_range grouped here, 2026-09-01 (mirrors the 'termin' step reorder
-            // in seedWizardSteps — termin_category itself absent from this list, it's preset for
-            // this campaign so it's never a rendered question at all) — total_budget now needs
-            // a known trip length (from date_range, or the campaign's own presetTripLengthDays())
-            // to suggest a realistic default, so it must come AFTER these, not before. Same
-            // "this campaign's order is its own pivot, not the generic wizard_step_id grouping"
-            // gotcha noted above: had to be reordered here explicitly too, or it silently
-            // renders in the old, now-wrong order in the live kasno-letovanje flow.
-            'meal_style', 'date_range',
-            'total_budget', 'meal_plan_preference',
+            // meal_style/date_range/meal_plan_preference grouped here, 2026-09-01 (mirrors the
+            // 'termin' step reorder in seedWizardSteps — termin_category itself absent from this
+            // list, it's preset for this campaign so it's never a rendered question at all).
+            // meal_plan_preference sits right after meal_style/date_range (moved back here from
+            // right after total_budget, same session — owner's second thought: "how will you
+            // eat" reads more naturally as a Timing detail than a Budget-step line item).
+            // total_budget itself still needs a known trip length (from date_range, or the
+            // campaign's own presetTripLengthDays()) to suggest a realistic default, so it must
+            // come AFTER these, not before. Same "this campaign's order is its own pivot, not the
+            // generic wizard_step_id grouping" gotcha noted above: had to be reordered here
+            // explicitly too, or it silently renders in the old, now-wrong order in the live
+            // kasno-letovanje flow.
+            'meal_style', 'date_range', 'meal_plan_preference',
+            'total_budget',
             'persona', 'persona_group',
             // budget_tier (accommodation price/night) deliberately excluded from this campaign
             // — redundant with total_budget, already asked above (owner's call, 2026-07-30:
