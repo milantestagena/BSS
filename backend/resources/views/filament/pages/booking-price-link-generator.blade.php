@@ -119,7 +119,7 @@
             </div>
             <div>
                 <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Start €/person/night</label>
-                <input type="number" step="0.01" wire:model.live="startPrice" class="fi-input mt-1 block w-32 rounded-lg border-none bg-white text-sm text-gray-950 shadow-sm ring-1 ring-gray-950/10 focus:ring-2 focus:ring-primary-600 dark:bg-white/5 dark:text-white dark:ring-white/20 dark:focus:ring-primary-500" />
+                <input type="number" step="0.01" wire:model.blur="startPrice" class="fi-input mt-1 block w-32 rounded-lg border-none bg-white text-sm text-gray-950 shadow-sm ring-1 ring-gray-950/10 focus:ring-2 focus:ring-primary-600 dark:bg-white/5 dark:text-white dark:ring-white/20 dark:focus:ring-primary-500" />
             </div>
             <div>
                 <label class="text-sm font-medium text-gray-700 dark:text-gray-300">End week</label>
@@ -132,7 +132,7 @@
             </div>
             <div>
                 <label class="text-sm font-medium text-gray-700 dark:text-gray-300">End €/person/night</label>
-                <input type="number" step="0.01" wire:model.live="endPrice" class="fi-input mt-1 block w-32 rounded-lg border-none bg-white text-sm text-gray-950 shadow-sm ring-1 ring-gray-950/10 focus:ring-2 focus:ring-primary-600 dark:bg-white/5 dark:text-white dark:ring-white/20 dark:focus:ring-primary-500" />
+                <input type="number" step="0.01" wire:model.blur="endPrice" class="fi-input mt-1 block w-32 rounded-lg border-none bg-white text-sm text-gray-950 shadow-sm ring-1 ring-gray-950/10 focus:ring-2 focus:ring-primary-600 dark:bg-white/5 dark:text-white dark:ring-white/20 dark:focus:ring-primary-500" />
             </div>
         </div>
 
