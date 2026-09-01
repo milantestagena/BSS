@@ -1739,23 +1739,34 @@ class WizardSeeder extends Seeder
                 // adults, 0 children — now evaluated live within the SAME step as adults_count,
                 // which is fine since it's all reactive client-side signals pre-submission.
                 ['key' => 'relationship_type', 'en' => 'Just friends, or something more?', 'sr' => 'Par ili drugari?', 'input_type' => 'taxonomy_choice', 'taxonomy_type' => 'relationship_type', 'session_field' => 'free_text_answers.relationship_type'],
-                // Owner's call, 2026-08-13: split out from meal_plan_preference so a mandatory
-                // question forces a real answer up front ("vecina korisnika su idioti", won't
-                // naturally think to look for "self catering" under a question titled "want
-                // meals included?"). Redesigned 2026-08-14 (owner's catch) — a pure flow gate
-                // now: "Local restaurants" skips meal_plan_preference entirely, "At the
-                // accommodation" reveals its full picker (breakfast/half-board/full-board/
-                // all-inclusive/self-catering all live there, see seedAmenities' $mealPlans).
+            ]],
+            ['key' => 'odakle_putujes', 'en' => 'Where you\'re traveling from', 'sr' => 'Odakle putuješ', 'questions' => [
+                ['key' => 'home_city', 'en' => 'Which city are you traveling from?', 'sr' => 'Iz kog grada putuješ?', 'input_type' => 'taxonomy_choice', 'taxonomy_type' => 'city', 'session_field' => 'home_city_id', 'allow_free_text' => true],
+            ]],
+            ['key' => 'termin', 'en' => 'Timing', 'sr' => 'Termin', 'questions' => [
+                // Moved here from 'broj_putnika', 2026-09-01 (owner's call) — total_budget (now
+                // on the new 'budzet' step right after this one) needs a known trip length to
+                // suggest a realistic default, so termin_category/date_range must be answered
+                // BEFORE budget, not after. meal_style itself has no date dependency, it just
+                // rides along since it was already grouped with the other "warm-up" questions.
                 // Own taxonomy_type (no real Booking filter behind THIS question — it's pure
                 // wizard-side flow logic, same category as group_type/relationship_type).
                 ['key' => 'meal_style', 'en' => 'Where do you plan to eat?', 'sr' => 'Gde planiraš da jedeš?', 'input_type' => 'taxonomy_choice', 'taxonomy_type' => 'meal_style', 'session_field' => 'free_text_answers.meal_style', 'mandatory' => true],
-                // Total trip spending budget (2026-07-30) — deliberately in the same "warm-up"
-                // group as the other always-asked questions, not tied to any destination. See
-                // BudgetEstimationEngine / GeographyResolver filterByBudget.
-                // Mandatory (2026-08-06, owner's call: "ako nam nista ne kaze, ne mozemo nista
-                // da mu vratimo ko data, a da valja") — first use of the generic `mandatory`
-                // flag (see its migration's docblock); WizardComponent.canProceed() blocks
-                // Proceed/the rooms-together Yes-No on this step until it's answered.
+                ['key' => 'termin_category', 'en' => 'When are you planning to travel?', 'sr' => 'Kada planiraš put?', 'input_type' => 'taxonomy_choice', 'taxonomy_type' => 'termin_category', 'session_field' => 'termin_category'],
+                ['key' => 'date_range', 'en' => 'Exact dates (optional)', 'sr' => 'Tačan datum (opciono)', 'input_type' => 'date_range', 'session_field' => 'date_from,date_to'],
+            ]],
+            // New step, 2026-09-01 (owner's call) — total_budget/meal_plan_preference moved out
+            // of 'broj_putnika' into their own step, placed AFTER 'termin' so the trip length
+            // (termin_category/date_range) is already known by the time the budget default is
+            // computed — see WizardComponent.syncDefaultBudget()/tripLengthDays(). Previously
+            // total_budget was asked before the season was even picked, making a realistic
+            // default impossible.
+            ['key' => 'budzet', 'en' => 'Budget', 'sr' => 'Budžet', 'questions' => [
+                // Total trip spending budget (2026-07-30) — see BudgetEstimationEngine /
+                // GeographyResolver filterByBudget. Mandatory (2026-08-06, owner's call: "ako
+                // nam nista ne kaze, ne mozemo nista da mu vratimo ko data, a da valja") — first
+                // use of the generic `mandatory` flag (see its migration's docblock);
+                // WizardComponent.canProceed() blocks Proceed on this step until it's answered.
                 ['key' => 'total_budget', 'en' => 'How much do you plan to spend on accommodation & food? (€)', 'sr' => 'Koliko planirate da potrošite na smeštaj i hranu? (€)', 'input_type' => 'number', 'session_field' => 'total_budget', 'mandatory' => true],
                 // Owner's call, 2026-08-13: replaces AmenitySuggestionEngine's old budget-ratio
                 // meal_plan guess ("all inclusive i pun pansion ne moze da se sa sigurnoscu
@@ -1770,13 +1781,6 @@ class WizardSeeder extends Seeder
                 // plan," and only asked at all if meal_style says "eating out" (see
                 // WizardService.isQuestionVisible) — someone self-catering has no use for it.
                 ['key' => 'meal_plan_preference', 'en' => 'Want meals included?', 'sr' => 'Želiš li obroke uključene?', 'input_type' => 'taxonomy_multi_choice', 'taxonomy_type' => 'meal_plan', 'session_field' => 'free_text_answers.meal_plan_preference'],
-            ]],
-            ['key' => 'odakle_putujes', 'en' => 'Where you\'re traveling from', 'sr' => 'Odakle putuješ', 'questions' => [
-                ['key' => 'home_city', 'en' => 'Which city are you traveling from?', 'sr' => 'Iz kog grada putuješ?', 'input_type' => 'taxonomy_choice', 'taxonomy_type' => 'city', 'session_field' => 'home_city_id', 'allow_free_text' => true],
-            ]],
-            ['key' => 'termin', 'en' => 'Timing', 'sr' => 'Termin', 'questions' => [
-                ['key' => 'termin_category', 'en' => 'When are you planning to travel?', 'sr' => 'Kada planiraš put?', 'input_type' => 'taxonomy_choice', 'taxonomy_type' => 'termin_category', 'session_field' => 'termin_category'],
-                ['key' => 'date_range', 'en' => 'Exact dates (optional)', 'sr' => 'Tačan datum (opciono)', 'input_type' => 'date_range', 'session_field' => 'date_from,date_to'],
             ]],
             // Two questions, mutually exclusive visibility by group size (see
             // wizard.service.ts isQuestionVisible) — 2026-07-30, owner's group-size taxonomy:
@@ -1893,22 +1897,6 @@ class WizardSeeder extends Seeder
                 // 2026-08-29 (the real Saturday) instead.
                 'season_start_date' => '2026-08-29',
                 'season_end_date' => '2026-11-01',
-                // Owner's ask, 2026-08-13: default the budget field instead of forcing everyone
-                // to type — "ljudi ne vole da kucaju... vise da tipkaju". Per-campaign so a
-                // future campaign (different season, different typical spend) isn't stuck with
-                // these same numbers.
-                //
-                // Adult raised 400 -> 500, 2026-08-19 (owner's reasoning): a solo adult is going
-                // out to enjoy themselves, that number stands as-is; with a child along the
-                // parent typically spends LESS on themselves and MORE on the kid, so the flat
-                // 2*500 + 2*300 math for a family of 4 doesn't need per-composition juggling on
-                // top of it — "bilo bi bezveze da zongliramo podatke". This is a comfortable-
-                // AVERAGE default, not a bare-minimum one ("ovo jeste za prosek, ne za
-                // sirotinju") — DACH (this campaign's actual audience) has a higher cost-of-
-                // living baseline than our own, and even a modest DACH trip needs numbers in
-                // this range as a floor, not a ceiling. Always just a starting point anyway — the
-                // user can freely dial it down via the +/- stepper if it reads as too generous.
-                'meta' => ['default_budget_per_adult_eur' => 500, 'default_budget_per_child_eur' => 300],
             ],
         );
 
@@ -1922,12 +1910,17 @@ class WizardSeeder extends Seeder
             // orphaned second "Number of travelers" bubble here, out of order, since this
             // campaign's flow is driven by THIS array, not that grouping.
             'adults_count', 'children_ages', 'needs_crib', 'number_of_rooms', 'group_type', 'relationship_type',
-            // Added 2026-08-13 — same "this campaign's order is its own pivot, not the generic
-            // wizard_step_id grouping" gotcha noted above: had to be added here explicitly too,
-            // or it silently never renders in the live kasno-letovanje flow at all.
-            'meal_style', 'total_budget', 'meal_plan_preference',
             'home_city',
-            'date_range',
+            // meal_style/date_range grouped here, 2026-09-01 (mirrors the 'termin' step reorder
+            // in seedWizardSteps — termin_category itself absent from this list, it's preset for
+            // this campaign so it's never a rendered question at all) — total_budget now needs
+            // a known trip length (from date_range, or the campaign's own presetTripLengthDays())
+            // to suggest a realistic default, so it must come AFTER these, not before. Same
+            // "this campaign's order is its own pivot, not the generic wizard_step_id grouping"
+            // gotcha noted above: had to be reordered here explicitly too, or it silently
+            // renders in the old, now-wrong order in the live kasno-letovanje flow.
+            'meal_style', 'date_range',
+            'total_budget', 'meal_plan_preference',
             'persona', 'persona_group',
             // budget_tier (accommodation price/night) deliberately excluded from this campaign
             // — redundant with total_budget, already asked above (owner's call, 2026-07-30:
@@ -2275,6 +2268,7 @@ class WizardSeeder extends Seeder
             'broj_putnika' => 'Wer reist mit?',
             'odakle_putujes' => 'Von wo reist du?',
             'termin' => 'Zeitraum',
+            'budzet' => 'Budget',
             'persona' => 'Reisetyp',
             'preferencije' => 'Was ist dir wichtig',
             'zemlja_regija' => 'Land / Region',

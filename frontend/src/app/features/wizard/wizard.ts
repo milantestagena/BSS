@@ -97,9 +97,10 @@ const CALCULATING_MIN_DURATION_MS = 1800;
 const STEP_DESCRIPTIONS: Record<AppLocale, Record<string, string>> = {
   en: {
     trip_type: 'What kind of trip is this? This one choice shapes every question that follows.',
-    broj_putnika: "Just headcount and a rough budget for now — how many of you, any kids, and what you're comfortable spending. We'll match destinations to this later.",
+    broj_putnika: "Just headcount for now — how many of you, any kids, and what kind of group this is. We'll match destinations to this later.",
     odakle_putujes: 'Your home city, so we can give you a realistic sense of how far each suggestion actually is.',
     termin: "When are you planning to travel? We already suggest a window based on the campaign, but you can fine-tune the exact dates.",
+    budzet: "Now that we know when and how many of you are going, here's a realistic starting budget — feel free to adjust it.",
     persona: "A quick read on what kind of traveler(s) you are — this steers which destinations and vibes we suggest next.",
     preferencije: "What matters most about the trip's atmosphere, plus your nightly budget — helps us narrow things down to a shortlist that actually fits.",
     zemlja_regija: "Based on everything so far, here are the countries/regions that fit best. Pick one, or tell us if none of them feel right.",
@@ -108,9 +109,10 @@ const STEP_DESCRIPTIONS: Record<AppLocale, Record<string, string>> = {
   },
   de: {
     trip_type: 'Was für eine Reise soll es werden? Diese eine Wahl bestimmt alle folgenden Fragen.',
-    broj_putnika: 'Erstmal nur die Kopfzahl und ein grobes Budget — wie viele seid ihr, gibt es Kinder, und was möchtet ihr ausgeben. Passende Ziele finden wir später.',
+    broj_putnika: 'Erstmal nur die Kopfzahl — wie viele seid ihr, gibt es Kinder, und was für eine Gruppe seid ihr. Passende Ziele finden wir später.',
     odakle_putujes: 'Deine Heimatstadt, damit wir dir realistisch zeigen können, wie weit jeder Vorschlag tatsächlich entfernt ist.',
     termin: 'Wann möchtest du reisen? Wir schlagen bereits einen Zeitraum basierend auf der Kampagne vor, du kannst die genauen Daten aber anpassen.',
+    budzet: 'Jetzt, wo wir wissen, wann und wie viele ihr reist, hier ein realistisches Startbudget — du kannst es jederzeit anpassen.',
     persona: 'Ein kurzer Eindruck davon, was für ein Reisetyp du bist — das steuert, welche Ziele und Stimmungen wir als Nächstes vorschlagen.',
     preferencije: 'Was dir bei der Atmosphäre der Reise am wichtigsten ist, plus dein nächtliches Budget — hilft uns, eine wirklich passende Auswahl zu treffen.',
     zemlja_regija: 'Basierend auf allem bisher Gesagten sind das die am besten passenden Länder/Regionen. Wähle eins, oder sag uns, wenn keins passt.',
@@ -601,13 +603,12 @@ export class WizardComponent implements OnInit {
   }
 
   /** Owner's ask, 2026-08-14: "dodaj one komentare... ovde mozes i sa manjim budzetom" — turn
-   *  the backend's budgetFit/budgetCaveat/priceRank signals into a short, honest reason instead
-   *  of a bare price-rank color. Only reachable for type=country cards (budgetFit is only
-   *  computed at that level today — see GeographyResolver::filterByBudget). Returns null when
-   *  there's nothing worth saying (a plain, unremarkable fit) rather than forcing a caption onto
-   *  every single card. mealPlanCaveat (2026-08-31) is checked first and independently of the
-   *  budget parts below — unlike budgetFit, it's computed for BOTH country and city cards (see
-   *  GeographyResolver::mealPlanFitFor), so this note now shows on the City step too. */
+   *  the backend's budgetFit/budgetCaveat/budgetFitPercent signals into a short, honest reason
+   *  instead of a bare price color. budgetFit/budgetFitPercent are now computed for BOTH
+   *  type=country and type=city cards (2026-09-01 — see GeographyResolver::filterByBudget).
+   *  Returns null when there's nothing worth saying (a plain, unremarkable fit) rather than
+   *  forcing a caption onto every single card. mealPlanCaveat (2026-08-31) is checked first and
+   *  independently of the budget parts below (see GeographyResolver::mealPlanFitFor). */
   budgetNoteFor(node: TaxonomyNode): string | null {
     const parts: string[] = [];
 
@@ -626,10 +627,11 @@ export class WizardComponent implements OnInit {
       parts.push(this.i18n.t('budgetNoteSelfCatering'));
     } else if (node.budgetFit && node.budgetFit !== 'eating_out') {
       parts.push(this.i18n.t('budgetNoteMealPlan'));
-    } else if (node.budgetFit === 'eating_out' && (node.priceRank ?? 99) <= 2) {
-      // priceRank <= 2 (cheapest/second-cheapest of what's currently shown) is the "you have
-      // real headroom" signal — reusing the already-computed rank rather than adding a second
-      // budget pass just to detect comfortable margin.
+    } else if (node.budgetFit === 'eating_out' && (node.budgetFitPercent ?? 100) < 70) {
+      // <70% of total_budget actually consumed (owner-confirmed threshold, 2026-09-01) is the
+      // "you have real headroom" signal — replaces the old relative priceRank<=2 check, which
+      // could read "room to spare" on a destination that was never actually compared against
+      // the traveler's real budget at all.
       parts.push(this.i18n.t('budgetNoteRoomToSpare'));
     }
 
@@ -683,7 +685,8 @@ export class WizardComponent implements OnInit {
    */
   groupedDestinations(question: WizardQuestion): { headerLabel: string; nodes: TaxonomyNode[] }[] {
     const nodes = this.optionsFor(question) ?? [];
-    const byPrice = (a: TaxonomyNode, b: TaxonomyNode) => (a.priceRank ?? 99) - (b.priceRank ?? 99);
+    const byPrice = (a: TaxonomyNode, b: TaxonomyNode) =>
+      (a.budgetFitPercent ?? Number.MAX_SAFE_INTEGER) - (b.budgetFitPercent ?? Number.MAX_SAFE_INTEGER);
 
     const byCount = new Map<number, TaxonomyNode[]>();
     for (const node of nodes) {
@@ -740,31 +743,31 @@ export class WizardComponent implements OnInit {
     return !!node.perfectMatch;
   }
 
-  /** True if ANY node within this specific group has a priceRank — the legend line renders per
-   *  group (owner's ask, 2026-08-12: "ispod opisa" — right under that group's header, since a
-   *  single legend way at the bottom of a long, undifferentiated group read as disconnected
-   *  from the actual cheaper->pricier order the cards are already in). */
-  groupHasPriceRanks(group: { nodes: TaxonomyNode[] }): boolean {
-    return group.nodes.some((n) => !!n.priceRank);
+  /** True if ANY node within this specific group has a budgetFitPercent — the legend line
+   *  renders per group (owner's ask, 2026-08-12: "ispod opisa" — right under that group's
+   *  header, since a single legend way at the bottom of a long, undifferentiated group read as
+   *  disconnected from the actual cheaper->pricier order the cards are already in). */
+  groupHasBudgetFitData(group: { nodes: TaxonomyNode[] }): boolean {
+    return group.nodes.some((n) => n.budgetFitPercent != null);
   }
 
-  /** Relative price coloring for a destination card — green (priceRank 1, cheapest of the
-   *  currently-shown options) through red (5, priciest). Empty string (no coloring) when
-   *  priceRank is null — not enough price data yet to rank. */
-  priceRankClass(node: TaxonomyNode): string {
+  /** Absolute %-of-budget coloring for a destination card — owner-confirmed thresholds,
+   *  2026-09-01: <70% green (comfortable room to spare), 70-100% yellow, >100% red. Replaces the
+   *  old 5-tier priceRank (purely relative to whatever else was on screen, never compared
+   *  against the traveler's actual stated budget — a destination could show green while
+   *  genuinely unaffordable, caught live on Antalya). Empty string (no coloring) when
+   *  budgetFitPercent is null — total_budget or a real price total isn't known yet. */
+  budgetFitClass(node: TaxonomyNode): string {
     // Thinned from 10px and tier 3 shifted off amber-500, 2026-08-21 (design pass) — that
     // exact color/weight combo read as "this card IS the primary action", the same visual
     // language as the amber-500 Proceed/CTA button elsewhere in this app. 4px is enough to
     // read as an accent, not a warning label.
-    const classes: Record<number, string> = {
-      1: 'border-l-4 border-l-emerald-500',
-      2: 'border-l-4 border-l-lime-500',
-      3: 'border-l-4 border-l-yellow-500',
-      4: 'border-l-4 border-l-orange-500',
-      5: 'border-l-4 border-l-red-500',
-    };
+    const percent = node.budgetFitPercent;
+    if (percent == null) return '';
 
-    return node.priceRank ? classes[node.priceRank] : '';
+    if (percent < 70) return 'border-l-4 border-l-emerald-500';
+    if (percent <= 100) return 'border-l-4 border-l-yellow-500';
+    return 'border-l-4 border-l-red-500';
   }
 
   /** False when groupedDestinations() collapsed to a single, unlabeled fallback group — in
@@ -1003,32 +1006,56 @@ export class WizardComponent implements OnInit {
     }
   }
 
-  /** Owner's ask, 2026-08-13: "kad izabere tip ljudi... u potrosnju stavimo nesto tipa 400 po
-   *  odraslom - 300 po detetu" — keeps total_budget synced to headcount, using rates from
-   *  WizardCampaign.meta (never hardcoded, so a future campaign can set its own numbers — "da
-   *  mozemo da podesimo po kampanji"). adults_count/group_type/total_budget all live on the
-   *  SAME step (broj_putnika), so this re-runs live off onTravelersChange/onAnswerChange as the
-   *  user answers each one in turn, not just once on step load — "update sumu nakon sto izabere
-   *  koja grupa pripada" (2026-08-13 follow-up). Stops touching the field entirely once
-   *  budgetManuallyEdited is set (the user typed a value or used the +/- stepper themselves) —
-   *  "ako je rucno nesto menjao, vise ne prihvataj promene". No-ops if the campaign hasn't
-   *  configured a per-adult rate, or total_budget isn't a question on the current step. */
+  /** Trip length in days, best-effort across whichever source is actually available yet: a real
+   *  picked date_range, then termin_category's own default_duration_days meta (generic flow,
+   *  where termin_category is a real loaded question), then the campaign's preset trip length
+   *  (campaign flow, where termin_category is preset and never rendered — see
+   *  WizardCampaign::presetTripLengthDays()). Null if none of the three are available yet. */
+  private tripLengthDays(): number | null {
+    const range = this.wizard.getAnswer('date_range') as [string, string] | undefined;
+    if (range?.[0] && range?.[1]) {
+      const days = Math.round((Date.parse(range[1]) - Date.parse(range[0])) / 86400000);
+      if (days > 0) return days;
+    }
+
+    const terminId = this.wizard.getAnswer('termin_category') as string | undefined;
+    const node = terminId ? this.geographyOptions()['termin_category']?.find((n) => n.id === terminId) : undefined;
+    const days = node?.meta?.['default_duration_days'] as number | undefined;
+    if (typeof days === 'number') return days;
+
+    return this.wizard.presetTripLengthDays() ?? null;
+  }
+
+  /** Owner's ask, 2026-09-01: a realistic total_budget default anchored to real spending data
+   *  (Stiftung für Zukunftsfragen 2023 German Tourism Analysis: ~€129/day/person all-in) instead
+   *  of the old flat per-head meta rate, which ignored trip length entirely and double-counted
+   *  accommodation for solo travelers (a single person pays the same apartment price as a
+   *  couple, so their per-person burden is higher, not lower — hence the 1.6x solo multiplier
+   *  below rather than a flat 1x). €125/adult/day, €75/child/day, × trip length, rounded UP to
+   *  the nearest €50 (same "never let the default undersell reality" principle as the post-
+   *  Rhodes screenshot-margin convention — see kampanje.md/CLAUDE.md §8). Replaces the old
+   *  WizardCampaign.meta.default_budget_per_adult_eur/default_budget_per_child_eur mechanism
+   *  entirely — the formula is now global, not per-campaign-configurable. Stops touching the
+   *  field entirely once budgetManuallyEdited is set (the user typed a value or used the +/-
+   *  stepper themselves) — "ako je rucno nesto menjao, vise ne prihvataj promene". No-ops if
+   *  total_budget isn't a question on the current step, or trip length isn't known yet. */
   private syncDefaultBudget(): void {
     if (this.budgetManuallyEdited) return;
 
     const step = this.wizard.currentStep();
     if (!step?.questions.some((q) => q.key === 'total_budget')) return;
 
-    const meta = this.wizard.campaignMeta();
-    const perAdult = meta?.['default_budget_per_adult_eur'] as number | undefined;
-    if (typeof perAdult !== 'number') return;
-    const perChild = (meta?.['default_budget_per_child_eur'] as number | undefined) ?? 0;
-
     const adults = (this.wizard.getAnswer('adults_count') as number) ?? 0;
     const children = ((this.wizard.getAnswer('children_ages') as number[]) ?? []).length;
     if (adults === 0 && children === 0) return;
 
-    this.wizard.setAnswer('total_budget', adults * perAdult + children * perChild);
+    const days = this.tripLengthDays();
+    if (days == null) return;
+
+    let daily = adults * 125 + children * 75;
+    if (adults === 1 && children === 0) daily *= 1.6;
+
+    this.wizard.setAnswer('total_budget', Math.ceil((daily * days) / 50) * 50);
   }
 
   goBack(): void {

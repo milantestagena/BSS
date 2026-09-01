@@ -228,9 +228,9 @@
                 } @else if (isDestinationCard(question)) {
                   <!-- "Screen 2" destination cards — each has its own ui-info-popover for the
                      vibe_profile writeup (2026-08-14, works identically on mobile/desktop).
-                     Grouped by matched preference tags + relative price coloring — owner's call,
-                     2026-08-11 ("narrow down the list, don't disappoint him"), see
-                     WizardComponent.groupedDestinations()/priceRankClass(). -->
+                     Grouped by matched preference tags + absolute budget-fit coloring — owner's
+                     call, 2026-08-11 ("narrow down the list, don't disappoint him"), see
+                     WizardComponent.groupedDestinations()/budgetFitClass(). -->
                   <div class="mb-6">
                     <label class="mb-2 block text-sm font-semibold text-white">{{
                       question.label
@@ -246,7 +246,7 @@
                             {{ group.headerLabel }}
                           </h4>
                         }
-                        @if (groupHasPriceRanks(group)) {
+                        @if (groupHasBudgetFitData(group)) {
                           <p class="mb-2 text-xs text-sky-100">{{ i18n.t('priceLegend') }}</p>
                         }
                         <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -275,7 +275,7 @@
                               [class.ring-2]="isPerfectMatch(node)"
                               [class.ring-inset]="isPerfectMatch(node)"
                               [class.ring-amber-400]="isPerfectMatch(node)"
-                              [ngClass]="isPerfectMatch(node) ? '' : priceRankClass(node)"
+                              [ngClass]="isPerfectMatch(node) ? '' : budgetFitClass(node)"
                               (click)="onDestinationCardSelect(question, node)"
                               (keydown.enter)="onDestinationCardSelect(question, node)"
                               (keydown.space)="$event.preventDefault(); onDestinationCardSelect(question, node)"

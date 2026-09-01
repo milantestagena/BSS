@@ -11,20 +11,23 @@ export interface TaxonomyNode {
    *  slugs this node matched. Used to group destination cards by shared match reason instead of
    *  a flat ranked list — see WizardComponent.groupedDestinations(). */
   matchedTags?: string[] | null;
-  /** Populated only when returned from suggestedGeography for type=country/city, when there's
-   *  enough price data to rank: 1 (cheapest of the currently-shown candidates) to 5 (priciest).
-   *  Null when there isn't enough data yet — see WizardComponent.priceRankClass(). */
-  priceRank?: number | null;
-  /** Populated only when returned from suggestedGeography for type=country, when budget data
-   *  exists: 'eating_out' | 'self_catering' | 'meal_plan' | null — which spending style this
-   *  country's price actually fit under. See WizardComponent.budgetNoteFor(). */
+  /** Populated only when returned from suggestedGeography for type=country/city, when
+   *  total_budget AND real accommodation+food totals both exist: (accommodation + food) /
+   *  total_budget * 100, rounded to 1 decimal. Absolute, not relative to the other candidates
+   *  shown — replaces the old priceRank (2026-09-01), which never compared against the
+   *  traveler's stated budget at all. Null when the inputs aren't known yet — see
+   *  WizardComponent.budgetFitClass(). */
+  budgetFitPercent?: number | null;
+  /** Populated only when returned from suggestedGeography for type=country/city, when budget
+   *  data exists: 'eating_out' | 'self_catering' | 'meal_plan' | null — which spending style
+   *  this destination's price actually fit under. See WizardComponent.budgetNoteFor(). */
   budgetFit?: string | null;
-  /** Populated only when returned from suggestedGeography for type=country: true if this
-   *  country only appears because nothing fit the stated budget and it's one of the 2 closest
-   *  fallbacks. See WizardComponent.budgetNoteFor(). */
+  /** Populated only when returned from suggestedGeography for type=country/city: true if this
+   *  destination only appears because nothing fit the stated budget and it's one of the 2
+   *  closest fallbacks. See WizardComponent.budgetNoteFor(). */
   budgetCaveat?: boolean | null;
-  /** Populated only when returned from suggestedGeography for type=country, when budget data
-   *  exists — true if an all-inclusive meal plan would ALSO fit for the session's budget,
+  /** Populated only when returned from suggestedGeography for type=country/city, when budget
+   *  data exists — true if an all-inclusive meal plan would ALSO fit for the session's budget,
    *  regardless of the session's actual meal_style. Purely informational (owner's ask,
    *  2026-08-14: "mozemo mu kazemo negde imas all inclusive za te pare") — never affects
    *  budgetFit/inclusion/sorting. See WizardComponent.budgetNoteFor(). */
@@ -124,9 +127,12 @@ export interface WizardCampaign {
   key: string;
   label: string;
   landingHeadline?: string | null;
-  /** Admin-editable per-campaign tunables — e.g. defaultBudgetPerAdultEur/defaultBudgetPerChildEur.
-   *  See WizardSeeder's kasno-letovanje entry, deliberately not hardcoded in frontend logic. */
+  /** Admin-editable per-campaign tunables — see WizardSeeder's kasno-letovanje entry,
+   *  deliberately not hardcoded in frontend logic. */
   meta?: Record<string, unknown> | null;
+  /** WizardCampaign::presetTripLengthDays() — trip length implied by this campaign's preset
+   *  termin_category. Null unless the campaign presets termin_category. */
+  presetTripLengthDays?: number | null;
   questions: WizardQuestion[];
 }
 

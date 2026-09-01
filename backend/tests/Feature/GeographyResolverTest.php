@@ -526,41 +526,47 @@ class GeographyResolverTest extends TestCase
         $this->assertTrue($results->pluck('id')->contains($anyCountry->id));
     }
 
-    public function test_price_rank_is_relative_to_the_current_candidate_set(): void
+    /**
+     * budgetFitPercent, 2026-09-01 — replaces price_rank (a pure relative accommodation-only
+     * ranking that never compared against the traveler's real total_budget — a destination could
+     * show green/"room to spare" while genuinely unaffordable, caught live on Antalya). Real,
+     * hand-computed math: hospitality avg_restaurant_meal_eur=10/avg_cafe_coffee_eur=2 ->
+     * adultDaily=2.5*10+1*2=27; 2 adults * 27 * 8 food-days (7 nights +1) = 432 food total.
+     * Accommodation: price_per_person_eur=20 * roomMultiplier(2 travelers)=1.0 * 7 nights = 140.
+     * (140+432)/1000 total_budget * 100 = 57.2%.
+     */
+    public function test_budget_fit_percent_reflects_percentage_of_total_budget_consumed(): void
     {
-        $cheap = $this->node('country', 'cheap');
-        $pricey = $this->node('country', 'pricey');
-        $cheapCity = $this->node('city', 'cheap_city');
-        $cheapCity->update(['parent_id' => $cheap->id]);
-        $priceyCity = $this->node('city', 'pricey_city');
-        $priceyCity->update(['parent_id' => $pricey->id]);
+        $country = $this->node('country', 'r1country', ['hospitality' => ['avg_restaurant_meal_eur' => 10, 'avg_cafe_coffee_eur' => 2]]);
+        $city = $this->node('city', 'r1city');
+        $city->update(['parent_id' => $country->id]);
 
-        $campaign = \App\Models\WizardCampaign::create(['key' => 'test-campaign', 'label' => 'Test']);
+        $campaign = \App\Models\WizardCampaign::create(['key' => 'test-bfp-1', 'label' => 'Test BFP 1']);
         \App\Models\WizardCampaignDestinationPrice::create([
-            'wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $cheapCity->id, 'price_per_person_eur' => 20,
-        ]);
-        \App\Models\WizardCampaignDestinationPrice::create([
-            'wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $priceyCity->id, 'price_per_person_eur' => 200,
+            'wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $city->id, 'price_per_person_eur' => 20,
         ]);
 
         $session = SearchSession::create([
             'status' => 'in_progress', 'adults_count' => 2, 'wizard_campaign_id' => $campaign->id,
-            'date_from' => '2026-09-01', 'date_to' => '2026-09-08',
+            'date_from' => '2026-09-01', 'date_to' => '2026-09-08', 'total_budget' => 1000,
+            'free_text_answers' => ['meal_style' => 'jede_napolju'],
         ]);
 
         $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'country']);
 
-        $this->assertSame(1, $results->firstWhere('id', $cheap->id)->price_rank);
-        $this->assertSame(5, $results->firstWhere('id', $pricey->id)->price_rank);
+        $this->assertSame(57.2, $results->firstWhere('id', $country->id)->budget_fit_percent);
     }
 
-    public function test_price_rank_is_null_with_fewer_than_two_priced_candidates(): void
+    /** "Absent, not guessed" — same convention as budgetFit/allInclusiveFits: without a stated
+     *  total_budget there's nothing to compute a % of, regardless of how much real price data
+     *  exists for the destination itself. */
+    public function test_budget_fit_percent_is_null_without_total_budget(): void
     {
-        $onlyOne = $this->node('country', 'onlyone');
-        $city = $this->node('city', 'onlyone_city');
-        $city->update(['parent_id' => $onlyOne->id]);
+        $country = $this->node('country', 'r2country', ['hospitality' => ['avg_restaurant_meal_eur' => 10, 'avg_cafe_coffee_eur' => 2]]);
+        $city = $this->node('city', 'r2city');
+        $city->update(['parent_id' => $country->id]);
 
-        $campaign = \App\Models\WizardCampaign::create(['key' => 'test-campaign-2', 'label' => 'Test 2']);
+        $campaign = \App\Models\WizardCampaign::create(['key' => 'test-bfp-2', 'label' => 'Test BFP 2']);
         \App\Models\WizardCampaignDestinationPrice::create([
             'wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $city->id, 'price_per_person_eur' => 20,
         ]);
@@ -572,33 +578,34 @@ class GeographyResolverTest extends TestCase
 
         $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'country']);
 
-        $this->assertNull($results->firstWhere('id', $onlyOne->id)->price_rank);
+        $this->assertNotNull($results->firstWhere('id', $country->id));
+        $this->assertNull($results->firstWhere('id', $country->id)->budget_fit_percent);
     }
 
     /**
-     * Bug fixed 2026-08-14: price_rank used to reuse the country's CHEAPEST city as its whole
-     * price signal, so a country with one bargain outlier town read as "cheap" overall even when
-     * every other city in it was pricier than the other country's whole lineup. Owner caught
-     * this live (Turkey and Egypt both had a ~13€ outlier town, so they tied and lost their
-     * color entirely — see the next test). Average settles this correctly: countryA's real
-     * spread (15/15) beats countryB's (10/200) on typical price, even though countryB's MIN is
-     * lower.
+     * Bug fixed 2026-08-14, still relevant to budgetFitPercent's accommodation half (see
+     * $priceTotals in GeographyResolver::suggested): a country's single cheapest outlier town
+     * must not stand in for its whole price signal — average across its cities instead.
+     * countryA's real spread (15/15, avg 15) vs countryB's (10/200, avg 105) — same food cost on
+     * both (identical hospitality meta), so the whole percent difference is the accommodation
+     * average: A = (105+432)/1000*100 = 53.7%, B = (735+432)/1000*100 = 116.7%.
      */
-    public function test_price_rank_uses_average_across_a_countrys_cities_not_the_cheapest_one(): void
+    public function test_budget_fit_percent_uses_average_across_a_countrys_cities_not_the_cheapest_one(): void
     {
-        $countryA = $this->node('country', 'countrya');
-        $aCity1 = $this->node('city', 'a_city_1');
+        $hospitality = ['avg_restaurant_meal_eur' => 10, 'avg_cafe_coffee_eur' => 2];
+        $countryA = $this->node('country', 'r3a', ['hospitality' => $hospitality]);
+        $aCity1 = $this->node('city', 'r3a_city_1');
         $aCity1->update(['parent_id' => $countryA->id]);
-        $aCity2 = $this->node('city', 'a_city_2');
+        $aCity2 = $this->node('city', 'r3a_city_2');
         $aCity2->update(['parent_id' => $countryA->id]);
 
-        $countryB = $this->node('country', 'countryb');
-        $bCity1 = $this->node('city', 'b_city_1');
+        $countryB = $this->node('country', 'r3b', ['hospitality' => $hospitality]);
+        $bCity1 = $this->node('city', 'r3b_city_1');
         $bCity1->update(['parent_id' => $countryB->id]);
-        $bCity2 = $this->node('city', 'b_city_2');
+        $bCity2 = $this->node('city', 'r3b_city_2');
         $bCity2->update(['parent_id' => $countryB->id]);
 
-        $campaign = \App\Models\WizardCampaign::create(['key' => 'test-campaign-avg', 'label' => 'Test avg']);
+        $campaign = \App\Models\WizardCampaign::create(['key' => 'test-bfp-3', 'label' => 'Test BFP 3']);
         foreach ([$aCity1->id => 15, $aCity2->id => 15, $bCity1->id => 10, $bCity2->id => 200] as $cityId => $price) {
             \App\Models\WizardCampaignDestinationPrice::create([
                 'wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $cityId, 'price_per_person_eur' => $price,
@@ -607,45 +614,102 @@ class GeographyResolverTest extends TestCase
 
         $session = SearchSession::create([
             'status' => 'in_progress', 'adults_count' => 2, 'wizard_campaign_id' => $campaign->id,
-            'date_from' => '2026-09-01', 'date_to' => '2026-09-08',
+            'date_from' => '2026-09-01', 'date_to' => '2026-09-08', 'total_budget' => 1000,
+            'free_text_answers' => ['meal_style' => 'jede_napolju'],
         ]);
 
         $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'country']);
 
-        $this->assertSame(1, $results->firstWhere('id', $countryA->id)->price_rank);
-        $this->assertSame(5, $results->firstWhere('id', $countryB->id)->price_rank);
+        $this->assertSame(53.7, $results->firstWhere('id', $countryA->id)->budget_fit_percent);
+        $this->assertSame(116.7, $results->firstWhere('id', $countryB->id)->budget_fit_percent);
     }
 
-    /** Owner's follow-up call, 2026-08-14: a genuine tie is real information ("these cost the
-     *  same"), not missing data — both candidates get the same color (rank 2, a medium green in
-     *  priceRankClass) instead of losing their color entirely. */
-    public function test_price_rank_tie_gets_a_shared_color_instead_of_null(): void
+    /**
+     * Byproduct fix, 2026-09-01: the jeftino/kvalitet sort used to compare candidates by
+     * accommodation alone ($priceTotals), the same bug price_rank had — ignoring food entirely.
+     * countryX has cheap accommodation (70) but expensive food (2160) = 2230 combined; countryY
+     * has pricier accommodation (700) but cheap food (216) = 916 combined. Accommodation-only
+     * ordering would put X first; the real combined total puts Y first instead.
+     */
+    public function test_cost_preference_sort_accounts_for_food_not_just_accommodation(): void
     {
-        $countryA = $this->node('country', 'tiea');
-        $cityA = $this->node('city', 'tiea_city');
-        $cityA->update(['parent_id' => $countryA->id]);
+        $countryX = $this->node('country', 'r4x', ['hospitality' => ['avg_restaurant_meal_eur' => 50, 'avg_cafe_coffee_eur' => 10]]);
+        $cityX = $this->node('city', 'r4x_city');
+        $cityX->update(['parent_id' => $countryX->id]);
 
-        $countryB = $this->node('country', 'tieb');
-        $cityB = $this->node('city', 'tieb_city');
-        $cityB->update(['parent_id' => $countryB->id]);
+        $countryY = $this->node('country', 'r4y', ['hospitality' => ['avg_restaurant_meal_eur' => 5, 'avg_cafe_coffee_eur' => 1]]);
+        $cityY = $this->node('city', 'r4y_city');
+        $cityY->update(['parent_id' => $countryY->id]);
 
-        $campaign = \App\Models\WizardCampaign::create(['key' => 'test-campaign-tie', 'label' => 'Test tie']);
+        $campaign = \App\Models\WizardCampaign::create(['key' => 'test-bfp-4', 'label' => 'Test BFP 4']);
         \App\Models\WizardCampaignDestinationPrice::create([
-            'wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $cityA->id, 'price_per_person_eur' => 13,
+            'wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $cityX->id, 'price_per_person_eur' => 10,
         ]);
         \App\Models\WizardCampaignDestinationPrice::create([
-            'wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $cityB->id, 'price_per_person_eur' => 13,
+            'wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $cityY->id, 'price_per_person_eur' => 100,
         ]);
 
         $session = SearchSession::create([
             'status' => 'in_progress', 'adults_count' => 2, 'wizard_campaign_id' => $campaign->id,
-            'date_from' => '2026-09-01', 'date_to' => '2026-09-08',
+            'date_from' => '2026-09-01', 'date_to' => '2026-09-08', 'total_budget' => 3000,
+            'free_text_answers' => ['preference_tags' => ['jeftino'], 'meal_style' => 'jede_napolju'],
         ]);
 
         $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'country']);
 
-        $this->assertSame(2, $results->firstWhere('id', $countryA->id)->price_rank);
-        $this->assertSame(2, $results->firstWhere('id', $countryB->id)->price_rank);
+        $this->assertSame($countryY->id, $results->first()->id);
+    }
+
+    /** Owner's catch, 2026-09-01: real budget-fit hard-exclusion previously only ran for
+     *  type=country — a city could show green/"room to spare" while genuinely unaffordable
+     *  (caught live: Antalya). Now the same hard-exclusion runs for type=city too. */
+    public function test_budget_excludes_a_city_that_does_not_fit_the_stated_budget(): void
+    {
+        $country = $this->node('country', 'n1country', ['hospitality' => ['avg_restaurant_meal_eur' => 10, 'avg_cafe_coffee_eur' => 2]]);
+        $cheapCity = $this->node('city', 'n1cheap');
+        $cheapCity->update(['parent_id' => $country->id]);
+        $expensiveCity = $this->node('city', 'n1expensive');
+        $expensiveCity->update(['parent_id' => $country->id]);
+
+        $campaign = \App\Models\WizardCampaign::create(['key' => 'test-bfp-n1', 'label' => 'Test BFP N1']);
+        \App\Models\WizardCampaignDestinationPrice::create([
+            'wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $cheapCity->id, 'price_per_person_eur' => 20,
+        ]);
+        \App\Models\WizardCampaignDestinationPrice::create([
+            'wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $expensiveCity->id, 'price_per_person_eur' => 500,
+        ]);
+
+        $session = SearchSession::create([
+            'status' => 'in_progress', 'adults_count' => 2, 'wizard_campaign_id' => $campaign->id,
+            'date_from' => '2026-09-01', 'date_to' => '2026-09-08', 'total_budget' => 1000,
+            'free_text_answers' => ['meal_style' => 'jede_napolju'],
+        ]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'city']);
+
+        $this->assertTrue($results->pluck('id')->contains($cheapCity->id));
+        $this->assertFalse($results->pluck('id')->contains($expensiveCity->id));
+    }
+
+    /** City-level mirror of test_budget_falls_back_to_closest_with_caveat_when_nothing_fits —
+     *  confirms the "never show zero results" fallback (2 closest, flagged with a caveat) now
+     *  also applies at the city level, not just country. */
+    public function test_budget_falls_back_to_closest_city_with_caveat_when_nothing_fits(): void
+    {
+        $a = $this->node('city', 'n2a', ['hospitality' => ['avg_restaurant_meal_eur' => 60, 'avg_cafe_coffee_eur' => 10]]);
+        $b = $this->node('city', 'n2b', ['hospitality' => ['avg_restaurant_meal_eur' => 65, 'avg_cafe_coffee_eur' => 11]]);
+        $termin = $this->node('termin_category', 'kasno_kupanje', ['default_duration_days' => 7]);
+
+        $session = SearchSession::create([
+            'status' => 'in_progress', 'termin_category' => $termin->slug,
+            'adults_count' => 2, 'total_budget' => 10,
+        ]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'city']);
+
+        $this->assertCount(2, $results->whereIn('id', [$a->id, $b->id]));
+        $this->assertTrue($results->firstWhere('id', $a->id)->budget_caveat);
+        $this->assertNotNull($results->firstWhere('id', $a->id)->budget_fit);
     }
 
     public function test_falls_back_to_price_ascending_when_nothing_has_a_real_match_score(): void

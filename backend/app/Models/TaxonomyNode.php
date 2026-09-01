@@ -378,6 +378,19 @@ class TaxonomyNode extends Model
     }
 
     /**
+     * meta.hospitality (avg_restaurant_meal_eur, avg_cafe_coffee_eur — see
+     * BudgetEstimationEngine) for this node, falling back to the parent node (city -> country)
+     * if this node has no hospitality meta of its own — same fallback pattern as
+     * climateFor()/culturalTierFor(). Needed for city-level budget-fit filtering (2026-09-01):
+     * hospitality is seeded on country nodes only, so a city's own meta is always empty and
+     * would otherwise make every city-level budget estimate come back null.
+     */
+    public function hospitalityMeta(): ?array
+    {
+        return $this->meta['hospitality'] ?? $this->parent?->hospitalityMeta();
+    }
+
+    /**
      * Great-circle distance in km to another geography node, via `meta.lat`/`meta.lng` on both
      * sides (convention, not a schema column — see wizard_architecture's distance-as-its-own-
      * wizard-step decision). Returns null if either node is missing coordinates, so callers

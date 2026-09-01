@@ -121,11 +121,11 @@ type TaxonomyNode {
     meta: JSON
     "Populated only when returned from `suggestedGeography` — higher is a better match."
     matchScore: Int @rename(attribute: "match_score")
-    "Populated only when returned from `suggestedGeography` for type=country: true if this country only appears because nothing fit the stated budget and it's one of the 2 closest fallbacks — show an 'more expensive than asked, but nearest fit' note."
+    "Populated only when returned from `suggestedGeography` for type=country/city: true if this destination only appears because nothing fit the stated budget and it's one of the 2 closest fallbacks — show an 'more expensive than asked, but nearest fit' note."
     budgetCaveat: Boolean @rename(attribute: "budget_caveat")
-    "Populated only when returned from `suggestedGeography` for type=country, when budget data exists: 'eating_out' | 'self_catering' | a specific meal_plan_preference slug (e.g. 'sve_ukljuceno', 'dorucak') | null — which spending style/tier this country's price actually fit under, see BudgetEstimationEngine::fitFor. Frontend turns this (plus budgetCaveat/priceRank) into a short reason, e.g. 'fits if you cook for yourself'."
+    "Populated only when returned from `suggestedGeography` for type=country/city, when budget data exists: 'eating_out' | 'self_catering' | a specific meal_plan_preference slug (e.g. 'sve_ukljuceno', 'dorucak') | null — which spending style/tier this destination's price actually fit under, see BudgetEstimationEngine::fitFor. Frontend turns this (plus budgetCaveat/budgetFitPercent) into a short reason, e.g. 'fits if you cook for yourself'."
     budgetFit: String @rename(attribute: "budget_fit")
-    "Populated only when returned from `suggestedGeography` for type=country, when budget data exists — true if an all-inclusive meal plan would ALSO fit this country for the session's budget, regardless of the session's actual meal_style (see BudgetEstimationEngine::allInclusiveFits). Purely informational, e.g. 'all-inclusive available here too' — never affects budgetFit/inclusion/sorting."
+    "Populated only when returned from `suggestedGeography` for type=country/city, when budget data exists — true if an all-inclusive meal plan would ALSO fit this destination for the session's budget, regardless of the session's actual meal_style (see BudgetEstimationEngine::allInclusiveFits). Purely informational, e.g. 'all-inclusive available here too' — never affects budgetFit/inclusion/sorting."
     allInclusiveFits: Boolean @rename(attribute: "all_inclusive_fits")
     "Populated only when returned from `suggestedGeography` for type=country/city — true if this destination matched EVERY selected vibe preference_tag (not just some). For type=country, also requires at least one child city to independently match all of them too, so a country never shows this without a real bookable city to back it up (see GeographyResolver::isPerfectMatch)."
     perfectMatch: Boolean @rename(attribute: "perfect_match")
@@ -133,8 +133,8 @@ type TaxonomyNode {
     implied: Boolean
     "Populated only when returned from `suggestedGeography` for type=country/city — preference_tag slugs this node matched against the session's selected preferences. Frontend groups results by shared matched_tags rather than showing a flat ranked list."
     matchedTags: [String!] @rename(attribute: "matched_tags")
-    "Populated only when returned from `suggestedGeography` for type=country/city, when accommodation price data exists for the session's dates: 1 (cheapest of the currently-shown candidates) to 5 (priciest), for relative price display. Null when there isn't enough price data yet to rank."
-    priceRank: Int @rename(attribute: "price_rank")
+    "Populated only when returned from `suggestedGeography` for type=country/city, when total_budget AND real accommodation+food totals both exist: (accommodation + food) / total_budget * 100, rounded to 1 decimal. Absolute, not relative to the other candidates shown — replaces the old priceRank (2026-09-01), which was a pure relative accommodation-only ranking that never compared against the traveler's stated budget at all. Bucket for display: <70 green, 70-100 yellow, >100 red."
+    budgetFitPercent: Float @rename(attribute: "budget_fit_percent")
     "Populated only when returned from `suggestedGeography` for type=country/city, campaign mode only — true if a DestinationGuide row exists for this node + the session's campaign. Frontend uses this to decide whether to even show the optional 'see full guide' link at all."
     hasGuide: Boolean @rename(attribute: "has_guide")
     "Populated only when returned from `suggestedGeography` — slugs of taxonomy_node_relations this node EXCLUDES (relation_type=excludes), e.g. preference_tag 'jeftino' excludes 'kvalitet'. Frontend live-deselects any of these from the same multi-choice question when this node is picked, not just filters what a later question offers."
@@ -173,8 +173,10 @@ type WizardCampaign {
     presetAnswers: JSON @rename(attribute: "preset_answers")
     "This campaign's questions, in campaign-specific order (independent of each question's global sort_order)."
     questions: [WizardQuestion!]! @belongsToMany
-    "Admin-editable per-campaign tunables (e.g. defaultBudgetPerAdultEur/defaultBudgetPerChildEur) — see WizardSeeder's kasno-letovanje entry. Not hardcoded in frontend/backend logic so a future campaign can set its own values."
+    "Admin-editable per-campaign tunables — see WizardSeeder's kasno-letovanje entry. Not hardcoded in frontend/backend logic so a future campaign can set its own values."
     meta: JSON
+    "Trip-length day-count implied by this campaign's preset termin_category answer. Populated only when preset_answers includes termin_category and that taxonomy node has default_duration_days meta; null otherwise. Drives the total_budget default on campaigns where termin_category is never a rendered question."
+    presetTripLengthDays: Int @method
 }
 
 "One stop within a DestinationGuide's country-level itinerary."

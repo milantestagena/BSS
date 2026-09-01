@@ -69,7 +69,7 @@ class BudgetEstimationEngine
     public function estimate(TaxonomyNode $country, int $adults, int $children, int $days): ?array
     {
         $adultDaily = $this->perAdultDailyEatingOutEur($country);
-        $coffeePrice = $country->meta['hospitality']['avg_cafe_coffee_eur'] ?? null;
+        $coffeePrice = $country->hospitalityMeta()['avg_cafe_coffee_eur'] ?? null;
 
         if ($adultDaily === null || $coffeePrice === null) {
             return null;
@@ -94,8 +94,9 @@ class BudgetEstimationEngine
      */
     public function perAdultDailyEatingOutEur(TaxonomyNode $country): ?float
     {
-        $mealPrice = $country->meta['hospitality']['avg_restaurant_meal_eur'] ?? null;
-        $coffeePrice = $country->meta['hospitality']['avg_cafe_coffee_eur'] ?? null;
+        $hospitality = $country->hospitalityMeta();
+        $mealPrice = $hospitality['avg_restaurant_meal_eur'] ?? null;
+        $coffeePrice = $hospitality['avg_cafe_coffee_eur'] ?? null;
 
         if ($mealPrice === null || $coffeePrice === null) {
             return null;
@@ -301,6 +302,24 @@ class BudgetEstimationEngine
     }
 
     /**
+     * The numeric food total actually implied by a `fitFor()` result — 2026-09-01, backs
+     * GeographyResolver's budget_fit_percent (accommodation + food, as a % of total_budget).
+     * Deliberately derived from the SAME `$fit` string `narrowCandidates()` already computed,
+     * not a second independent calculation, so this number can never disagree with what
+     * SearchSessionQueryCompiler's `budgetFit`/budgetNoteFor() already displays for the same
+     * session. `null`/'insufficient' both fall back to self_catering_total_eur — the cheapest
+     * real number available, consistent with fitFor()'s own conservative-default convention.
+     */
+    private function foodTotalForFit(?string $fit, array $estimate, TaxonomyNode $country): float
+    {
+        return match ($fit) {
+            'eating_out' => $estimate['eating_out_total_eur'],
+            'self_catering', null, 'insufficient' => $estimate['self_catering_total_eur'],
+            default => $this->mealPlanTotalFor($country, $fit, $estimate['eating_out_total_eur']),
+        };
+    }
+
+    /**
      * Narrows a list of candidate countries to the ones the budget realistically covers
      * ('eating_out' or 'self_catering'). If NONE fit, falls back to the 2 closest by smallest
      * overage rather than returning nothing — owner's explicit call: never show zero results,
@@ -319,7 +338,7 @@ class BudgetEstimationEngine
      *
      * @param  Collection<int, TaxonomyNode>  $countries
      * @param  string[]  $mealPlanSlugs
-     * @return Collection<int, array{country: TaxonomyNode, estimate: array, accommodation_total_eur: float, fit: string, caveat: bool}>
+     * @return Collection<int, array{country: TaxonomyNode, estimate: array, accommodation_total_eur: float, food_total_eur: float, fit: string, caveat: bool}>
      */
     public function narrowCandidates(Collection $countries, float $totalBudget, int $adults, int $children, int $days, ?callable $accommodationTotalFor = null, array $mealPlanSlugs = [], ?string $mealStyle = null): Collection
     {
@@ -331,12 +350,14 @@ class BudgetEstimationEngine
                 }
 
                 $accommodationTotal = $accommodationTotalFor ? $accommodationTotalFor($country) : 0.0;
+                $fit = $this->fitFor($country, $totalBudget, $adults, $children, $days, $accommodationTotal, false, $mealPlanSlugs, $mealStyle);
 
                 return [
                     'country' => $country,
                     'estimate' => $estimate,
                     'accommodation_total_eur' => $accommodationTotal,
-                    'fit' => $this->fitFor($country, $totalBudget, $adults, $children, $days, $accommodationTotal, false, $mealPlanSlugs, $mealStyle),
+                    'food_total_eur' => $this->foodTotalForFit($fit, $estimate, $country),
+                    'fit' => $fit,
                     'caveat' => false,
                 ];
             })

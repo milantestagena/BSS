@@ -27,13 +27,16 @@ class GeographyResolver
      *   dependent question pre-fills (handled when that question is written, not when this
      *   one is read).
      *
-     * For `type=country` specifically, two more narrowing passes run (2026-07-30, see
-     * wizard_architecture "GeographyResolver" section): cultural-availability requirements
-     * (hard exclude, no fallback — see filterByCulturalAvailability) and budget fit (hard
-     * exclude with a 2-closest fallback — see BudgetEstimationEngine::narrowCandidates). Both
-     * are no-ops when the session doesn't have the inputs they need yet (no total_budget
-     * answered, no cultural preference_tags selected) — this must never break the plain
-     * excludes/implies/tag-overlap behavior other question types still rely on.
+     * For `type=country`, two more narrowing passes run (2026-07-30, see wizard_architecture
+     * "GeographyResolver" section): cultural-availability requirements (hard exclude, no
+     * fallback — see filterByCulturalAvailability) and budget fit (hard exclude with a 2-closest
+     * fallback — see BudgetEstimationEngine::narrowCandidates). `type=city` gets the same
+     * budget-fit pass (added 2026-09-01 — previously city had NO budget-fit protection at all,
+     * so a destination could render green/"room to spare" while genuinely unaffordable) but not
+     * cultural-availability, which stays country-only (unrelated, no city-level data exists for
+     * it). All of these are no-ops when the session doesn't have the inputs they need yet (no
+     * total_budget answered, no cultural preference_tags selected) — this must never break the
+     * plain excludes/implies/tag-overlap behavior other question types still rely on.
      */
     public function suggested($_, array $args): Collection
     {
@@ -86,10 +89,18 @@ class GeographyResolver
         $budgetCaveatIds = collect();
         $budgetFitById = collect();
         $allInclusiveById = collect();
+        $foodTotalById = collect();
 
         if ($args['type'] === 'country') {
             $nodes = $this->filterByCulturalAvailability($nodes, $session);
-            [$nodes, $budgetCaveatIds, $budgetFitById, $allInclusiveById] = $this->filterByBudget($nodes, $session);
+            [$nodes, $budgetCaveatIds, $budgetFitById, $allInclusiveById, $foodTotalById] = $this->filterByBudget($nodes, $session, 'country');
+        } elseif ($args['type'] === 'city') {
+            // Owner's catch, 2026-09-01: real budget-fit hard-exclusion only ever ran for
+            // type=country — a city could show green/"room to spare" while genuinely not
+            // fitting the stated budget at all (caught live: Antalya). Same narrowing as
+            // country, just against the destination's own real accommodation price instead of
+            // the cheapest-child-city stand-in country uses (see accommodationTotalFor).
+            [$nodes, $budgetCaveatIds, $budgetFitById, $allInclusiveById, $foodTotalById] = $this->filterByBudget($nodes, $session, 'city');
         }
 
         if ($args['type'] === 'country' || $args['type'] === 'city') {
@@ -124,10 +135,26 @@ class GeographyResolver
 
         $isGeoType = in_array($args['type'], ['country', 'city'], true);
 
+        // $priceTotals: accommodation only (unchanged since before this session's rework) — the
+        // real per-destination price signal, average-across-cities for country / real-price for
+        // city (see accommodationTotalFor). $combinedTotals: accommodation + food, degrading to
+        // accommodation-only when $foodTotalById has nothing for a node yet (e.g. total_budget
+        // isn't answered, so filterByBudget never ran) — replaces $priceTotals in the sort
+        // comparators below (2026-09-01, replacing the old accommodation-only price_rank, which
+        // never considered food at all). $foodTotalById itself only has entries for nodes that
+        // went through filterByBudget's narrowCandidates() — i.e. only when total_budget/
+        // adults_count/trip-length were all already known.
         $priceTotals = [];
+        $combinedTotals = [];
         if ($isGeoType) {
             foreach ($nodes as $node) {
-                $priceTotals[$node->id] = $this->accommodationTotalFor($node, $args['type'], $session);
+                $accommodation = $this->accommodationTotalFor($node, $args['type'], $session);
+                $priceTotals[$node->id] = $accommodation;
+
+                $food = $foodTotalById->get($node->id);
+                $combinedTotals[$node->id] = $accommodation === null
+                    ? null
+                    : ($food !== null ? $accommodation + $food : $accommodation);
             }
         }
 
@@ -148,7 +175,9 @@ class GeographyResolver
         [$climateCheckin, $climateCheckout] = $isGeoType ? $this->tripCheckinCheckout($session) : [null, null];
         $climateMonths = $climateCheckin ? $this->monthsSpanned($climateCheckin, $climateCheckout) : [];
 
-        $mapped = $nodes->map(function (TaxonomyNode $node) use ($args, $preferenceTags, $vibeTagCount, $budgetCaveatIds, $budgetFitById, $allInclusiveById, $impliedIds, $guidedIds, $climateMonths, $requestedMealPlanSlugs, $isGeoType) {
+        $totalBudget = $session->total_budget ? (float) $session->total_budget : null;
+
+        $mapped = $nodes->map(function (TaxonomyNode $node) use ($args, $preferenceTags, $vibeTagCount, $budgetCaveatIds, $budgetFitById, $allInclusiveById, $impliedIds, $guidedIds, $climateMonths, $requestedMealPlanSlugs, $isGeoType, $priceTotals, $foodTotalById, $totalBudget) {
             $nodeTags = $this->resolveNodeTags($node);
             $matchedTags = $preferenceTags->intersect($nodeTags)->values();
 
@@ -160,6 +189,26 @@ class GeographyResolver
             $node->setAttribute('all_inclusive_fits', $allInclusiveById->get($node->id, false));
             $node->setAttribute('perfect_match', $this->isPerfectMatch($node, $args['type'], $matchedTags, $vibeTagCount, $preferenceTags));
             $node->setAttribute('has_guide', $guidedIds->contains($node->id));
+
+            // budget_fit_percent — 2026-09-01, replaces price_rank (pure relative accommodation-
+            // only ranking that never compared against the traveler's real total_budget, so a
+            // destination could show green/"room to spare" while genuinely unaffordable — caught
+            // live: Antalya). Absolute % of total_budget the real accommodation+food total
+            // consumes. Null unless total_budget, a real accommodation total, AND a real food
+            // total (from filterByBudget's narrowCandidates pass) all exist — "absent, not
+            // guessed," same convention as budget_fit/all_inclusive_fits above.
+            if ($isGeoType && $totalBudget) {
+                $accommodation = $priceTotals[$node->id] ?? null;
+                $food = $foodTotalById->get($node->id);
+                $node->setAttribute(
+                    'budget_fit_percent',
+                    ($accommodation !== null && $food !== null)
+                        ? round(($accommodation + $food) / $totalBudget * 100, 1)
+                        : null
+                );
+            } else {
+                $node->setAttribute('budget_fit_percent', null);
+            }
 
             if ($isGeoType) {
                 [$mealPlanFit, $mealPlanCaveat] = $this->mealPlanFitFor($node, $requestedMealPlanSlugs);
@@ -206,14 +255,10 @@ class GeographyResolver
             }
         }
 
-        if ($isGeoType) {
-            $this->assignPriceRanks($mapped, $priceTotals);
-        }
-
         // `jeftino`/`kvalitet` reframed 2026-08-13 (owner's call) — these never belonged as
         // atmosphere/meta tags in the first place (a city isn't durably "cheap," what it costs
         // THIS session depends on dates/headcount, which we already compute for real via
-        // accommodationTotalFor/price_rank). Reframed as a SORT preference over that real price
+        // accommodationTotalFor/$combinedTotals). Reframed as a SORT preference over that real price
         // instead: real atmosphere/persona matches still decide the primary order, this only
         // breaks ties (or drives order entirely once nothing else matched) — "bira jeftino, a
         // stavio je budzet od 3000... mozda planira nesto da vrati" is exactly why this doesn't
@@ -228,7 +273,7 @@ class GeographyResolver
 
         if ($isGeoType && $costPreference) {
             return $mapped
-                ->sort(function (TaxonomyNode $a, TaxonomyNode $b) use ($priceTotals, $costPreference) {
+                ->sort(function (TaxonomyNode $a, TaxonomyNode $b) use ($combinedTotals, $costPreference) {
                     // Owner's ask, 2026-08-21: the Superstar card must always lead, even when a
                     // non-perfect-match node ties or beats it on raw match_score (possible since
                     // match_score also counts cultural-availability matches, which don't count
@@ -246,20 +291,20 @@ class GeographyResolver
                         return $b->match_score <=> $a->match_score;
                     }
 
-                    $priceA = $priceTotals[$a->id] ?? null;
-                    $priceB = $priceTotals[$b->id] ?? null;
+                    // $combinedTotals (accommodation + food, 2026-09-01 — replaces the old
+                    // accommodation-only $priceTotals here, same bug price_rank had: ranking by
+                    // accommodation alone ignored food entirely) — degrades to accommodation-only
+                    // per-node when food isn't known yet, see where $combinedTotals is built.
+                    $priceA = $combinedTotals[$a->id] ?? null;
+                    $priceB = $combinedTotals[$b->id] ?? null;
                     if ($priceA === null || $priceB === null) {
                         return 0;
                     }
 
-                    // jeftino: cheapest first. kvalitet: priciest-within-budget first. For
-                    // type=country, filterByBudget already dropped anything that doesn't fit (or
-                    // fell back to the 2 nearest with a caveat) before we ever get here, so
-                    // "priciest of what's left" IS "best quality tier still in reach" — no
-                    // separate page-2 fallback needed, that already happened upstream. type=city
-                    // has no budget-fit narrowing at all yet (only country does) — this still
-                    // orders correctly (priciest first), just without that pre-filter's safety
-                    // net for the city list specifically.
+                    // jeftino: cheapest first. kvalitet: priciest-within-budget first. Both
+                    // type=country and type=city now get real budget-fit hard-exclusion upstream
+                    // (see filterByBudget) before we ever get here, so "priciest of what's left"
+                    // IS "best quality tier still in reach" — no separate page-2 fallback needed.
                     return $costPreference === 'jeftino' ? $priceA <=> $priceB : $priceB <=> $priceA;
                 })
                 ->values();
@@ -279,7 +324,7 @@ class GeographyResolver
                     // returned <=> result as-is — 'desc'/'asc' has no effect on a callable
                     // comparator (only on plain-attribute comparisons), so ascending is baked
                     // into the comparison itself here, not the direction flag.
-                    fn (TaxonomyNode $a, TaxonomyNode $b) => ($priceTotals[$a->id] ?? PHP_FLOAT_MAX) <=> ($priceTotals[$b->id] ?? PHP_FLOAT_MAX),
+                    fn (TaxonomyNode $a, TaxonomyNode $b) => ($combinedTotals[$a->id] ?? PHP_FLOAT_MAX) <=> ($combinedTotals[$b->id] ?? PHP_FLOAT_MAX),
                 ])
                 ->values();
         }
@@ -378,9 +423,9 @@ class GeographyResolver
     }
 
     /**
-     * Real accommodation cost signal for price_rank (see assignPriceRanks) — reuses the same
-     * per-week pricing machinery as the budget-fit narrowing above, just for country AND city
-     * types instead of country only. Null (no price signal, price_rank stays null) whenever
+     * Real accommodation cost signal — feeds $priceTotals/$combinedTotals/budget_fit_percent —
+     * reuses the same per-week pricing machinery as the budget-fit narrowing above, just for
+     * country AND city types instead of country only. Null (no price signal) whenever
      * the session doesn't have enough answered yet (no campaign, no resolvable trip dates/
      * traveler count) or the destination has no price data at all.
      */
@@ -414,61 +459,13 @@ class GeographyResolver
         // Nights, not calendar days present — see WizardCampaignDestinationPrice's night-count
         // fix, 2026-08-12. No +1: checkout day itself is never a paid night.
         $nights = $checkin->diffInDays($checkout);
-        // averageAccommodationTotal, not cheapestAccommodationTotal — this feeds price_rank
-        // (relative color), a different question than the budget-fit INCLUDE/EXCLUDE check
-        // elsewhere in this file. See averageAccommodationTotal's docblock, 2026-08-14.
+        // averageAccommodationTotal, not cheapestAccommodationTotal — this feeds $priceTotals/
+        // budget_fit_percent (an overall price-level signal), a different question than the
+        // budget-fit INCLUDE/EXCLUDE check elsewhere in this file. See averageAccommodationTotal's
+        // docblock, 2026-08-14.
         $total = $this->averageAccommodationTotal($node, $session, $totalTravelers, $nights);
 
         return $total > 0.0 ? $total : null;
-    }
-
-    /**
-     * Relative price_rank (1 = cheapest of the CURRENT candidate set, 5 = priciest) — deliberately
-     * relative rather than an absolute price bracket, since "expensive" only means something in
-     * comparison to the other options actually being shown. Left null (no price coloring shown)
-     * when fewer than 2 candidates have real price data — not enough spread to rank meaningfully.
-     */
-    private function assignPriceRanks(Collection $nodes, array $totals): void
-    {
-        $values = collect($totals)->filter(fn (?float $v) => $v !== null && $v > 0);
-
-        if ($values->count() < 2) {
-            foreach ($nodes as $node) {
-                $node->setAttribute('price_rank', null);
-            }
-
-            return;
-        }
-
-        // Owner's call, 2026-08-14: a genuine tie (every priced candidate landed on the exact
-        // same total) is still real information — "these cost the same" — not "we don't know."
-        // Gets the same color for everyone instead of no color at all, which used to read as a
-        // missing-data gap rather than an actual (if rare) price match. Rank 2 (lime, a medium
-        // green in priceRankClass) rather than the middle amber (3) — owner's follow-up call:
-        // "sve je bolje nego nema nista" (green reads as "still fine," not a warning).
-        if ($values->max() === $values->min()) {
-            foreach ($nodes as $node) {
-                $total = $totals[$node->id] ?? null;
-                $node->setAttribute('price_rank', ($total !== null && $total > 0) ? 2 : null);
-            }
-
-            return;
-        }
-
-        $min = $values->min();
-        $max = $values->max();
-
-        foreach ($nodes as $node) {
-            $total = $totals[$node->id] ?? null;
-
-            if ($total === null || $total <= 0) {
-                $node->setAttribute('price_rank', null);
-                continue;
-            }
-
-            $normalized = ($total - $min) / ($max - $min);
-            $node->setAttribute('price_rank', (int) round(1 + $normalized * 4));
-        }
     }
 
     /**
@@ -512,20 +509,28 @@ class GeographyResolver
     }
 
     /**
-     * Narrows countries by BudgetEstimationEngine, when the session has enough answered to
+     * Narrows candidates by BudgetEstimationEngine, when the session has enough answered to
      * run it (total_budget + adults_count + a resolvable trip length). Returns the (possibly
-     * narrowed, possibly fallback-only) country list plus the set of node IDs that are in the
+     * narrowed, possibly fallback-only) list plus the set of node IDs that are in the
      * list only as an over-budget-but-closest fallback (surfaced to the frontend as
      * `budget_caveat` so it can show "more expensive than asked, but nearest fit").
      *
-     * @return array{0: Collection<int, TaxonomyNode>, 1: Collection<int, int>, 2: Collection<int, string>, 3: Collection<int, bool>}
+     * `$type` (2026-09-01, previously country-only): 'country' uses cheapestAccommodationTotal
+     * (the cheapest child city stands in for "is there SOMETHING affordable here" — see that
+     * method's docblock), 'city' uses accommodationTotalFor($node, 'city', $session) (the
+     * destination's own real price) — same "can they afford this specific candidate" question,
+     * just without a child-aggregation step since a city IS the leaf. Requires
+     * TaxonomyNode::hospitalityMeta()'s parent-fallback (added same day) — cities carry no
+     * hospitality meta of their own, only their country does.
+     *
+     * @return array{0: Collection<int, TaxonomyNode>, 1: Collection<int, int>, 2: Collection<int, string>, 3: Collection<int, bool>, 4: Collection<int, float>}
      */
-    private function filterByBudget(Collection $countries, SearchSession $session): array
+    private function filterByBudget(Collection $countries, SearchSession $session, string $type = 'country'): array
     {
         $nights = $this->tripDurationNights($session);
 
         if (! $session->total_budget || ! $session->adults_count || ! $nights || $countries->isEmpty()) {
-            return [$countries, collect(), collect(), collect()];
+            return [$countries, collect(), collect(), collect(), collect()];
         }
 
         $totalTravelers = $session->adults_count + count($session->children_ages ?? []);
@@ -549,13 +554,17 @@ class GeographyResolver
         // cook for yourself" to someone who explicitly said they'd eat at restaurants.
         $mealStyle = $session->free_text_answers['meal_style'] ?? null;
 
+        $accommodationTotalFor = $type === 'city'
+            ? fn (TaxonomyNode $city) => $this->accommodationTotalFor($city, 'city', $session) ?? 0.0
+            : fn (TaxonomyNode $country) => $this->cheapestAccommodationTotal($country, $session, $totalTravelers, $nights);
+
         $result = (new BudgetEstimationEngine)->narrowCandidates(
             $countries,
             (float) $session->total_budget,
             $session->adults_count,
             count($session->children_ages ?? []),
             $foodDays,
-            fn (TaxonomyNode $country) => $this->cheapestAccommodationTotal($country, $session, $totalTravelers, $nights),
+            $accommodationTotalFor,
             $mealPlanSlugs,
             $mealStyle
         );
@@ -564,8 +573,12 @@ class GeographyResolver
         $caveatIds = $result->filter(fn (array $row) => $row['caveat'])->pluck('country.id')->values();
         // Owner's ask, 2026-08-14: "dodaj one komentare... ovde mozes i sa manjim budzetom" —
         // the frontend needs WHICH spending style each country actually fit under (not just the
-        // pass/fail caveat flag) to show a real reason instead of a bare price-rank color.
+        // pass/fail caveat flag) to show a real reason instead of a bare price color.
         $fitById = $result->pluck('fit', 'country.id');
+        // budget_fit_percent's food half (2026-09-01) — the SAME number narrowCandidates() just
+        // used to decide fit/no-fit for this candidate, not a second independently-derived
+        // estimate (see BudgetEstimationEngine::foodTotalForFit's docblock).
+        $foodTotalById = $result->pluck('food_total_eur', 'country.id');
 
         // Owner's ask, 2026-08-14 (second refinement) — a purely informational cross-check,
         // independent of the strict fit above: does all-inclusive fit here for this budget?
@@ -579,7 +592,7 @@ class GeographyResolver
             ),
         ]);
 
-        return [$narrowed, $caveatIds, $fitById, $allInclusiveById];
+        return [$narrowed, $caveatIds, $fitById, $allInclusiveById, $foodTotalById];
     }
 
     /**
@@ -720,7 +733,7 @@ class GeographyResolver
      * instead of the flat price_per_person_eur scalar, so this stays correct once destinations
      * move to per-week pricing instead of one flat number.
      *
-     * Deliberately NOT used for price_rank/color (see averageAccommodationTotal below) — MIN is
+     * Deliberately NOT used for $priceTotals/color (see averageAccommodationTotal below) — MIN is
      * right for "can they afford anything here," but wrong for "how does this country's overall
      * price level compare to the others," which is what the color is showing.
      */
@@ -751,17 +764,17 @@ class GeographyResolver
     }
 
     /**
-     * Country-level accommodation signal for price_rank/color specifically (see
-     * assignPriceRanks) — a SEPARATE method from cheapestAccommodationTotal above on purpose,
-     * since that one deliberately answers a different question (budget-fit INCLUDE/EXCLUDE:
-     * "is there at least one affordable option here").
+     * Country-level accommodation signal for $priceTotals/color specifically — a SEPARATE
+     * method from cheapestAccommodationTotal above on purpose, since that one deliberately
+     * answers a different question (budget-fit INCLUDE/EXCLUDE: "is there at least one
+     * affordable option here").
      *
-     * Bug fixed 2026-08-14: price_rank used to reuse cheapestAccommodationTotal (MIN across
+     * Bug fixed 2026-08-14: this signal used to reuse cheapestAccommodationTotal (MIN across
      * cities), so a country's single cheapest outlier town stood in for its whole price signal —
      * two countries that each happened to have one similarly-priced budget town (Turkey's Alanya
      * and Egypt's Marsa Alam, both ~13€) came out with an IDENTICAL total and lost their color
-     * entirely (see assignPriceRanks' tie guard). Owner's call: average spreads candidates out
-     * by their overall price level instead of colliding on one shared bargain town.
+     * entirely. Owner's call: average spreads candidates out by their overall price level
+     * instead of colliding on one shared bargain town.
      */
     private function averageAccommodationTotal(TaxonomyNode $country, SearchSession $session, int $totalTravelers, int $nights): float
     {

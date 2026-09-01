@@ -306,4 +306,21 @@ class BudgetEstimationEngineTest extends TestCase
         // Budget covers neither.
         $this->assertSame('insufficient', $engine->fitFor($country, 100, 2, 2, 7, mealPlanSlugs: $picks));
     }
+
+    /** food_total_eur (2026-09-01, backs GeographyResolver's budgetFitPercent) must reflect the
+     *  WINNING tier fitFor() actually picked, not the most-preferred pick in the list — same
+     *  scenario/math as test_multiple_meal_plan_picks_are_a_priority_list_not_a_contradiction
+     *  (coefficient 1.5, dorucak@660.38 fits but sve_ukljuceno@934.5 doesn't at this budget). */
+    public function test_narrow_candidates_food_total_reflects_the_winning_tier_not_the_most_preferred_one(): void
+    {
+        $country = $this->countryWithPrices(meal: 10, coffee: 2); // eating_out total = 623
+        $country->update(['meta' => [...$country->meta, 'meal_plan_coefficient' => 1.5]]);
+        $engine = new BudgetEstimationEngine;
+        $picks = ['sve_ukljuceno', 'dorucak'];
+
+        $result = $engine->narrowCandidates(collect([$country]), 661, 2, 2, 7, null, $picks);
+
+        $this->assertSame('dorucak', $result->first()['fit']);
+        $this->assertEqualsWithDelta(660.38, $result->first()['food_total_eur'], 0.01);
+    }
 }

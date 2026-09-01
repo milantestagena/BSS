@@ -85,4 +85,24 @@ class WizardCampaign extends Model
 
         return $weeks;
     }
+
+    /**
+     * The trip-length day-count implied by this campaign's preset termin_category answer, if it
+     * has one — owner's ask, 2026-09-01, for a realistic total_budget default (adults/children
+     * daily rate × trip length, see wizard.ts's syncDefaultBudget()). termin_category is never a
+     * rendered question when a campaign presets it (see seedWizardCampaigns's $questionKeys,
+     * which omits it entirely), so the frontend never loads that taxonomy node's options the way
+     * it does for the generic flow — this exposes the same default_duration_days meta the
+     * generic flow would read client-side, resolved server-side instead. Null if this campaign
+     * doesn't preset termin_category, or that node has no default_duration_days meta.
+     */
+    public function presetTripLengthDays(): ?int
+    {
+        $slug = $this->preset_answers['termin_category'] ?? null;
+        if (! $slug) {
+            return null;
+        }
+
+        return TaxonomyNode::where('type', 'termin_category')->where('slug', $slug)->first()?->meta['default_duration_days'] ?? null;
+    }
 }

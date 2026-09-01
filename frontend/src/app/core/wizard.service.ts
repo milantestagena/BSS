@@ -28,7 +28,7 @@ const START_SESSION_MUTATION = `
 const WIZARD_CAMPAIGN_QUERY = `
   query WizardCampaign($key: String!) {
     wizardCampaign(key: $key) {
-      id key label landingHeadline meta
+      id key label landingHeadline meta presetTripLengthDays
       questions {
         id key label inputType taxonomyType sessionField allowFreeText mandatory
         step { id key label }
@@ -114,7 +114,7 @@ const UPDATE_SESSION_MUTATION = `
 const SUGGESTED_GEOGRAPHY_QUERY = `
   query SuggestedGeography($sessionId: ID!, $type: String!, $parentId: ID, $parentIds: [ID!]) {
     suggestedGeography(sessionId: $sessionId, type: $type, parentId: $parentId, parentIds: $parentIds) {
-      id slug label matchScore meta implied matchedTags priceRank budgetFit budgetCaveat allInclusiveFits perfectMatch hasGuide excludesSlugs mealPlanCaveat
+      id slug label matchScore meta implied matchedTags budgetFitPercent budgetFit budgetCaveat allInclusiveFits perfectMatch hasGuide excludesSlugs mealPlanCaveat
       climateAirTempC { min max } climateSeaTempC { min max }
       parent { label meta }
     }
@@ -171,9 +171,14 @@ export class WizardService {
   readonly answers = signal<WizardAnswers>({});
   readonly loading = signal(false);
 
-  /** Admin-editable per-campaign tunables (default budget etc.) — see WizardCampaign.meta.
+  /** Admin-editable per-campaign tunables — see WizardCampaign.meta.
    *  Null for the non-campaign generic flow, or before a campaign has loaded. */
   readonly campaignMeta = signal<Record<string, unknown> | null>(null);
+
+  /** WizardCampaign::presetTripLengthDays() — the trip length implied by this campaign's preset
+   *  termin_category, since that question is never rendered/loaded client-side when presetted.
+   *  Null for the generic flow, or a campaign that doesn't preset termin_category. */
+  readonly presetTripLengthDays = signal<number | null>(null);
 
   /** Mirrors backend SearchSession::selectedTaxonomyNodeIds() — the source of truth for
    *  evaluating WizardQuestion.dependsOn, kept in sync from every mutation response rather
@@ -224,6 +229,7 @@ export class WizardService {
         ]);
         this.steps.set(this.groupCampaignQuestionsIntoSteps(campaignData.wizardCampaign.questions));
         this.campaignMeta.set(campaignData.wizardCampaign.meta ?? null);
+        this.presetTripLengthDays.set(campaignData.wizardCampaign.presetTripLengthDays ?? null);
         this.sessionId.set(sessionData.startCampaignSession.id);
         this.selectedTaxonomyNodeIds.set(new Set(sessionData.startCampaignSession.selectedTaxonomyNodeIds ?? []));
         this.seedVisitedHistory();
