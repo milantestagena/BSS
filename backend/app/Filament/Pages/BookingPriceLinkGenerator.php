@@ -13,18 +13,19 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Support\Collection;
 
 /**
  * Owner's ask, 2026-08-26: a quick way to open a real, plain Booking.com search link (no CJ
- * tracking — this is research, not a real click-through) for a chosen city/week/group size, to
- * manually read off the 3rd-4th cheapest listing's price — same "researched, not automated"
- * workflow as everything else in this project's price data (CLAUDE.md section 8 item 2). Started
- * as a one-off HTML checklist artifact for 5 sample cities, but the owner wanted real dropdowns
- * over the full live city list instead, same pattern as MealPlanCoefficientCalculator.
- *
- * Occupancy only goes 1-3, not higher — owner's call: a group of 4+ books as two separate
- * apartments/rooms, not a single larger-occupancy search, so there's no real comparison price to
- * read for that case.
+ * tracking — this is research, not a real click-through) for a chosen city, to manually read off
+ * the 3rd-4th cheapest listing's price — same "researched, not automated" workflow as everything
+ * else in this project's price data (CLAUDE.md section 8 item 2). Started as a one-off HTML
+ * checklist artifact for 5 sample cities, then real dropdowns over the full live city list, then
+ * (2026-09-01, this redesign) a fixed two-anchor workflow — every prior single-week/adjustable-
+ * group-size version got replaced once the two-anchor interpolation approach (see
+ * $interpolatedWeeks' docblock) became the standard way every city gets priced: exactly two real
+ * searches per city (Sep 5, Oct 24 — the pair validated against Alanya/Bodrum/Albufeira/Tenerife),
+ * always at group size 2, everything else derived.
  */
 class BookingPriceLinkGenerator extends Page implements HasForms
 {
@@ -38,43 +39,58 @@ class BookingPriceLinkGenerator extends Page implements HasForms
 
     protected static string $view = 'filament.pages.booking-price-link-generator';
 
+    /** The two fixed research weeks, owner's decision 2026-09-01 — every city gets researched at
+     *  exactly these two, never a picked/varying week anymore. Sep 5 is the season's real start;
+     *  Oct 24 (not the literal last week) skips the Nov-crossing week both Alanya and Bodrum
+     *  showed behaving as an outlier — see $interpolatedWeeks' docblock. */
+    private const ANCHOR_START_WEEK = '2026-09-05';
+
+    private const ANCHOR_END_WEEK = '2026-10-24';
+
+    /** 7-day package = 6 nights, not 7 — arrival afternoon, departure morning, no night slept on
+     *  the checkout day (owner's correction, 2026-08-31). Always the same for every search now
+     *  that every research week is a full campaign week. */
+    private const NIGHTS = 6;
+
+    /** Always 2 — owner's decision 2026-09-01: the group-size picker is gone, every research
+     *  search is done as a couple. Occupancy scaling for 1/3/4/5 travelers is handled entirely
+     *  by WizardCampaignDestinationPrice::roomMultiplierSumFor() at query time, not by
+     *  re-researching at different group sizes. */
+    private const ADULTS = 2;
+
     /** @var array<string, mixed>|null */
     public ?array $data = [];
 
-    public ?string $generatedUrl = null;
+    /** Raw page source pasted for the Sep 5 / Oct 24 searches — two separate boxes now (was one,
+     *  tied to whichever single week was selected) so both anchors get extracted in one submit.
+     *  Owner's ask, 2026-09-01, after the flat "+10%" rule (one search, one formula) broke down
+     *  hard on real data — see $interpolatedWeeks' docblock for the full story. */
+    public ?string $pastedHtmlStart = null;
 
-    /** Raw page source pasted from the real Booking results page (Ctrl+U / View Source, or the
-     *  results container's outerHTML from dev tools) — owner's ask, 2026-08-26, after a
-     *  full-page paste into chat kept getting cut off at the 50k-character message limit before
-     *  reaching the 3rd/4th listing (the ones the price convention actually needs). Parsed
-     *  server-side instead, no size limit that matters here. Plain Livewire property, not part
-     *  of the dropdown form above — unrelated concern, its own "Extract prices" action. */
-    public ?string $pastedHtml = null;
+    public ?string $pastedHtmlEnd = null;
 
     /** @var array<int, array{name: string, price: ?float, pricePerNight: ?float, roomType: ?string, isAnomaly: bool}> */
-    public array $extractedListings = [];
+    public array $extractedListingsStart = [];
 
-    public ?int $nights = null;
+    /** @var array<int, array{name: string, price: ?float, pricePerNight: ?float, roomType: ?string, isAnomaly: bool}> */
+    public array $extractedListingsEnd = [];
 
-    /** Pre-filled from the 3rd clean listing's €/person/night, rounded DOWN to the nearest €5 —
-     *  a starting point to eyeball/adjust, not a computed final answer (tried a "~10th percentile
-     *  of total market" auto-formula, 2026-08-31, dropped as confusing — this is the simpler
-     *  fallback the owner actually wanted). Fully editable before saving. Written to
-     *  WizardCampaignDestinationWeeklyPrice.price_per_person_eur — the actual field
-     *  WizardCampaignDestinationPrice::estimateAccommodationTotal() reads. */
-    public ?float $priceToSaveEur = null;
-
-    /** Two-anchor linear interpolation, 2026-08-31 — replaces the earlier flat "+10%" rule, which
-     *  broke down hard on real data (Tenerife and Albufeira both came out far off when checked
-     *  against real Sep 5 prices). This is grounded in two REAL per-city data points instead of
-     *  one point extrapolated by an assumed universal percentage: research just Sep 5 and Oct 24
-     *  (skipping the Nov-crossing last week, which both Alanya and Bodrum showed behaving as an
-     *  outlier), and every week between gets linearly interpolated and rounded to the nearest €5
-     *  independently — naturally reproduces the real plateau-then-step pattern already seen in
-     *  Alanya/Bodrum/Albufeira's actual researched data (repeated values wherever the raw step is
-     *  under €2.50). Doesn't touch Aug 29 or Oct 31 — both known edge weeks, left to manual
-     *  judgment. Still just a calculator until "Save all" is clicked — nothing written until
-     *  then, and only for the city already picked in the form above. */
+    /**
+     * Two-anchor linear interpolation, 2026-08-31 — replaced an earlier flat "+10%" rule, which
+     * broke down hard on real data (Tenerife and Albufeira both came out far off when checked
+     * against real Sep 5 prices). Grounded in two REAL per-city data points instead of one point
+     * extrapolated by an assumed universal percentage: research Sep 5 and Oct 24 (skipping the
+     * Nov-crossing last week, which both Alanya and Bodrum showed behaving as an outlier — Alanya
+     * dropped further, Bodrum rose), and every week between gets linearly interpolated and
+     * rounded to the nearest €5 independently — naturally reproduces the real plateau-then-step
+     * pattern already seen in Alanya/Bodrum/Albufeira's actual researched data (repeated values
+     * wherever the raw step is under €2.50). Doesn't touch Aug 29 or Oct 31 — both known edge
+     * weeks, and both already covered by WizardCampaignDestinationPrice's own nearest-priced-
+     * neighbor fallback even if left empty. As of 2026-09-01 this is THE workflow (was one of
+     * several) — $startWeek/$endWeek default to the two anchors above and stay that way in
+     * practice, kept as real properties (not hardcoded into the save) only so a future season's
+     * different anchor pair doesn't need a code change.
+     */
     public ?string $startWeek = null;
 
     public ?string $endWeek = null;
@@ -145,8 +161,7 @@ class BookingPriceLinkGenerator extends Page implements HasForms
     /**
      * Writes every interpolated week's price for the city picked in the form above — real
      * research still only happened at the two anchor weeks, everything between is a rounded
-     * linear estimate (see $interpolatedWeeks' docblock). Same underlying write as savePrice(),
-     * just looped.
+     * linear estimate (see $interpolatedWeeks' docblock).
      */
     public function saveInterpolatedWeeks(): void
     {
@@ -189,9 +204,9 @@ class BookingPriceLinkGenerator extends Page implements HasForms
             ->send();
     }
 
-    /** Same season-week list as the form's own Week dropdown, plain array for the interpolation
-     *  calculator's two anchor <select> elements (plain Livewire properties, not part of the
-     *  Filament Form/statePath above, so a real Filament Select component doesn't bind here). */
+    /** Same season-week list as the interpolation calculator's two anchor <select> elements
+     *  (plain Livewire properties, not part of the Filament Form/statePath above, so a real
+     *  Filament Select component doesn't bind here). */
     public function seasonWeekOptions(): array
     {
         $campaign = WizardCampaign::where('key', 'kasno-letovanje')->first();
@@ -207,7 +222,7 @@ class BookingPriceLinkGenerator extends Page implements HasForms
      *  Aug 29 once it's September) can't be booked anymore, so it shouldn't count toward
      *  progress or show up as a gap to fill. Shared by the dropdown's N/total count and the
      *  current-prices strip so both agree on the same denominator. */
-    private function futureSeasonWeeks(WizardCampaign $campaign): \Illuminate\Support\Collection
+    private function futureSeasonWeeks(WizardCampaign $campaign): Collection
     {
         $today = Carbon::today();
 
@@ -216,7 +231,7 @@ class BookingPriceLinkGenerator extends Page implements HasForms
 
     /** Non-null weekly-price count per city, for this campaign's future weeks only — one query
      *  for the whole dropdown, not N+1 per city. */
-    private function filledWeekCountsByCity(?WizardCampaign $campaign): \Illuminate\Support\Collection
+    private function filledWeekCountsByCity(?WizardCampaign $campaign): Collection
     {
         if (! $campaign) {
             return collect();
@@ -241,14 +256,15 @@ class BookingPriceLinkGenerator extends Page implements HasForms
 
     /** What's already saved for the city currently picked in the form above, future weeks only —
      *  every remaining campaign week with its current value (or null for a gap), so the owner
-     *  can see progress and spot gaps without clicking through each week individually. Owner's
-     *  ask, 2026-09-01. */
+     *  can see progress and spot gaps without clicking through each week individually. Also
+     *  re-rendered directly below the Save button (owner's ask, 2026-09-01) so a save's result is
+     *  visible immediately without scrolling back to the top. */
     public function currentWeeklyPricesFor(): array
     {
         // $this->data directly, NOT $this->form->getState() — getState() runs full form
-        // validation (including the required Week field), which throws a 500 the instant a city
-        // is picked but no week yet (real bug caught live, 2026-09-01). This is a read-only
-        // display helper, it only needs the raw value.
+        // validation, which throws a 500 the instant a city is picked but the form isn't fully
+        // valid yet (real bug caught live, 2026-09-01). This is a read-only display helper, it
+        // only needs the raw value.
         $taxonomyNodeId = $this->data['taxonomy_node_id'] ?? null;
         if (empty($taxonomyNodeId)) {
             return [];
@@ -279,7 +295,9 @@ class BookingPriceLinkGenerator extends Page implements HasForms
 
     public function mount(): void
     {
-        $this->form->fill(['adults' => 2]);
+        $this->form->fill();
+        $this->startWeek = self::ANCHOR_START_WEEK;
+        $this->endWeek = self::ANCHOR_END_WEEK;
     }
 
     public function form(Form $form): Form
@@ -293,9 +311,8 @@ class BookingPriceLinkGenerator extends Page implements HasForms
                     // city nodes in the DB, only 59 of which are actually part of
                     // kasno-letovanje. campaign:seed-destination-price-rows is what creates
                     // these rows, so "has a row" IS "belongs to the campaign" here. Labels get a
-                    // "✓ 10/10" / "3/10" progress suffix, 2026-09-01 (owner's ask — track
-                    // progress across 59 cities without a separate screen) — see
-                    // filledWeekCountsByCity().
+                    // "✓ 9/9" / "3/9" progress suffix, 2026-09-01 (owner's ask — track progress
+                    // across 59 cities without a separate screen) — see filledWeekCountsByCity().
                     ->options(function () {
                         $campaign = WizardCampaign::where('key', 'kasno-letovanje')->first();
                         $totalWeeks = $campaign ? $this->futureSeasonWeeks($campaign)->count() : 0;
@@ -317,62 +334,17 @@ class BookingPriceLinkGenerator extends Page implements HasForms
                     })
                     ->searchable()
                     ->required()
-                    ->live()
-                    ->afterStateUpdated(fn () => $this->generatedUrl = null),
-                Forms\Components\Select::make('week_start_date')
-                    ->label('Week')
-                    // Same "kasno-letovanje" campaign lookup as WizardCampaignDestinationWeeklyPriceResource's
-                    // own week filter — one active campaign, no reason to make this pickable yet.
-                    ->options(function () {
-                        $campaign = WizardCampaign::where('key', 'kasno-letovanje')->first();
-
-                        return $campaign?->seasonWeeks()
-                            ->mapWithKeys(fn ($week) => [
-                                $week->toDateString() => $week->format('D, M j').' – '.$week->copy()->addDays(6)->format('M j'),
-                            ])
-                            ->all() ?? [];
-                    })
-                    ->required()
-                    ->live()
-                    ->afterStateUpdated(fn () => $this->generatedUrl = null),
-                Forms\Components\Select::make('adults')
-                    ->label('Group size')
-                    ->options([1 => '1 (solo)', 2 => '2', 3 => '3'])
-                    ->helperText('4+ books as two separate apartments/rooms, not a single bigger search — no real comparison price to read there.')
-                    ->default(2)
-                    ->required()
-                    ->live()
-                    ->afterStateUpdated(fn () => $this->generatedUrl = null),
+                    ->live(),
             ])
             ->statePath('data');
     }
 
-    public function generate(): void
-    {
-        $state = $this->form->getState();
-        if (empty($state['taxonomy_node_id'])) {
-            Notification::make()->title('Pick a city first')->danger()->send();
-
-            return;
-        }
-
-        if (empty($state['week_start_date'])) {
-            Notification::make()->title('Pick a week first')->danger()->send();
-
-            return;
-        }
-
-        $this->generatedUrl = $this->bookingUrlFor($state['taxonomy_node_id'], $state['week_start_date'], $state['adults'] ?? 1);
-        $checkin = Carbon::parse($state['week_start_date']);
-        $this->nights = $checkin->diffInDays($checkin->copy()->addDays(6));
-    }
-
     /**
-     * Shared URL builder — `generate()` above and the two-anchor calculator's quick-links both
-     * need "this city, this week, this group size" turned into the same real Booking search URL.
-     * Extracted 2026-08-31 rather than duplicated a second time.
+     * Shared URL builder — always Sep 5 / Oct 24, always group size 2 (see ADULTS/ANCHOR_*
+     * constants). Extracted 2026-08-31 back when week/group were still pickable; kept as its own
+     * method since the two quick-links (startWeekUrl/endWeekUrl) both need it.
      */
-    private function bookingUrlFor(int $taxonomyNodeId, string $weekStartDate, int $adults): ?string
+    private function bookingUrlFor(int $taxonomyNodeId, string $weekStartDate): ?string
     {
         $node = TaxonomyNode::with('parent')->find($taxonomyNodeId);
         if (! $node) {
@@ -380,16 +352,14 @@ class BookingPriceLinkGenerator extends Page implements HasForms
         }
 
         $checkin = Carbon::parse($weekStartDate);
-        // 7-day package = 6 nights, not 7 — arrival afternoon, departure morning, no night slept
-        // on the checkout day. Owner's correction, 2026-08-31.
-        $checkout = $checkin->copy()->addDays(6);
+        $checkout = $checkin->copy()->addDays(self::NIGHTS);
         $searchTerm = $node->parent ? "{$node->label}, {$node->parent->label}" : $node->label;
 
         $params = [
             'ss' => $searchTerm,
             'checkin' => $checkin->toDateString(),
             'checkout' => $checkout->toDateString(),
-            'group_adults' => $adults,
+            'group_adults' => self::ADULTS,
             'no_rooms' => 1,
             'selected_currency' => 'EUR',
             'order' => 'price',
@@ -408,60 +378,51 @@ class BookingPriceLinkGenerator extends Page implements HasForms
         return 'https://www.booking.com/searchresults.html?'.http_build_query($params);
     }
 
-    /** Quick-link for the two-anchor calculator's Start/End week selects — same city+group size
-     *  already picked in the form above, just this section's own week. Null (renders no link)
-     *  until a city and that specific week are both chosen. */
-    public function anchorUrlFor(?string $weekStartDate): ?string
+    /** Quick-link for the currently picked city + Sep 5. Null (renders no link) until a city is
+     *  chosen. */
+    public function startWeekUrl(): ?string
     {
-        if (! $weekStartDate) {
-            return null;
-        }
-
-        // $this->data directly, not $this->form->getState() — same reason as
-        // currentWeeklyPricesFor(): getState() validates the whole form (including the required
-        // Week field, which this section doesn't use) and throws a 500 before a week is picked.
         $taxonomyNodeId = $this->data['taxonomy_node_id'] ?? null;
-        if (empty($taxonomyNodeId)) {
-            return null;
-        }
 
-        return $this->bookingUrlFor($taxonomyNodeId, $weekStartDate, $this->data['adults'] ?? 1);
+        return $taxonomyNodeId ? $this->bookingUrlFor($taxonomyNodeId, self::ANCHOR_START_WEEK) : null;
+    }
+
+    /** Same as startWeekUrl(), for Oct 24. */
+    public function endWeekUrl(): ?string
+    {
+        $taxonomyNodeId = $this->data['taxonomy_node_id'] ?? null;
+
+        return $taxonomyNodeId ? $this->bookingUrlFor($taxonomyNodeId, self::ANCHOR_END_WEEK) : null;
     }
 
     /**
-     * Parses pasted Booking.com results-page source into an ordered listing table, so the owner
-     * can read off the 3rd/4th real price (CLAUDE.md section 8 item 2's convention) without
-     * scrolling raw HTML or hitting the chat's 50k-character message truncation. Targets stable
-     * `data-testid` attributes (`property-card`, `title`, `price-and-discounted-price`,
+     * Parses one pasted Booking.com results-page source into an ordered listing table, so the
+     * owner can read off the 3rd/4th real price (CLAUDE.md section 8 item 2's convention)
+     * without scrolling raw HTML or hitting the chat's 50k-character message truncation. Targets
+     * stable `data-testid` attributes (`property-card`, `title`, `price-and-discounted-price`,
      * `recommended-units`'s `<h4>`), not the obfuscated CSS classes Booking ships.
+     *
+     * Doesn't yet separate out city/tourist tax shown alongside the headline price on some
+     * listings — owner's note, 2026-09-01: improve this parser once that's common enough to
+     * actually distort a reference price, not before.
+     *
+     * @return array<int, array{name: string, price: ?float, pricePerNight: ?float, roomType: ?string, isAnomaly: bool}>
      */
-    public function extractPrices(): void
+    private function parseListings(?string $html): array
     {
-        $this->extractedListings = [];
-        $this->priceToSaveEur = null;
-
-        if (trim((string) $this->pastedHtml) === '') {
-            Notification::make()->title('Paste the page source first')->danger()->send();
-
-            return;
-        }
-
-        $state = $this->form->getState();
-        // Nights may already be set from clicking "Generate link" first — recompute from the
-        // form's own week either way, so extraction works standalone too.
-        if (! empty($state['week_start_date'])) {
-            $checkin = Carbon::parse($state['week_start_date']);
-            $this->nights = $checkin->diffInDays($checkin->copy()->addDays(6));
+        if (trim((string) $html) === '') {
+            return [];
         }
 
         $dom = new \DOMDocument();
         libxml_use_internal_errors(true);
-        $dom->loadHTML('<?xml encoding="utf-8" ?>'.$this->pastedHtml);
+        $dom->loadHTML('<?xml encoding="utf-8" ?>'.$html);
         libxml_clear_errors();
 
         $xpath = new \DOMXPath($dom);
         $cards = $xpath->query('//*[@data-testid="property-card"]');
 
+        $listings = [];
         foreach ($cards as $card) {
             $nameNode = $xpath->query('.//div[@data-testid="title"]', $card)->item(0);
             $name = $nameNode
@@ -484,95 +445,69 @@ class BookingPriceLinkGenerator extends Page implements HasForms
                 continue;
             }
 
-            $this->extractedListings[] = [
+            $listings[] = [
                 'name' => $name !== '' ? $name : '(unknown)',
                 'price' => $price,
-                'pricePerNight' => ($price !== null && $this->nights) ? round($price / $this->nights, 2) : null,
+                'pricePerNight' => $price !== null ? round($price / self::NIGHTS, 2) : null,
                 'roomType' => $roomType,
                 'isAnomaly' => $isAnomaly,
             ];
         }
 
-        if (empty($this->extractedListings)) {
+        // Booking's own order=price sort is occasionally out of order on the actual page (owner's
+        // observation, 2026-08-31) — re-sort here rather than trust DOM order, so the #rank shown
+        // and the 3rd-clean-listing suggestion below are always correct regardless.
+        return collect($listings)
+            ->sortBy(fn (array $l) => $l['price'] ?? PHP_FLOAT_MAX)
+            ->values()
+            ->all();
+    }
+
+    /** 3rd clean (non-anomaly, priced) listing's €/person/night, rounded DOWN to the nearest €5 —
+     *  a starting point to eyeball/adjust, not a computed final answer (owner's ask, 2026-08-31:
+     *  "odokativno", no auto margin). Null when there aren't enough clean listings to reference. */
+    private function suggestedPriceFrom(array $listings): ?float
+    {
+        $clean = collect($listings)
+            ->filter(fn (array $l) => ! $l['isAnomaly'] && $l['pricePerNight'] !== null)
+            ->values();
+        $reference = $clean->get(2) ?? $clean->get(1) ?? $clean->first();
+        if (! $reference) {
+            return null;
+        }
+
+        return floor(($reference['pricePerNight'] / self::ADULTS) / 5) * 5;
+    }
+
+    /**
+     * Parses both pasted page sources at once — Sep 5 and Oct 24 — and pre-fills the
+     * interpolation calculator's Start/End price from each table's own 3rd-clean-listing
+     * suggestion. Owner's redesign, 2026-09-01: was one paste box tied to one picked week: now
+     * both anchors get researched and extracted together, directly feeding the interpolation
+     * step below instead of a separate single-week save.
+     */
+    public function extractPrices(): void
+    {
+        $this->extractedListingsStart = $this->parseListings($this->pastedHtmlStart);
+        $this->extractedListingsEnd = $this->parseListings($this->pastedHtmlEnd);
+
+        if (empty($this->extractedListingsStart) && empty($this->extractedListingsEnd)) {
             Notification::make()
                 ->title('No property cards found')
-                ->body('Paste the full page source (Ctrl+U / View Source) of the Booking results page, not a screenshot or partial copy.')
+                ->body('Paste the full page source (Ctrl+U / View Source) of both Booking results pages, not a screenshot or partial copy.')
                 ->danger()
                 ->send();
 
             return;
         }
 
-        // Booking's own order=price sort is occasionally out of order on the actual page (owner's
-        // observation, 2026-08-31) — re-sort here rather than trust DOM order, so the #rank shown
-        // and the 3rd-clean-listing default below are always correct regardless.
-        $this->extractedListings = collect($this->extractedListings)
-            ->sortBy(fn (array $l) => $l['price'] ?? PHP_FLOAT_MAX)
-            ->values()
-            ->all();
-
-        // Prefill from the 3rd clean (non-anomaly, priced) listing, rounded DOWN to the nearest
-        // €5 — a starting point to eyeball/adjust, not a computed final answer (owner's ask,
-        // 2026-08-31: "odokativno", no auto margin this time, just a round number to start from).
-        $clean = collect($this->extractedListings)
-            ->filter(fn (array $l) => ! $l['isAnomaly'] && $l['pricePerNight'] !== null)
-            ->values();
-        $reference = $clean->get(2) ?? $clean->get(1) ?? $clean->first();
-        if ($reference) {
-            $adults = max(1, (int) ($state['adults'] ?? 1));
-            $perPersonPerNight = $reference['pricePerNight'] / $adults;
-            $this->priceToSaveEur = floor($perPersonPerNight / 5) * 5;
+        if ($suggested = $this->suggestedPriceFrom($this->extractedListingsStart)) {
+            $this->startPrice = $suggested;
         }
-    }
-
-    /**
-     * Writes the owner-typed €/person/night value into WizardCampaignDestinationWeeklyPrice,
-     * for the same city+week picked above — the actual field
-     * WizardCampaignDestinationPrice::estimateAccommodationTotal() reads (per-person, per-night;
-     * see that model).
-     */
-    public function savePrice(): void
-    {
-        $state = $this->form->getState();
-        $node = TaxonomyNode::find($state['taxonomy_node_id'] ?? null);
-        if (! $node) {
-            Notification::make()->title('Pick a city first')->danger()->send();
-
-            return;
+        if ($suggested = $this->suggestedPriceFrom($this->extractedListingsEnd)) {
+            $this->endPrice = $suggested;
         }
 
-        if (empty($state['week_start_date'])) {
-            Notification::make()->title('Pick a week first')->danger()->send();
-
-            return;
-        }
-
-        if ($this->priceToSaveEur === null || $this->priceToSaveEur <= 0) {
-            Notification::make()->title('Enter a price to save first')->danger()->send();
-
-            return;
-        }
-
-        $campaign = WizardCampaign::where('key', 'kasno-letovanje')->first();
-        if (! $campaign) {
-            Notification::make()->title('No active campaign found')->danger()->send();
-
-            return;
-        }
-
-        $destinationPrice = WizardCampaignDestinationPrice::firstOrCreate(
-            ['wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $node->id],
-            ['source' => 'manual_research'],
-        );
-
-        WizardCampaignDestinationWeeklyPrice::updateOrCreate(
-            ['wizard_campaign_destination_price_id' => $destinationPrice->id, 'week_start_date' => $state['week_start_date']],
-            ['price_per_person_eur' => $this->priceToSaveEur],
-        );
-
-        Notification::make()
-            ->title("Saved €{$this->priceToSaveEur}/person/night for {$node->label}")
-            ->success()
-            ->send();
+        $this->recomputeInterpolation();
     }
 }
