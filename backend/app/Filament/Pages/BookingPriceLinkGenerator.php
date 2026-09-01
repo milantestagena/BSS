@@ -203,13 +203,26 @@ class BookingPriceLinkGenerator extends Page implements HasForms
             ->all() ?? [];
     }
 
-    /** Non-null weekly-price count per city, for this campaign — one query for the whole
-     *  dropdown, not N+1 per city. */
+    /** Season weeks that haven't already started — owner's catch, 2026-09-01: a past week (e.g.
+     *  Aug 29 once it's September) can't be booked anymore, so it shouldn't count toward
+     *  progress or show up as a gap to fill. Shared by the dropdown's N/total count and the
+     *  current-prices strip so both agree on the same denominator. */
+    private function futureSeasonWeeks(WizardCampaign $campaign): \Illuminate\Support\Collection
+    {
+        $today = Carbon::today();
+
+        return $campaign->seasonWeeks()->filter(fn ($week) => $week->gte($today))->values();
+    }
+
+    /** Non-null weekly-price count per city, for this campaign's future weeks only — one query
+     *  for the whole dropdown, not N+1 per city. */
     private function filledWeekCountsByCity(?WizardCampaign $campaign): \Illuminate\Support\Collection
     {
         if (! $campaign) {
             return collect();
         }
+
+        $futureWeekDates = $this->futureSeasonWeeks($campaign)->map->toDateString()->all();
 
         return WizardCampaignDestinationWeeklyPrice::query()
             ->join(
@@ -220,14 +233,16 @@ class BookingPriceLinkGenerator extends Page implements HasForms
             )
             ->where('wizard_campaign_destination_prices.wizard_campaign_id', $campaign->id)
             ->whereNotNull('wizard_campaign_destination_weekly_prices.price_per_person_eur')
+            ->whereIn('wizard_campaign_destination_weekly_prices.week_start_date', $futureWeekDates)
             ->selectRaw('wizard_campaign_destination_prices.taxonomy_node_id, count(*) as filled')
             ->groupBy('wizard_campaign_destination_prices.taxonomy_node_id')
             ->pluck('filled', 'taxonomy_node_id');
     }
 
-    /** What's already saved for the city currently picked in the form above — every campaign
-     *  week with its current value (or null for a gap), so the owner can see progress and spot
-     *  gaps without clicking through each week individually. Owner's ask, 2026-09-01. */
+    /** What's already saved for the city currently picked in the form above, future weeks only —
+     *  every remaining campaign week with its current value (or null for a gap), so the owner
+     *  can see progress and spot gaps without clicking through each week individually. Owner's
+     *  ask, 2026-09-01. */
     public function currentWeeklyPricesFor(): array
     {
         $state = $this->form->getState();
@@ -251,7 +266,7 @@ class BookingPriceLinkGenerator extends Page implements HasForms
             ? $destinationPrice->weeklyPrices->keyBy(fn ($w) => $w->week_start_date->toDateString())
             : collect();
 
-        return $campaign->seasonWeeks()->map(fn ($week) => [
+        return $this->futureSeasonWeeks($campaign)->map(fn ($week) => [
             'week' => $week->toDateString(),
             'label' => $week->format('D, M j'),
             'price' => $existing->get($week->toDateString())?->price_per_person_eur,
@@ -279,7 +294,7 @@ class BookingPriceLinkGenerator extends Page implements HasForms
                     // filledWeekCountsByCity().
                     ->options(function () {
                         $campaign = WizardCampaign::where('key', 'kasno-letovanje')->first();
-                        $totalWeeks = $campaign?->seasonWeeks()->count() ?? 0;
+                        $totalWeeks = $campaign ? $this->futureSeasonWeeks($campaign)->count() : 0;
                         $filled = $this->filledWeekCountsByCity($campaign);
 
                         return TaxonomyNode::where('type', 'city')
