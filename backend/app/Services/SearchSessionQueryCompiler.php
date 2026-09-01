@@ -611,8 +611,16 @@ class SearchSessionQueryCompiler
         if (! $checkin) {
             return null;
         }
+        // Real bug caught live, 2026-09-01 (owner: a 500€/8-night/breakfast+dinner/Alanya
+        // session came back with a €35 ceiling instead of the real €39 — blank Booking results,
+        // since Alanya's actual rates researched this same day start around €50+). $days (food
+        // convention, +1 — you still eat on checkout morning) was being reused as the NIGHTLY
+        // divisor too, understating the ceiling. $nights (no +1, matches
+        // WizardCampaignDestinationPrice's own convention) is what accommodation actually divides
+        // by — $days stays food-only.
         $days = $checkin->diffInDays($checkout) + 1;
-        if ($days < 1) {
+        $nights = $checkin->diffInDays($checkout);
+        if ($days < 1 || $nights < 1) {
             return null;
         }
 
@@ -644,7 +652,7 @@ class SearchSessionQueryCompiler
             return null;
         }
 
-        return (int) floor($accommodationBudgetTotal / $days);
+        return (int) floor($accommodationBudgetTotal / $nights);
     }
 
     /**
