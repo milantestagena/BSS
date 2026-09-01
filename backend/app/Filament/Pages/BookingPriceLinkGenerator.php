@@ -321,6 +321,21 @@ class BookingPriceLinkGenerator extends Page implements HasForms
         $this->endWeek = self::ANCHOR_END_WEEK;
     }
 
+    /** Country ids the live wizard never actually shows for this campaign — same
+     *  taxonomy_node_relations `excludes` edge GeographyResolver reads (termin_category
+     *  'kasno_kupanje' excludes 'hrvatska': "najhladnija, nikad nije dobila prave cene", see
+     *  CLAUDE.md §8). Owner's catch, 2026-09-01: Croatia's 3 cities still have real
+     *  WizardCampaignDestinationPrice rows left over from before that exclusion, so the "has a
+     *  price row" filter alone let them leak into the dropdown even though no real visitor will
+     *  ever see them — researching their prices further would be wasted time. */
+    private function excludedCountryIds(): \Illuminate\Support\Collection
+    {
+        return TaxonomyNode::where('type', 'termin_category')
+            ->where('slug', 'kasno_kupanje')
+            ->first()
+            ?->excludes()->pluck('taxonomy_nodes.id') ?? collect();
+    }
+
     public function form(Form $form): Form
     {
         return $form
@@ -334,16 +349,20 @@ class BookingPriceLinkGenerator extends Page implements HasForms
                     // these rows, so "has a row" IS "belongs to the campaign" here. Labels get a
                     // "✓ 9/9" / "3/9" progress suffix, 2026-09-01 (owner's ask — track progress
                     // across 59 cities without a separate screen) — see filledWeekCountsByCity().
+                    // Also excludes cities whose country the live wizard itself excludes (Croatia,
+                    // caught live 2026-09-01) — see excludedCountryIds().
                     ->options(function () {
                         $campaign = WizardCampaign::where('key', 'kasno-letovanje')->first();
                         $totalWeeks = $campaign ? $this->futureSeasonWeeks($campaign)->count() : 0;
                         $filled = $this->filledWeekCountsByCity($campaign);
+                        $excludedCountryIds = $this->excludedCountryIds();
 
                         return TaxonomyNode::where('type', 'city')
                             ->when($campaign, fn ($q) => $q->whereHas(
                                 'campaignDestinationPrices',
                                 fn ($q) => $q->where('wizard_campaign_id', $campaign->id),
                             ))
+                            ->whereNotIn('parent_id', $excludedCountryIds)
                             ->orderBy('label')
                             ->get()
                             ->mapWithKeys(function (TaxonomyNode $city) use ($filled, $totalWeeks) {
