@@ -378,9 +378,28 @@ class BookingPriceLinkGenerator extends Page implements HasForms
                     })
                     ->searchable()
                     ->required()
-                    ->live(),
+                    ->live()
+                    // Owner's ask, 2026-09-01: switching cities left the previous city's pasted
+                    // HTML, extracted tables, and interpolation prices sitting on screen — easy
+                    // to mistake for belonging to the newly picked city. The quick-link buttons
+                    // don't need a separate reset (startWeekUrl/endWeekUrl are computed live off
+                    // the current city, no stored state to go stale), but they do disappear
+                    // during this same render since Livewire re-renders the whole page on
+                    // taxonomy_node_id changing either way.
+                    ->afterStateUpdated(fn () => $this->resetPerCityState()),
             ])
             ->statePath('data');
+    }
+
+    private function resetPerCityState(): void
+    {
+        $this->pastedHtmlStart = null;
+        $this->pastedHtmlEnd = null;
+        $this->extractedListingsStart = [];
+        $this->extractedListingsEnd = [];
+        $this->startPrice = null;
+        $this->endPrice = null;
+        $this->interpolatedWeeks = [];
     }
 
     /**
