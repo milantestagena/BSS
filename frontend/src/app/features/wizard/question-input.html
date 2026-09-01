@@ -2,7 +2,7 @@
   <label class="mb-2 block text-sm font-semibold text-white">
     {{ mainLabel }}
     @if (hintLabel; as hint) {
-      <span class="font-medium text-sky-100">({{ hint }})</span>
+      <span class="font-medium text-amber-100">({{ hint }})</span>
     }
     @if (question.mandatory) {
       <span class="ml-1 align-middle text-lg font-bold text-amber-300" [title]="i18n.t('required')">*</span>
@@ -48,7 +48,7 @@
     @case ('date_range') {
       <div class="flex max-w-md items-center gap-3">
         <ui-date-field [placeholder]="i18n.t('chooseDate')" [value]="dateFromValue" (valueChange)="onDateFromChange($event)" />
-        <span class="text-sky-100">—</span>
+        <span class="text-amber-100">—</span>
         <ui-date-field [placeholder]="i18n.t('chooseDate')" [value]="dateToValue" (valueChange)="onDateToChange($event)" />
       </div>
     }
@@ -86,9 +86,9 @@
            renders when there's actually something to separate. -->
       @if (culturalOptions.length > 0) {
         <div class="my-3 flex items-center gap-2">
-          <div class="h-px flex-1 bg-sky-400/50"></div>
-          <span class="text-xs font-medium uppercase tracking-wide text-sky-100">{{ i18n.t('culturalTagsIntro') }}</span>
-          <div class="h-px flex-1 bg-sky-400/50"></div>
+          <div class="h-px flex-1 bg-amber-400/50"></div>
+          <span class="text-xs font-medium uppercase tracking-wide text-amber-100">{{ i18n.t('culturalTagsIntro') }}</span>
+          <div class="h-px flex-1 bg-amber-400/50"></div>
         </div>
         <div class="flex flex-wrap gap-2">
           @for (node of culturalOptions; track node.id) {
