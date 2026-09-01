@@ -492,11 +492,21 @@ class WizardSeeder extends Seeder
         // choice rather than one pill inside this hotel-tier list — self-catering isn't a hotel
         // amenity the way these are, it just happened to physically occur at the accommodation
         // too, which read as a confusing fit alongside real meal-plan tiers.
+        //
+        // 'dorucak_rucak' (Breakfast & lunch) and 'pun_pansion' (All meals included) DROPPED
+        // 2026-09-01 (owner's call, end of the price-research pass): almost no hotel actually
+        // offers a wide breakfast+lunch plan, while breakfast and dinner are nearly universal —
+        // simpler to remove the rare options globally than research per-country availability for
+        // them (the TaxonomyNode::offersMealPlan() data layer from earlier the same day still
+        // exists and still applies to the remaining plans, just never populated for these two
+        // now). The two rows themselves were deleted directly in production, not just removed
+        // here — this array only prevents a future db:seed from silently recreating them.
+        // BudgetEstimationEngine::MEAL_PLAN_COVERAGE_RATIOS deliberately still has entries for
+        // both — harmless dead code, left alone rather than risk breaking a historical session
+        // whose free_text_answers still reference one of these slugs from before this change.
         $mealPlans = [
             ['slug' => 'dorucak', 'en' => 'Breakfast included', 'sr' => 'Doručak uključen', 'id' => 1],
-            ['slug' => 'dorucak_rucak', 'en' => 'Breakfast & lunch included', 'sr' => 'Doručak i ručak uključeni', 'id' => 8],
             ['slug' => 'dorucak_vecera', 'en' => 'Breakfast & dinner included', 'sr' => 'Doručak i večera uključeni', 'id' => 9],
-            ['slug' => 'pun_pansion', 'en' => 'All meals included', 'sr' => 'Svi obroci uključeni', 'id' => 3],
             ['slug' => 'sve_ukljuceno', 'en' => 'All-inclusive', 'sr' => 'Sve uključeno', 'id' => 4],
         ];
         foreach ($mealPlans as $i => $item) {
