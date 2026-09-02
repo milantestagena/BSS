@@ -1405,9 +1405,12 @@ class WizardSeeder extends Seeder
             'kusadasi' => [3, 1], 'bodrum' => [2, 1], 'alanija' => [2, 1], 'kas' => [2, 1],
             'fethije' => [2, 1], 'oludeniz' => [2, 3], 'sajd' => [2, 1], 'antalija' => [2, 1],
             'kalkan' => [1, 1], 'datca' => [1, 1], 'marmaris' => [1, 1], 'cesme' => [1, 1],
-            // Egypt
-            'sarm_el_seik' => [2, 1], 'marsa_alam' => [2, 1], 'dahab' => [2, 1],
-            'hurgada' => [1, 1], 'el_guna' => [1, 1], 'nuvejba' => [1, 1], 'taba' => [1, 1],
+            // Egypt — Hurghada/Sharm El Sheikh beach-tier raised 1->2, 2026-09-03 (owner's call,
+            // "dizi gradove" — caught live that Egypt could never earn the lepe_plaze tag at all,
+            // country-wide, since every one of its cities sat below the >=2 threshold, despite
+            // both being world-famous Red Sea beach/dive resorts).
+            'sarm_el_seik' => [2, 2], 'marsa_alam' => [2, 1], 'dahab' => [2, 1],
+            'hurgada' => [1, 2], 'el_guna' => [1, 1], 'nuvejba' => [1, 1], 'taba' => [1, 1],
             'safaga' => [1, 1], 'soma_bej' => [1, 1],
             // Cyprus
             'pafos' => [3, 1], 'ajia_napa' => [0, 2], 'larnaka' => [1, 1],
