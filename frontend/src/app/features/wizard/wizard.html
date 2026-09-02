@@ -248,6 +248,14 @@
                     @if (hasRealGrouping(question)) {
                       <p class="mb-3 text-xs text-stone-200">{{ i18n.t('destinationsGroupedIntro') }}</p>
                     }
+                    @if (question.key === 'city') {
+                      <!-- Owner's ask, 2026-09-02: a self-service explanation instead of us
+                           trying to guess/relax filters server-side (we can't safely test what a
+                           looser combination would actually return without a real Booking call —
+                           see the Ayia Napa "Beachfront + self-catering, 1 property found" case
+                           the owner caught live the same day). -->
+                      <p class="mb-3 text-xs text-stone-200">{{ i18n.t('cityStepHint') }}</p>
+                    }
                     @if (anyGroupHasBudgetFitData(question)) {
                       <p class="mb-3 text-[10px] text-stone-200">{{ i18n.t('priceLegend') }}</p>
                     }
