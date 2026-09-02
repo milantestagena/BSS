@@ -58,7 +58,13 @@
         >
       </div>
     } @else if (wizard.loading()) {
-      <div class="flex items-center gap-3 text-slate-500">
+      <!-- Owner's catch, 2026-09-02: rare (only the brief gap between the intro and the chat
+           panel mounting) but stood out badly when it did show — left-stuck, cool slate-500
+           against the warm sunset photo it sits directly on. Centered + recolored to match the
+           intro block right above it (text-white + drop-shadow for legibility directly on the
+           photo, same as the intro's title/subtitle) rather than the chat panel's terracotta
+           (#c08761, chosen for a solid background, not this busy photo backdrop). -->
+      <div class="flex items-center justify-center gap-3 py-20 text-white drop-shadow">
         <ui-spinner size="md" />
         <span>{{ i18n.t('loading') }}</span>
       </div>

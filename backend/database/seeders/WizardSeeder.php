@@ -185,7 +185,7 @@ class WizardSeeder extends Seeder
             ['slug' => 'jede_napolju', 'en' => 'Local restaurants', 'sr' => 'Lokalni restorani'],
             // Carries the real Booking `mealplan=999` (Self catering) filter ID directly, same
             // as it did on the old separate 'samostalno_kuvanje' meal_plan node.
-            ['slug' => 'sam_se_snalazim', 'en' => "I'll organize myself (cook)", 'sr' => 'Sam ću da se snalazim (spremam)', 'meta' => ['booking_meal_plan_id' => 999]],
+            ['slug' => 'sam_se_snalazim', 'en' => "I'll organize myself", 'sr' => 'Sam ću da se snalazim', 'meta' => ['booking_meal_plan_id' => 999]],
         ];
 
         foreach ($items as $i => $item) {
@@ -2228,7 +2228,7 @@ class WizardSeeder extends Seeder
             ],
             'meal_style' => [
                 'jede_napolju' => 'Lokale Restaurants',
-                'sam_se_snalazim' => 'Ich organisiere mich selbst (Selbstverpflegung)',
+                'sam_se_snalazim' => 'Ich organisiere mich selbst',
             ],
             'cost_category' => [
                 'hospitality' => 'Gastronomie (Essen/Trinken auswärts)',
