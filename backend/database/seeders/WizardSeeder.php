@@ -36,6 +36,7 @@ class WizardSeeder extends Seeder
         $this->seedClimate();
         $this->seedLocations();
         $this->seedSwimDestinations();
+        $this->seedRealBookingDestIds();
         $this->seedSwimCountryProfiles();
         $this->seedCityAndCountryVibeProfiles();
         $this->seedSwimAtmosphereTags();
@@ -993,6 +994,51 @@ class WizardSeeder extends Seeder
     }
 
     /**
+     * Replaces a few cities' placeholder Location rows (booking_dest_id "test_{slug}_city",
+     * `source` 'manual_test', set above — never real Booking values, see this method's own
+     * "test_*_city" comment) with REAL dest_id/dest_type, captured directly from Booking's own
+     * search box by the owner. Only for destinations where a plain `ss` text search demonstrably
+     * resolves to the WRONG place — caught live, 2026-09-03: "Ischia" alone matched a small
+     * ~10-hotel port-town locality instead of the ~500-hotel whole-island region a traveler
+     * actually means; same story for "Lloret de Mar"/"Palma de Mallorca" against their own
+     * regions. See SearchSessionQueryCompiler::toBookingUrl()/BookingPriceLinkGenerator::
+     * bookingUrlFor(), both of which now prefer a real (non-'manual_test') Location over `ss`.
+     * Deliberately NOT run for every destination — most cities' plain `ss` search already
+     * resolves correctly; this is a targeted fix for the confirmed collision cases only.
+     */
+    private function seedRealBookingDestIds(): void
+    {
+        $realDestIds = [
+            'iskija' => ['id' => '1596', 'type' => 'region'],
+            'lloret_de_mar' => ['id' => '-389487', 'type' => 'city'],
+            'palma_de_majorka' => ['id' => '767', 'type' => 'region'],
+        ];
+
+        foreach ($realDestIds as $slug => ['id' => $destId, 'type' => $destType]) {
+            $city = TaxonomyNode::where('type', 'city')->where('slug', $slug)->first();
+            if (! $city) {
+                continue;
+            }
+
+            // Bug fixed 2026-09-03 (caught on re-seed): updating the CITY's currently-linked
+            // Location row in place wasn't idempotent — seedSwimDestinations() above keys its own
+            // Location lookup by the "test_{slug}_city" PLACEHOLDER booking_dest_id, so once this
+            // method overwrote that placeholder with a real value, the next full re-seed's
+            // updateOrCreate() there could no longer find that row by its old placeholder key,
+            // created a FRESH orphaned placeholder row instead, re-pointed the city at it, and
+            // this method then tried to write the same real dest_id onto that new row — colliding
+            // with the (still real-valued) orphan from the previous run against `booking_dest_id`'s
+            // unique constraint. Keying THIS lookup by the real dest_id itself instead (stable,
+            // never changes) makes re-seeding safe regardless of what seedSwimDestinations() does.
+            $location = Location::updateOrCreate(
+                ['booking_dest_id' => $destId],
+                ['dest_type' => $destType, 'name' => $city->label, 'source' => 'manual_verified'],
+            );
+            $city->update(['booking_location_id' => $location->id]);
+        }
+    }
+
+    /**
      * Hospitality/local_stores cost meta + cultural_availability tiers for the 10 swim-theme
      * countries (2026-07-30, see wizard_architecture "BudgetEstimationEngine" +
      * "cultural_availability engine"). No usable free API exists for either — WhereNext (the
@@ -1211,6 +1257,12 @@ class WizardSeeder extends Seeder
             'santorini' => ['Postcard sunsets, cliffside walkways, honeymoon central — beautiful but genuinely impractical for young kids (stairs everywhere) and expensive for a tight budget.', ['istrazivac'], ['porodica']],
             'mikonos' => ["Greece's most famous party island — beach clubs, international DJs, a serious price tag to match.", ['partijaner'], ['porodica']],
             'kos' => ['Calmer and flatter than its Cycladic cousins, more family package-resort energy — good for biking, moderate nightlife in Kos Town.', [], []],
+            'retimno' => ["Crete's best-preserved Venetian old town — a real fortress, a long town beach right below it, genuine university-city life rather than a resort bubble.", ['istrazivac', 'flegma'], ['partijaner']],
+            'lefkada' => ["Connected to the mainland by a causeway, not a ferry — home to some of Greece's most photographed beaches (Porto Katsiki, Egremni), quieter than its Ionian neighbor Corfu.", ['istrazivac', 'flegma'], []],
+            'skijatos' => ['Home to Koukounaries, repeatedly ranked among Europe\'s best beaches — lively without being a hard-party island, small airport makes it an easy direct-charter pick.', ['istrazivac'], []],
+            'zakintos' => ['The Shipwreck Beach (Navagio) postcard island, plus loggerhead turtle nesting in Laganas Bay — Laganas itself has real resort nightlife, the rest of the island is calmer.', ['istrazivac'], []],
+            'milos' => ["Volcanic, otherworldly landscapes (Sarakiniko's white moonscape) — quieter and less discovered than Santorini/Mykonos, genuine fishing-village character.", ['istrazivac', 'flegma'], ['partijaner']],
+            'hanja' => ["Arguably Crete's most photogenic spot — a real Venetian harbor old town, with Balos/Elafonisi's famous beaches a day trip away.", ['istrazivac', 'flegma'], []],
 
             'taormina' => ['Clifftop, ancient Greek theatre, expensive and romantic — a couples and culture-lovers town, not a party or budget destination.', ['istrazivac'], ['partijaner']],
             'kaljari' => ["Sardinia's real capital city — beaches right by an actual working city, good food scene, moderate nightlife without being a strip.", ['gurman', 'istrazivac'], []],
@@ -1440,12 +1492,15 @@ class WizardSeeder extends Seeder
     private function seedExplorationAndBeachTags(): void
     {
         // slug => [exploration_tier, beach_tier]
+        // Beach-tier bumps, 2026-09-03 (owner's confidence-scored review of the full priced
+        // list, all 10/10 except Zarzis at 8/10): Rhodes/Kos/Djerba/Zarzis/Albufeira all raised
+        // to earn lepe_plaze the same way Hurghada/Sharm El Sheikh did above.
         $ratings = [
             // Greece
-            'rodos' => [3, 1], 'krit' => [3, 1], 'santorini' => [3, 1], 'krf' => [2, 1],
+            'rodos' => [3, 2], 'krit' => [3, 1], 'santorini' => [3, 1], 'krf' => [2, 1],
             'naksos' => [2, 1], 'milos' => [2, 2], 'simi' => [2, 1], 'hanja' => [2, 3],
             'retimno' => [2, 2], 'zakintos' => [2, 3], 'kefalonija' => [2, 3], 'lefkada' => [2, 3],
-            'mikonos' => [1, 1], 'kos' => [1, 1], 'karpatos' => [1, 1], 'kalimnos' => [1, 1],
+            'mikonos' => [1, 1], 'kos' => [1, 2], 'karpatos' => [1, 1], 'kalimnos' => [1, 1],
             'kalamata' => [1, 1], 'skopelos' => [1, 1], 'skijatos' => [1, 3], 'paros' => [1, 1],
             // Turkey
             'kusadasi' => [3, 1], 'bodrum' => [2, 1], 'alanija' => [2, 1], 'kas' => [2, 1],
@@ -1466,9 +1521,9 @@ class WizardSeeder extends Seeder
             // draw is its actual history (Popeye Village, WWII-era Red Tower, the Sanctuary).
             'melieha' => [2, 1], 'sliema' => [1, 0], 'st_julians' => [0, 0],
             // Tunisia
-            'susa' => [2, 1], 'djerba' => [2, 1], 'monastir' => [1, 1], 'mahdija' => [1, 1],
+            'susa' => [2, 1], 'djerba' => [2, 2], 'monastir' => [1, 1], 'mahdija' => [1, 1],
             'tabarka' => [1, 0], 'bizerta' => [1, 0], 'hamamet' => [1, 1], 'nabel' => [1, 0],
-            'sfaks' => [1, 0], 'zarzis' => [0, 1],
+            'sfaks' => [1, 0], 'zarzis' => [0, 2],
             // Spain (Canaries)
             'tenerife' => [3, 1], 'lansarote' => [3, 1], 'gran_kanarija' => [2, 2], 'fuerteventura' => [1, 2],
             // Spain (Balearics/Costa Brava), 2026-09-03 — Palma is a real historic city
@@ -1478,7 +1533,7 @@ class WizardSeeder extends Seeder
             // Croatia
             'split' => [3, 1], 'dubrovnik' => [3, 1], 'hvar' => [1, 1],
             // Portugal
-            'lagos' => [2, 2], 'albufeira' => [0, 1], 'faro' => [1, 1],
+            'lagos' => [2, 2], 'albufeira' => [0, 2], 'faro' => [1, 1],
             // Italy
             'taormina' => [3, 2], 'kaljari' => [2, 1], 'lampedusa' => [1, 3], 'linosa' => [1, 1],
             // Sicily/Naples-area expansion, 2026-09-03 — Palermo/Siracusa are real historic
@@ -1588,8 +1643,16 @@ class WizardSeeder extends Seeder
      */
     private function seedFamilyAndQuietTags(): void
     {
-        $quietSlugs = ['marsa_alam', 'larnaka', 'melieha', 'lansarote', 'fuerteventura', 'lampedusa', 'linosa', 'pafos', 'krf', 'sal_rej'];
-        $familySlugs = ['hurgada', 'sarm_el_seik', 'hamamet', 'monastir', 'antalija', 'kos', 'melieha', 'alanija', 'pafos', 'santa_marija', 'sal_rej'];
+        // cefalu/faro/datca/kalkan/tabarka added 2026-09-03 (owner's confidence-scored review —
+        // each already said "relaxed"/"quiet" in its own vibe_profile description, just never
+        // got the tag). Sorrento deliberately NOT added despite a similar-reading description —
+        // owner's explicit call: too heavily touristy as an Amalfi/Capri gateway to earn "whole
+        // town is peaceful" as a real signal, unlike these five.
+        $quietSlugs = ['marsa_alam', 'larnaka', 'melieha', 'lansarote', 'fuerteventura', 'lampedusa', 'linosa', 'pafos', 'krf', 'sal_rej', 'cefalu', 'faro', 'datca', 'kalkan', 'tabarka'];
+        // sajd (Side) added 2026-09-03 — its own vibe_profile description already said
+        // "family-oriented all-inclusive resort belt similar to Antalya's Lara/Belek," the tag
+        // just never got added.
+        $familySlugs = ['hurgada', 'sarm_el_seik', 'hamamet', 'monastir', 'antalija', 'kos', 'melieha', 'alanija', 'pafos', 'santa_marija', 'sal_rej', 'sajd'];
 
         $raveSlugs = TaxonomyNode::whereIn('type', ['city', 'country'])
             ->get()

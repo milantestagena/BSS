@@ -39,11 +39,16 @@ class BookingPriceLinkGenerator extends Page implements HasForms
 
     protected static string $view = 'filament.pages.booking-price-link-generator';
 
-    /** The two fixed research weeks, owner's decision 2026-09-01 — every city gets researched at
-     *  exactly these two, never a picked/varying week anymore. Sep 5 is the season's real start;
-     *  Oct 24 (not the literal last week) skips the Nov-crossing week both Alanya and Bodrum
-     *  showed behaving as an outlier — see $interpolatedWeeks' docblock. */
-    private const ANCHOR_START_WEEK = '2026-09-05';
+    /** The two fixed research weeks. Start moved 2026-09-03 (owner's catch, live: with "today"
+     *  only 2 days before Sep 5, that week's real Booking prices run last-minute-inflated/
+     *  distorted — not representative of what a normal advance booker pays) from Sep 5 to Sep
+     *  12 — one real campaign week later, still close to season start but past the last-minute
+     *  price spike. Sep 5 itself is no longer researched directly; it's extrapolated BACKWARD
+     *  one step at the same slope, mirroring how the season's real last week already extrapolates
+     *  FORWARD past End — see $interpolatedWeeks' docblock for both directions. Oct 24 (not the
+     *  literal last week) skips the Nov-crossing week both Alanya and Bodrum showed behaving as
+     *  an outlier. */
+    private const ANCHOR_START_WEEK = '2026-09-12';
 
     private const ANCHOR_END_WEEK = '2026-10-24';
 
@@ -161,6 +166,22 @@ class BookingPriceLinkGenerator extends Page implements HasForms
                 'price' => round($raw / 5) * 5,
             ];
         })->all();
+
+        // Extrapolate exactly one week BEFORE Start, same per-week slope, prepended — 2026-09-03
+        // (owner's catch, live: Start moved off Sep 5 specifically because researching it
+        // directly gives a last-minute-inflated price, not a real one; Sep 5 still needs a real
+        // number in the saved data, just derived rather than researched — same "cover every real
+        // week, some by research some by trend" principle as the AFTER-End extrapolation below,
+        // just mirrored to the other side).
+        $beforeStart = $campaign->seasonWeeks()->filter(fn ($w) => $w->lt($start))->last();
+        if ($beforeStart) {
+            $raw = $this->startPrice - $slope;
+            array_unshift($this->interpolatedWeeks, [
+                'week' => $beforeStart->toDateString(),
+                'label' => $beforeStart->format('D, M j'),
+                'price' => round($raw / 5) * 5,
+            ]);
+        }
 
         // Extrapolate exactly one more week past End, same per-week slope as the interpolation
         // itself — owner's ask, 2026-09-01: the season's real last week (e.g. Oct 31) is
@@ -416,10 +437,8 @@ class BookingPriceLinkGenerator extends Page implements HasForms
 
         $checkin = Carbon::parse($weekStartDate);
         $checkout = $checkin->copy()->addDays(self::NIGHTS);
-        $searchTerm = $node->parent ? "{$node->label}, {$node->parent->label}" : $node->label;
 
         $params = [
-            'ss' => $searchTerm,
             'checkin' => $checkin->toDateString(),
             'checkout' => $checkout->toDateString(),
             'group_adults' => self::ADULTS,
@@ -439,10 +458,23 @@ class BookingPriceLinkGenerator extends Page implements HasForms
             'nflt' => implode(';', ['ht_id=204', 'ht_id=206', 'ht_id=201', 'ht_id=213', 'ht_id=220', 'privacy_type=3']),
         ];
 
+        // Real, owner-verified dest_id/dest_type (captured from Booking's own search box, not
+        // the seed-time "test_*_city" placeholder) used INSTEAD of a plain `ss` text search when
+        // set — see toBookingUrl()'s matching docblock in SearchSessionQueryCompiler for the
+        // Ischia case this fixes (a ~10-hotel port-town match instead of the real ~500-hotel
+        // whole-island region).
+        $location = $node->bookingLocation;
+        if ($location && $location->source !== 'manual_test') {
+            $params['dest_id'] = $location->booking_dest_id;
+            $params['dest_type'] = $location->dest_type;
+        } else {
+            $params['ss'] = $node->parent ? "{$node->label}, {$node->parent->label}" : $node->label;
+        }
+
         return 'https://www.booking.com/searchresults.html?'.http_build_query($params);
     }
 
-    /** Quick-link for the currently picked city + Sep 5. Null (renders no link) until a city is
+    /** Quick-link for the currently picked city + Sep 12. Null (renders no link) until a city is
      *  chosen. */
     public function startWeekUrl(): ?string
     {

@@ -5,7 +5,7 @@
         <div class="mt-4 flex flex-wrap items-center gap-3">
             @if ($url = $this->startWeekUrl())
                 <x-filament::button tag="a" :href="$url" target="_blank" color="success" icon="heroicon-o-arrow-top-right-on-square">
-                    Open Sep 5
+                    Open Sep 12
                 </x-filament::button>
             @endif
             @if ($url = $this->endWeekUrl())
@@ -33,11 +33,11 @@
         <form wire:submit.prevent="extractPrices">
             <div class="grid gap-4 md:grid-cols-2">
                 <div>
-                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Sep 5 page source</label>
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Sep 12 page source</label>
                     <textarea
                         wire:model="pastedHtmlStart"
                         rows="6"
-                        placeholder="Paste Sep 5 Booking.com page source here…"
+                        placeholder="Paste Sep 12 Booking.com page source here…"
                         class="fi-input mt-1 block w-full rounded-lg border-none bg-white text-sm text-gray-950 shadow-sm ring-1 ring-gray-950/10 focus:ring-2 focus:ring-primary-600 dark:bg-white/5 dark:text-white dark:ring-white/20 dark:focus:ring-primary-500"
                     ></textarea>
                 </div>
@@ -59,7 +59,7 @@
 
         @if (! empty($extractedListingsStart) || ! empty($extractedListingsEnd))
             <div class="mt-6 grid gap-6 md:grid-cols-2">
-                @foreach (['Sep 5' => $extractedListingsStart, 'Oct 24' => $extractedListingsEnd] as $heading => $listings)
+                @foreach (['Sep 12' => $extractedListingsStart, 'Oct 24' => $extractedListingsEnd] as $heading => $listings)
                     <div>
                         <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300">{{ $heading }}</h4>
                         @if (empty($listings))
@@ -107,7 +107,7 @@
     <x-filament::section class="mt-8">
         <x-slot name="heading">Two-anchor interpolation</x-slot>
         <x-slot name="description">
-            Sep 5 / Oct 24 are pre-selected — Start/End price are pre-filled from the extraction above (still editable). Every week between gets linearly interpolated, rounded to the nearest €5.
+            Sep 12 / Oct 24 are pre-selected — Start/End price are pre-filled from the extraction above (still editable). Every week between gets linearly interpolated, rounded to the nearest €5. Sep 5 (last-minute-inflated if researched directly) and Oct 31 both get one extra extrapolated step, before Start and after End.
         </x-slot>
 
         <div class="flex flex-wrap items-end gap-4">

@@ -150,16 +150,33 @@ class SearchSessionQueryCompiler
             return null;
         }
 
-        $searchTerm = $destination->parent ? "{$destination->label}, {$destination->parent->label}" : $destination->label;
-
         $params = [
-            'ss' => $searchTerm,
             'checkin' => $checkin->toDateString(),
             'checkout' => $checkout->toDateString(),
             'group_adults' => $this->session->adults_count ?: 1,
             'no_rooms' => $this->session->number_of_rooms ?: 1,
             'selected_currency' => 'EUR',
         ];
+
+        // Bug fixed 2026-09-03 (owner caught it live testing Ischia in the admin price tool): a
+        // plain `ss` text search can resolve to the WRONG Booking destination entity when a
+        // place's name collides with a narrower one — "Ischia" alone matched a small ~10-hotel
+        // locality (the port town) instead of the ~500-hotel whole-island region a traveler
+        // actually means. Real, owner-verified dest_id/dest_type (captured directly from
+        // Booking's own search box, not the "test_*_city" PLACEHOLDER every Location row got at
+        // seed time — see seedSwimDestinations' docblock, that placeholder era is exactly why
+        // this class avoided dest_id entirely until now) reuses the SAME Location record this
+        // relation already pointed at, just with real values — used INSTEAD of `ss` when
+        // present (Booking's real search-results page omits `ss` entirely once dest_id/dest_type
+        // are set, confirmed from the owner's own captured URL). `source` distinguishes a real
+        // capture from the placeholder — never trust a 'manual_test' row here.
+        $location = $destination->bookingLocation;
+        if ($location && $location->source !== 'manual_test') {
+            $params['dest_id'] = $location->booking_dest_id;
+            $params['dest_type'] = $location->dest_type;
+        } else {
+            $params['ss'] = $destination->parent ? "{$destination->label}, {$destination->parent->label}" : $destination->label;
+        }
 
         $childrenAges = $this->session->children_ages ?? [];
         if (! empty($childrenAges)) {
