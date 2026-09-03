@@ -993,4 +993,73 @@ class GeographyResolverTest extends TestCase
         $resultsB = (new GeographyResolver)->suggested(null, ['sessionId' => $sessionSoft->id, 'type' => 'country']);
         $this->assertSame(1, $resultsB->firstWhere('id', $grcka->id)->meal_plan_fit);
     }
+
+    /**
+     * Regression coverage for the "never show zero results" invariant every individual filter
+     * in this class documents on its own (climate/budget/preference-tag all independently
+     * revert-to-unfiltered when their own narrowing would leave nothing) — this proves the
+     * SEQUENCE of filters (budget -> climate -> preference-tag match, see suggested()'s call
+     * order) still holds the invariant when a single surviving candidate fails EVERY filter at
+     * once, not just one at a time. Session catch, 2026-09-03: owner asked for edge-case
+     * coverage of "always offer a country/city, even a nonsense combo of answers" — this is the
+     * adversarial case that would have silently broken if any one filter's fallback assumed it
+     * was the only thing narrowing the list.
+     */
+    public function test_stacked_climate_budget_and_preference_filters_never_leave_a_sole_candidate_with_nothing(): void
+    {
+        // Deliberately fails all three: too cold for the termin's threshold, too expensive for
+        // the stated budget (accommodation defaults to 0 with no campaign price row, so this is
+        // purely a food-cost squeeze via hospitality meta), and matches no requested vibe tag.
+        $country = $this->node('country', 'stresscountry');
+        $solesurvivor = $this->node('city', 'solesurvivor', [
+            'hospitality' => ['avg_restaurant_meal_eur' => 200, 'avg_cafe_coffee_eur' => 30],
+        ]);
+        $solesurvivor->update(['parent_id' => $country->id]);
+
+        $termin = $this->node('termin_category', 'kasno_kupanje', [
+            'honest_report_thresholds' => ['sea_temp_c' => ['good' => 22, 'caveat' => 18]],
+        ]);
+        \App\Models\TaxonomyNodeClimate::create(['taxonomy_node_id' => $solesurvivor->id, 'month' => 9, 'sea_temp_c' => 12]);
+
+        $this->node('preference_tag', 'romanticno');
+
+        $session = SearchSession::create([
+            'status' => 'in_progress', 'termin_category' => $termin->slug,
+            'adults_count' => 2, 'total_budget' => 5,
+            'date_from' => '2026-09-01', 'date_to' => '2026-09-08',
+            'free_text_answers' => ['preference_tags' => ['romanticno']],
+        ]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'city']);
+
+        $this->assertTrue($results->pluck('id')->contains($solesurvivor->id));
+    }
+
+    /**
+     * Pins a DELIBERATE exception to the "never show zero results" convention every other
+     * filter in this class follows — filterByCulturalAvailability's docblock calls a stated
+     * cultural requirement (halal/vegan/lgbtq_friendly/alcohol availability) "a dealbreaker, not
+     * a resource constraint to relax," so it hard-excludes with no 2-closest-style fallback the
+     * way budget/climate do. Verified against real seeded data, 2026-09-03 (owner's edge-case
+     * ask): today's actual tag/tier data never combines strictly enough to hit this in
+     * production, but the code path itself has no safety net if that ever changes — this test
+     * exists so a future change to that policy is a deliberate, visible diff here, not a silent
+     * behavior shift. If the owner ever wants a caveated "closest anyway" fallback here too
+     * (matching budget's shape), this is the test to update.
+     */
+    public function test_cultural_availability_has_no_fallback_and_can_legitimately_return_empty(): void
+    {
+        $onlyCountry = $this->node('country', 'onlyrestrictedcountry');
+        $onlyCountry->culturalAvailability()->create(['category' => 'halal', 'tier' => 4, 'label' => 'test']);
+        $this->node('preference_tag', 'zeli_halal', ['cultural_category' => 'halal', 'max_tier' => 2]);
+
+        $session = SearchSession::create([
+            'status' => 'in_progress',
+            'free_text_answers' => ['preference_tags' => ['zeli_halal']],
+        ]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'country']);
+
+        $this->assertTrue($results->isEmpty());
+    }
 }
