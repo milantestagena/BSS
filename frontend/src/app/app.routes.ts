@@ -30,20 +30,26 @@ export const routes: Routes = [
     component: WizardComponent,
     data: {
       campaignKey: 'kasno-letovanje',
-      // English rewrite, 2026-08-06 — same playful "haven't caught any sun yet" wink as the
-      // original Serbian "Nisi osolio dupe ove godine?" joke, kept for an English-speaking
-      // reviewer (Booking Affiliate application). See wizard_architecture memory. German added
-      // 2026-08-11 (DACH market) — see WizardComponent.themeIntro for the locale lookup.
+      // Replaced 2026-09-03 (owner's ask, 2026-09-02: the old "Still pasty this year?"/
+      // "dark by 5pm" framing read like early autumn, but it was still full scorching-summer
+      // heat when this shipped — mismatched the actual season on the page. New copy leads with
+      // urgency ("haven't gone yet??? what are you waiting for") instead of a seasonal-contrast
+      // joke, so it doesn't go stale as fast. Original English "Still pasty" version (itself a
+      // translation of the Serbian "Nisi osolio dupe ove godine?" joke) preserved in git history.
+      // CTA deliberately NOT "Get me some sun" — real heatwave right now (35°C in September,
+      // per owner), so "give me sun" reads backwards; save that phrasing for a colder/rainier
+      // month's campaign instead. German added 2026-08-11 (DACH market) — see
+      // WizardComponent.themeIntro for the locale lookup.
       intro: {
         en: {
-          title: 'Still pasty this year?',
-          subtitle: "Let's fix that. It's still beach weather on the Mediterranean while it's dark back home by 5pm.",
-          cta: 'Get me some sun',
+          title: "Haven't been to the sea yet this year???",
+          subtitle: "It's still beach weather on the Mediterranean, don't miss it.",
+          cta: 'Take me to the beach',
         },
         de: {
-          title: 'Dieses Jahr noch keine Sonne gesehen?',
-          subtitle: 'Das ändern wir. Am Mittelmeer ist noch Strandwetter, während es zu Hause schon um 17 Uhr dunkel wird.',
-          cta: 'Zeig mir die Sonne',
+          title: 'Warst du dieses Jahr noch nicht am Meer???',
+          subtitle: 'Am Mittelmeer ist noch Strandwetter, verpass es nicht.',
+          cta: 'Ab an den Strand',
         },
       },
     },
