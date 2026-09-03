@@ -847,6 +847,19 @@ class WizardSeeder extends Seeder
             'gran_kanarija' => ['Gran Canaria', 'Gran Kanarija', 'spanija', 28.1235, -15.4363, [10 => [25, 23], 11 => [23, 22], 12 => [21, 21]]],
             'lansarote' => ['Lanzarote', 'Lansarote', 'spanija', 28.9630, -13.5477, [10 => [24, 22.5], 11 => [22, 21.5], 12 => [20, 20.5]]],
             'fuerteventura' => ['Fuerteventura', 'Fuerteventura', 'spanija', 28.3587, -14.0537, [10 => [25, 22.5], 11 => [23, 21.5], 12 => [21, 20.5]]],
+            // Balearics/Costa Brava, 2026-09-03 (owner's ask) — deliberately narrower window than
+            // the Canaries above: mainland/Balearic Mediterranean coast was excluded from this
+            // campaign entirely back on 2026-08-11 for cooling too fast by November (see CLAUDE.md
+            // §7 market decisions) — this isn't a reversal of that, it's a September-scoped
+            // addition riding the SAME automatic climate:import + filterByClimate mechanism that
+            // already drops any destination once its real sea temp falls below the campaign's
+            // threshold, no manual exclude relation needed (owner: "imamo mehanizam da ih skloni
+            // oktobra kad zahladi"). Placeholder estimates only, overwritten by climate:import
+            // right after seeding — Palma/Ibiza near Cagliari's readings, Lloret (Costa Brava,
+            // further north/continental) noticeably cooler, closer to Split's.
+            'palma_de_majorka' => ['Palma de Mallorca', 'Palma de Majorka', 'spanija', 39.5696, 2.6502, [10 => [21, 22], 11 => [16, 19.5], 12 => [12, 17]]],
+            'ibica' => ['Ibiza Town', 'Ibica', 'spanija', 38.9067, 1.4206, [10 => [22, 22.5], 11 => [17, 20], 12 => [13, 17.5]]],
+            'lloret_de_mar' => ['Lloret de Mar', 'Lloret de Mar', 'spanija', 41.6996, 2.8460, [10 => [19, 20], 11 => [14, 17], 12 => [10, 14]]],
 
             // Turkey
             'antalija' => ['Antalya', 'Antalija', 'turska', 36.8969, 30.7133, [10 => [27, 25], 11 => [21, 22], 12 => [16, 19]]],
@@ -910,6 +923,18 @@ class WizardSeeder extends Seeder
             // late-season swim picks in this whole list, not just added for completeness.
             'lampedusa' => ['Lampedusa', 'Lampedusa', 'italija', 35.5097, 12.6111, [10 => [24, 24.5], 11 => [20, 21.5], 12 => [17, 19]]],
             'linosa' => ['Linosa', 'Linoza', 'italija', 35.8667, 12.8667, [10 => [23.5, 24.5], 11 => [19.5, 21.5], 12 => [16.5, 19]]],
+            // Sicily + Naples-area expansion, 2026-09-03 (owner's ask, "povecamo Italiju") —
+            // climate values below are rough same-latitude-neighbor placeholders (Palermo/
+            // Cefalù/San Vito Lo Capo ~ Taormina's east-coast readings, Siracusa a touch warmer
+            // toward Lampedusa's, Ischia/Sorrento estimated fresh for that latitude — none of
+            // this matters, climate:import overwrites every row here with real Open-Meteo
+            // history right after seeding, same as the 2026-08-11 expansion round above).
+            'palermo' => ['Palermo', 'Palermo', 'italija', 38.1157, 13.3615, [10 => [22, 23], 11 => [17, 21], 12 => [14, 18.5]]],
+            'cefalu' => ['Cefalù', 'Cefalu', 'italija', 38.0388, 14.0231, [10 => [22, 23], 11 => [17, 21], 12 => [14, 18.5]]],
+            'sirakuza' => ['Syracuse (Ortigia)', 'Sirakuza (Ortidja)', 'italija', 37.0755, 15.2866, [10 => [23, 23.5], 11 => [18, 21], 12 => [15, 18.5]]],
+            'san_vito_lo_kapo' => ['San Vito Lo Capo', 'San Vito Lo Kapo', 'italija', 38.1745, 12.7371, [10 => [22, 23], 11 => [17, 21], 12 => [14, 18.5]]],
+            'iskija' => ['Ischia', 'Iskija', 'italija', 40.7333, 13.9500, [10 => [20, 21], 11 => [15, 18], 12 => [11, 15]]],
+            'sorento' => ['Sorrento', 'Sorento', 'italija', 40.6263, 14.3757, [10 => [20, 21], 11 => [15, 18], 12 => [11, 15]]],
 
             // Portugal — Algarve, cools faster than the Mediterranean proper (Atlantic).
             'faro' => ['Faro', 'Faro', 'portugalija', 37.0194, -7.9304, [10 => [22, 20], 11 => [18, 18], 12 => [15, 16.5]]],
@@ -1162,6 +1187,10 @@ class WizardSeeder extends Seeder
             'lansarote' => ['Volcanic landscapes, surf spots, calmer overall than its Canary neighbors — light on nightlife, strong on scenery.', ['istrazivac', 'flegma'], ['partijaner']],
             'fuerteventura' => ['Windsurfing and kite-surfing capital of the Canaries — sporty, laid-back, not a club destination.', ['istrazivac', 'flegma'], ['partijaner']],
 
+            'palma_de_majorka' => ['A real city, not just a resort strip — Gothic cathedral and old town alongside real nightlife, with the island\'s famous beaches a short drive out.', ['istrazivac', 'partijaner'], []],
+            'ibica' => ["The world's actual party island — legendary superclubs, DJs flown in from everywhere. Genuinely built around nightlife, not a quiet family pick.", ['partijaner'], ['porodica']],
+            'lloret_de_mar' => ['Costa Brava package-resort town, loud strip of bars close to the beach — busy and inexpensive, not a culture or quiet-getaway pick.', ['partijaner'], ['flegma']],
+
             'antalija' => ["Sprawling — Lara/Belek's all-inclusive resort belt is deeply family-oriented, while Kaleiçi's old town has real nightlife after dark.", [], []],
             'bodrum' => ["Turkey's answer to St. Tropez — yacht culture, upscale beach clubs, a real party scene once the sun goes down.", ['partijaner', 'istrazivac'], ['porodica']],
             'marmaris' => ['Package-holiday party town, loud late into the night — fun for a group trip, not built for families.', ['partijaner'], ['porodica']],
@@ -1187,6 +1216,12 @@ class WizardSeeder extends Seeder
             'kaljari' => ["Sardinia's real capital city — beaches right by an actual working city, good food scene, moderate nightlife without being a strip.", ['gurman', 'istrazivac'], []],
             'lampedusa' => ["Italy's southernmost point, closer to Africa than to Sicily — famous for the turquoise Rabbit Beach and turtle nesting, built around diving and nature, not nightlife.", ['istrazivac', 'flegma'], ['partijaner']],
             'linosa' => ['A tiny volcanic island near Lampedusa, even quieter and more remote — black-sand beaches, a handful of restaurants, no real nightlife at all.', ['flegma', 'istrazivac'], ['partijaner']],
+            'palermo' => ["Sicily's real capital — Norman-Arab-Byzantine architecture, a legendary street-food market culture, genuine city life more than a beach base.", ['istrazivac', 'gurman'], []],
+            'cefalu' => ['Postcard medieval old town backing straight onto a long sandy beach — a real Norman cathedral, easy day-trip distance from Palermo, relaxed pace.', ['istrazivac', 'flegma'], ['partijaner']],
+            'sirakuza' => ['Ortigia (the old-town island) is one of Sicily\'s most atmospheric spots — ancient Greek ruins, a real working city, not a resort strip.', ['istrazivac'], ['partijaner']],
+            'san_vito_lo_kapo' => ["One of Italy's most photographed beaches — turquoise water under a limestone cliff. A real beach town first, sightseeing second.", ['flegma'], []],
+            'iskija' => ['Thermal spas built into real volcanic terrain, plus genuine beaches — quieter and greener than Capri next door, a relaxed island escape.', ['flegma', 'istrazivac'], ['partijaner']],
+            'sorento' => ['Clifftop town and the classic gateway to Capri and the Amalfi Coast — scenic and touristy, more a base for day trips than a beach destination itself.', ['istrazivac'], []],
 
             'faro' => ["Algarve's quiet gateway city — historic old town, fewer crowds than the resort strips further west.", ['istrazivac'], []],
             'albufeira' => ["The Algarve's party capital — 'The Strip' is wall-to-wall bars and clubs, though the old town and family beaches sit right alongside it.", ['partijaner'], ['porodica']],
@@ -1221,12 +1256,16 @@ class WizardSeeder extends Seeder
             'kipar' => 'A real split character — historic, relaxed towns (Larnaca, Paphos) alongside Ayia Napa, one of the Mediterranean\'s harder party destinations.',
             'malta' => "Compact island where Valletta/Sliema are calm and walkable, but St. Julian's/Paceville concentrates almost all of Malta's nightlife into one small area.",
             'tunis' => 'Resort-belt package-holiday country overall — relaxed, family-oriented, moderate nightlife, real local culture available just outside the hotel zones.',
-            'spanija' => 'The Canary Islands specifically — a real mix, from the loud party strips of southern Tenerife/Gran Canaria to the quiet volcanic calm of Lanzarote/Fuerteventura.',
+            // Reworded 2026-09-03 alongside the Balearics/Sicily/Naples-area expansion — country
+            // summary now spans both the year-round-warm Canaries AND the September-only
+            // mainland/Balearic additions (Palma/Ibiza/Lloret), rather than reading as
+            // Canaries-only.
+            'spanija' => 'Two different Spains here — the Canary Islands are warm nearly year-round, while Mallorca/Ibiza/Costa Brava are a September pick, real cities and beaches alike, from Ibiza\'s legendary nightlife to quieter Lanzarote.',
             'turska' => "Ranges from Alanya's family resort belt to Bodrum's yacht-party scene to Marmaris's loud package-tourism strip — depends heavily which coastal city.",
             'portugalija' => 'The Algarve — a mix of surf/young-crowd energy (Lagos), an actual party capital (Albufeira), and quieter historic towns (Faro).',
             'hrvatska' => 'Coolest of the ten by late season — real historic cities (Split, Dubrovnik) alongside Hvar\'s expensive jet-set party scene.',
             'grcka' => 'The islands vary enormously — Santorini/Mykonos are upscale and pricey, Corfu/Rhodes/Crete each hide a famous party strip next to much calmer areas.',
-            'italija' => 'Southern coastal Italy here — Taormina is romantic and expensive, Cagliari is a real working city with beaches attached.',
+            'italija' => 'Sicily and the south — Palermo/Siracusa are real historic cities, Cefalù/San Vito Lo Capo/Taormina lean beach and postcard scenery, Ischia/Sorrento add the Naples-area islands and coast.',
             'zelenortska_ostrva' => 'Atlantic islands off West Africa, genuinely warm nearly year-round rather than seasonally — Sal (Santa Maria) is the livelier of the two real package-holiday islands, Boa Vista (Sal Rei) is wilder and quieter with vast empty beaches and a real turtle-nesting nature draw.',
         ];
 
@@ -1265,6 +1304,11 @@ class WizardSeeder extends Seeder
             'mikonos' => ['atmosphere' => ['zivahna_nocna_zabava']],
             'albufeira' => ['atmosphere' => ['zivahna_nocna_zabava']],
             'hvar' => ['atmosphere' => ['zivahna_nocna_zabava']],
+            // Ibiza added 2026-09-03 — the actual textbook case for this strict list; primary
+            // global identity is nightlife, not a mixed-character destination that happens to
+            // contain a party district (same reasoning already applied to excluding Krf/Kavos,
+            // Rodos/Faliraki, Krit/Malia above).
+            'ibica' => ['atmosphere' => ['zivahna_nocna_zabava']],
             'kaljari' => ['food' => ['dobra_hrana']],
             'split' => ['food' => ['dobra_hrana']],
             // City-level food/wine additions, 2026-08-12 — owner's ask, same tier>=2 standard as
@@ -1427,12 +1471,23 @@ class WizardSeeder extends Seeder
             'sfaks' => [1, 0], 'zarzis' => [0, 1],
             // Spain (Canaries)
             'tenerife' => [3, 1], 'lansarote' => [3, 1], 'gran_kanarija' => [2, 2], 'fuerteventura' => [1, 2],
+            // Spain (Balearics/Costa Brava), 2026-09-03 — Palma is a real historic city
+            // (cathedral, old town) alongside its beaches; Ibiza Town's world-famous character is
+            // nightlife more than exploration; Lloret is a straightforward package-beach resort.
+            'palma_de_majorka' => [2, 2], 'ibica' => [1, 2], 'lloret_de_mar' => [0, 2],
             // Croatia
             'split' => [3, 1], 'dubrovnik' => [3, 1], 'hvar' => [1, 1],
             // Portugal
             'lagos' => [2, 2], 'albufeira' => [0, 1], 'faro' => [1, 1],
             // Italy
             'taormina' => [3, 2], 'kaljari' => [2, 1], 'lampedusa' => [1, 3], 'linosa' => [1, 1],
+            // Sicily/Naples-area expansion, 2026-09-03 — Palermo/Siracusa are real historic
+            // cities (exploration-heavy, not primarily beach); Cefalù/San Vito Lo Capo are the
+            // opposite (famous beaches, less "sight-seeing"); Ischia mixes both (thermal-spa
+            // nature draw + real beaches); Sorrento is mostly a scenic clifftop gateway to
+            // Capri/Amalfi, limited beach of its own.
+            'palermo' => [3, 1], 'cefalu' => [1, 2], 'sirakuza' => [3, 1], 'san_vito_lo_kapo' => [1, 3],
+            'iskija' => [2, 2], 'sorento' => [2, 1],
             // Cape Verde — Santa Maria: world-class kitesurfing/windsurfing + regular whale
             // shark/manta ray diving (exploration 2), Praia de Santa Maria is genuinely
             // world-famous (beach 3). Sal Rei: major loggerhead turtle nesting site + a famous

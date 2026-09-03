@@ -131,7 +131,16 @@ export class QuestionInputComponent {
     return !!field && !field.endsWith('_id');
   }
 
+  /** Bug fixed 2026-09-03 (owner caught it live: picking a Traveler type left no way back to
+   *  "unanswered" — clicking the same option again just re-emitted the identical value). A
+   *  MANDATORY single-choice question still can't be cleared this way — canProceed would just
+   *  block on it again, so a toggle-off there is a dead end, not a real "change your mind"
+   *  option. Non-mandatory ones (persona, budget_tier) can genuinely go back to "no answer". */
   onSingleChoiceChange(node: TaxonomyNode): void {
+    if (!this.question.mandatory && this.isSelected(node)) {
+      this.valueChange.emit(null);
+      return;
+    }
     this.valueChange.emit(this.usesSlugValue ? node.slug : node.id);
   }
 

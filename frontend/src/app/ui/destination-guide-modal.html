@@ -68,15 +68,17 @@
               </div>
             </div>
           } @else if (slide.kind === 'itinerary') {
+            <!-- Reworked 2026-09-03 (owner's ask): dropped the "— X nights" per stop — a fixed
+                 night count read as a prescribed schedule the traveler never asked for. Now just
+                 what's there to experience at each stop, not how to time it. -->
             <div class="min-h-[20rem] space-y-4 px-12 pb-6 pt-14">
               <h3 class="text-lg font-bold text-slate-900">{{ i18n.t('guideItineraryTitle') }}</h3>
               <ol class="space-y-3">
                 @for (stop of guide.itinerary; track stop.location) {
                   <li class="flex items-baseline gap-2 text-sm">
                     <span class="font-semibold text-slate-800">{{ stop.location }}</span>
-                    <span class="text-slate-400">— {{ stop.nights }} {{ stop.nights === 1 ? i18n.t('guideNightSingular') : i18n.t('guideNightPlural') }}</span>
                     @if (stop.highlight) {
-                      <span class="text-slate-500">({{ stop.highlight }})</span>
+                      <span class="text-slate-500">— {{ stop.highlight }}</span>
                     }
                   </li>
                 }

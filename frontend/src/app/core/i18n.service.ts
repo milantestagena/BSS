@@ -71,8 +71,13 @@ const STRINGS: Record<'en' | 'de', Record<string, string>> = {
     alsoGoodChoicesHeader: 'Also good choices',
     lessGoodChoicesHeader: 'Less good choices',
     priceLegend: 'Card color shows how much of your budget this uses: green under 70%, yellow 70–100%, red over 100%.',
-    cityStepHint:
-      "Click a city's name to see the offer. Some amenities can push the price up significantly — if the selection looks too limited, try increasing your price range or removing one. Click a card's description to see more details about the place.",
+    // Split 2026-09-03 (owner's ask) — the amenity/price part is a more consequential heads-up
+    // than the intuitive "green is better than red" color legend, so it moved out of this info
+    // popover into a visible "*" note below the city grid instead (see cityAmenityPriceHint).
+    // This one stays generic enough for both the country and city steps' popovers.
+    cityStepHint: "Click a card's description to see more details about the place.",
+    cityAmenityPriceHint:
+      "Click a city's name to see the offer. Some amenities can push the price up significantly — if the selection looks too limited, try increasing your price range or removing one.",
     search: 'Search',
     budgetExcludesFlightNote:
       "Doesn't include the flight — prices change too much from day to day for us to estimate them reliably. We'll show you flight prices once we know where you're headed.",
@@ -88,9 +93,10 @@ const STRINGS: Record<'en' | 'de', Record<string, string>> = {
     seeFullGuide: 'See full guide',
     guideClose: 'Close',
     guideLoading: 'Loading guide…',
-    guideItineraryTitle: 'How to see it',
-    guideNightSingular: 'night',
-    guideNightPlural: 'nights',
+    // Reworded 2026-09-03 (owner's ask) — "How to see it" read as a prescribed schedule once
+    // paired with per-stop night counts; those are gone now (see destination-guide-modal.html),
+    // and the title follows: what's there to experience, not how to time a visit.
+    guideItineraryTitle: 'What to see',
     guideCostsTitle: 'Roughly what it costs',
     guideFromPrefix: 'From',
     guidePerPersonPerNight: 'per person / night',
@@ -160,8 +166,9 @@ const STRINGS: Record<'en' | 'de', Record<string, string>> = {
     alsoGoodChoicesHeader: 'Auch gute Optionen',
     lessGoodChoicesHeader: 'Weniger gute Optionen',
     priceLegend: 'Die Kartenfarbe zeigt, wie viel deines Budgets benötigt wird: Grün unter 70 %, Gelb bei 70–100 %, Rot über 100 %.',
-    cityStepHint:
-      'Klicke auf den Namen einer Stadt, um das Angebot zu sehen. Manche Ausstattungsmerkmale können den Preis deutlich erhöhen – wenn die Auswahl zu klein ist, erhöhe deine Preisspanne oder entferne eine Anforderung. Klicke auf die Beschreibung einer Karte, um mehr über den Ort zu erfahren.',
+    cityStepHint: 'Klicke auf die Beschreibung einer Karte, um mehr über den Ort zu erfahren.',
+    cityAmenityPriceHint:
+      'Klicke auf den Namen einer Stadt, um das Angebot zu sehen. Manche Ausstattungsmerkmale können den Preis deutlich erhöhen – wenn die Auswahl zu klein ist, erhöhe deine Preisspanne oder entferne eine Anforderung.',
     search: 'Suchen',
     budgetExcludesFlightNote:
       'Ohne Flug – die Preise ändern sich von Tag zu Tag zu stark, um sie zuverlässig zu schätzen. Sobald wir dein Reiseziel kennen, zeigen wir dir die Flugpreise.',
@@ -177,9 +184,7 @@ const STRINGS: Record<'en' | 'de', Record<string, string>> = {
     seeFullGuide: 'Vollständigen Guide ansehen',
     guideClose: 'Schließen',
     guideLoading: 'Guide wird geladen…',
-    guideItineraryTitle: 'So erkundest du es am besten',
-    guideNightSingular: 'Nacht',
-    guideNightPlural: 'Nächte',
+    guideItineraryTitle: 'Sehenswertes',
     guideCostsTitle: 'Ungefähre Kosten',
     guideFromPrefix: 'Ab',
     guidePerPersonPerNight: 'pro Person / Nacht',

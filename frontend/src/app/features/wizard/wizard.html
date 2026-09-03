@@ -242,22 +242,26 @@
                      call, 2026-08-11 ("narrow down the list, don't disappoint him"), see
                      WizardComponent.groupedDestinations()/budgetFitClass(). -->
                   <div class="mb-6">
-                    <label class="mb-2 block text-sm font-semibold text-white">{{
-                      question.label
-                    }}</label>
+                    <!-- priceLegend + the "click description for details" hint live in this
+                         info popover, 2026-09-03 (owner's ask: too much always-visible text on
+                         the box) — same top-right ⓘ pattern as every other step header. Shown
+                         for both country_region and city (cityStepHint is generic enough for
+                         either now — see its docblock in i18n.service.ts). The MORE consequential
+                         amenity/price heads-up moved to a visible "*" note below the grid
+                         instead, not hidden behind a click — see cityAmenityPriceHint below. -->
+                    <div class="mb-2 flex items-start justify-between gap-2">
+                      <label class="block text-sm font-semibold text-white">{{ question.label }}</label>
+                      @if (anyGroupHasBudgetFitData(question) || question.key === 'city' || question.key === 'country_region') {
+                        <ui-info-popover class="-mr-1 -mt-1">
+                          <p class="whitespace-pre-line">{{ i18n.t('cityStepHint') }}</p>
+                          @if (anyGroupHasBudgetFitData(question)) {
+                            <p class="mt-2 whitespace-pre-line">{{ i18n.t('priceLegend') }}</p>
+                          }
+                        </ui-info-popover>
+                      }
+                    </div>
                     @if (hasRealGrouping(question)) {
                       <p class="mb-3 text-xs text-stone-200">{{ i18n.t('destinationsGroupedIntro') }}</p>
-                    }
-                    @if (question.key === 'city') {
-                      <!-- Owner's ask, 2026-09-02: a self-service explanation instead of us
-                           trying to guess/relax filters server-side (we can't safely test what a
-                           looser combination would actually return without a real Booking call —
-                           see the Ayia Napa "Beachfront + self-catering, 1 property found" case
-                           the owner caught live the same day). -->
-                      <p class="mb-3 text-xs text-stone-200">{{ i18n.t('cityStepHint') }}</p>
-                    }
-                    @if (anyGroupHasBudgetFitData(question)) {
-                      <p class="mb-3 text-[10px] text-stone-200">{{ i18n.t('priceLegend') }}</p>
                     }
 
                     @for (group of groupedDestinations(question); track group.headerLabel) {
@@ -414,6 +418,12 @@
                           }
                         </div>
                       </div>
+                    }
+                    @if (question.key === 'city') {
+                      <!-- Split out of the info popover, 2026-09-03 (owner's ask) — this one's a
+                           more consequential heads-up than the intuitive color legend, so it's
+                           visible by default rather than hidden behind a click. -->
+                      <p class="mt-3 text-xs text-stone-200">* {{ i18n.t('cityAmenityPriceHint') }}</p>
                     }
                   </div>
                 } @else {

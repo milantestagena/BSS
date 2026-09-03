@@ -53,7 +53,9 @@ const AMENITY_NO_KEY = 'amenities_no';
  *  drifted out of sync with AMENITY_TYPES, missing stay_type/popular_activity entirely (only
  *  ever manually kept in sync, no shared import) — any pick from either type hit the exact same
  *  fallback-to-raw-slug bug all over again. */
-const AMENITY_SUMMARY_TAXONOMY_TYPES = ['tip_smestaja', 'accommodation_facility', 'room_facility', 'stay_type', 'popular_activity'];
+// tip_smestaja removed 2026-09-03 — see amenity-picker.ts's AMENITY_TYPES docblock, must stay
+// in sync with it.
+const AMENITY_SUMMARY_TAXONOMY_TYPES = ['accommodation_facility', 'room_facility', 'stay_type', 'popular_activity'];
 
 /** No UI of its own — see onAmenityUnmatchedText. Exists purely so its session_field flows
  *  through persistCurrentStep like every other free_text_answers field. */
@@ -807,6 +809,18 @@ export class WizardComponent implements OnInit {
     if (question.key === 'country_region') {
       // Multi-select, 2026-08-12 — gathers cities from ANY of the selected countries.
       void this.loadGeography('city', 'city', undefined, this.selectedCountryIds());
+    }
+    // Bug fixed 2026-09-03 (owner caught it live: un-picked Chillseeker on the persona step —
+    // now possible thanks to the toggle-off fix above — but "Peaceful & quiet" stayed locked on
+    // the already-loaded preference_tags step). persona/persona_group implies/excludes onto
+    // preference_tag (see WizardSeeder's persona<->preference_tag relations), computed
+    // server-side from the session's CURRENT selected nodes — but preference_tags' options were
+    // already fetched and cached in geographyOptions from an earlier visit, so nothing re-read
+    // that computation just because an earlier answer changed underneath it. Same targeted
+    // re-fetch pattern as region_theme/country_region above, not the broader (and much more
+    // expensive) loadGeographyForAllVisitedSteps used for a locale switch.
+    if (question.key === 'persona' || question.key === 'persona_group') {
+      void this.loadGeography('preference_tags', 'preference_tag');
     }
 
     // Recompute the default budget as the group is picked, etc. — no-ops once

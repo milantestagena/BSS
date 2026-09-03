@@ -21,7 +21,10 @@ interface AmenityOption {
  *  of its own, so it belongs in this general combined vocabulary like the other facility types.
  *  `popular_activity` added 2026-08-25 (Beach/Snorkelling/Walking tours/Diving/Fishing), same
  *  reasoning — no dedicated question of its own. */
-const AMENITY_TYPES = ['tip_smestaja', 'accommodation_facility', 'room_facility', 'stay_type', 'popular_activity'];
+// tip_smestaja removed 2026-09-03 (owner's catch) — it's now its own dedicated question
+// (accommodation_type_preference, added 2026-09-02, right after Vibe), so offering it a second
+// time here via free-text search was pure duplication.
+const AMENITY_TYPES = ['accommodation_facility', 'room_facility', 'stay_type', 'popular_activity'];
 
 const MAX_SUGGESTIONS = 6;
 
