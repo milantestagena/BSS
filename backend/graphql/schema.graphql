@@ -205,12 +205,12 @@ type DestinationGuide {
     id: ID!
     campaign: WizardCampaign! @belongsTo
     destination: TaxonomyNode! @belongsTo
-    "Country-level only — null for city-level guides (a single resort town has nothing to itinerary-ize)."
-    itinerary: [DestinationGuideStop!]
+    "Country-level only — null for city-level guides (a single resort town has nothing to itinerary-ize). Each stop's `highlight` is locale-aware via a dedicated resolver (2026-09-04) — @translate can't wrap an array field, see DestinationGuide::itinerary()'s docblock."
+    itinerary: [DestinationGuideStop!] @method
     "Qualitative only — the real € figure is read live via accommodationPriceEur/accommodationPriceRangeEur below, never stored here."
-    accommodationCostNotes: String @rename(attribute: "accommodation_cost_notes")
-    "2-4 destination-specific tips not already covered by cultural_availability/climate/vibe_profile data (see the model's refresh checklist — those get folded in at write time, not duplicated here)."
-    extraTips: [String!] @rename(attribute: "extra_tips")
+    accommodationCostNotes: String @rename(attribute: "accommodation_cost_notes") @translate(attribute: "accommodation_cost_notes")
+    "2-4 destination-specific tips not already covered by cultural_availability/climate/vibe_profile data (see the model's refresh checklist — those get folded in at write time, not duplicated here). Locale-aware via a dedicated resolver, same reasoning as itinerary above."
+    extraTips: [String!] @method
     images: [DestinationGuideImage!]
     researchedAt: Date @rename(attribute: "researched_at")
     source: String

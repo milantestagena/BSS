@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTranslations;
 use App\Services\BudgetEstimationEngine;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Http\Request;
 
 /**
  * Optional "deep-dive" destination content — itinerary/costs/tips/photos, one row per
@@ -37,6 +39,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class DestinationGuide extends Model
 {
+    use HasTranslations;
+
     protected $fillable = [
         'wizard_campaign_id',
         'taxonomy_node_id',
@@ -63,6 +67,62 @@ class DestinationGuide extends Model
     public function destination(): BelongsTo
     {
         return $this->belongsTo(TaxonomyNode::class, 'taxonomy_node_id');
+    }
+
+    /**
+     * Canonical-string stand-ins so HasTranslations::translate() (which hashes/stores against
+     * `(string) $this->{$field}`) has something to hash for these two JSON-array columns —
+     * same reason TaxonomyNode needed vibe_profile_description as a real accessor instead of
+     * translating a path inside raw `meta`. `itinerary_highlights` only carries the `highlight`
+     * strings (not `location`/`nights`, which never need translating) so staleness only fires
+     * when the highlight text itself actually changes.
+     */
+    public function getExtraTipsJoinedAttribute(): string
+    {
+        return json_encode($this->getAttribute('extra_tips') ?? []);
+    }
+
+    public function getItineraryHighlightsAttribute(): string
+    {
+        return json_encode(array_column($this->getAttribute('itinerary') ?? [], 'highlight'));
+    }
+
+    /**
+     * GraphQL-facing resolver for `extraTips` — @translate can't be used directly here (it
+     * only ever wraps one resolved scalar and would hand a raw JSON string back as a
+     * `[String!]` list). Locale comes from the same X-Locale header TranslateDirective reads;
+     * falls back to the canonical English array when no 'de' translation exists yet.
+     */
+    public function extraTips(): array
+    {
+        $locale = app(Request::class)->header('X-Locale', 'en');
+        $stored = $this->translate('extra_tips_joined', $locale);
+
+        return $stored !== null ? json_decode($stored, true) : ($this->getAttribute('extra_tips') ?? []);
+    }
+
+    /**
+     * GraphQL-facing resolver for `itinerary` — same reasoning as extraTips() above. Only
+     * `highlight` is translated per stop; `location`/`nights` pass through untouched.
+     */
+    public function itinerary(): ?array
+    {
+        $stops = $this->getAttribute('itinerary');
+        if (! $stops) {
+            return null;
+        }
+
+        $locale = app(Request::class)->header('X-Locale', 'en');
+        $stored = $this->translate('itinerary_highlights', $locale);
+        $translatedHighlights = $stored !== null ? json_decode($stored, true) : null;
+
+        return collect($stops)->map(function (array $stop, int $i) use ($translatedHighlights) {
+            if ($translatedHighlights && array_key_exists($i, $translatedHighlights) && $translatedHighlights[$i] !== null) {
+                $stop['highlight'] = $translatedHighlights[$i];
+            }
+
+            return $stop;
+        })->all();
     }
 
     /** City-level real price, read LIVE (never stored) — null for country-level guides. */
