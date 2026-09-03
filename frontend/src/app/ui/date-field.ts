@@ -4,6 +4,7 @@ import {
   ElementRef,
   OnDestroy,
   ViewChild,
+  effect,
   input,
   model,
 } from '@angular/core';
@@ -33,6 +34,23 @@ export class DateFieldComponent implements AfterViewInit, OnDestroy {
   value = model<string>('');
 
   private picker: FlatpickrInstance | null = null;
+
+  /** Bug fixed 2026-09-03 (owner caught it live: the recommended-date prefill wrote the right
+   *  value into the session/answer, real end-to-end, but the calendar field itself stayed blank)
+   *  — flatpickr only ever reads `value()` once, at `ngAfterViewInit` (`defaultDate: this.value()`
+   *  below), which is BEFORE a prefill written a tick or more later (goNext's async
+   *  loadGeographyForCurrentStep -> prefillRecommendedDates chain) has any value to read yet.
+   *  This effect re-syncs the picker's own displayed date whenever `value` changes from
+   *  OUTSIDE the picker (prefill, or a parent overwriting it) — `false` as setDate's second arg
+   *  skips firing onChange, so this can never loop back into a write of its own. Runs once
+   *  before ngAfterViewInit too (picker still null then, no-op, guarded by `?.`). */
+  constructor() {
+    effect(() => {
+      // setDate()'s type (unlike defaultDate's) doesn't accept undefined — an empty string
+      // clears the field just fine, no need for the same `|| undefined` fallback used below.
+      this.picker?.setDate(this.value(), false);
+    });
+  }
 
   ngAfterViewInit(): void {
     this.picker = flatpickr(this.inputEl.nativeElement, {
