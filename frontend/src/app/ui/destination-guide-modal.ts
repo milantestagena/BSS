@@ -9,15 +9,17 @@ import { SpinnerComponent } from './spinner';
  *  page-by-page feel (cover -> itinerary -> costs -> tips -> photos), not a single long
  *  scroll. Only slides with real content for THIS guide are included — see slides().
  *
- *  Each photo is its OWN flat slide (owner's ask, 2026-08-20: "4 zasebna koraka, ne 1 sa 3
- *  podkoraka" — nesting a second prev/next inside the 'photos' slide was confusing, since it
- *  visually collided with the outer slide arrows/dots. One flat sequence, one set of arrows. */
+ *  'photo'/index-per-image REPLACED 2026-09-03 (owner's catch: the curated Unsplash/Pexels
+ *  images were often the same shot repeated 3-4 times per guide, or just not relevant — "to je
+ *  neprofi") with a single 'photos' slide linking OUT to a real Google Images search instead of
+ *  hosting curated photos ourselves at all. Zero curation burden going forward, and never stale/
+ *  duplicated — see the 'photos' slide's docblock in the template for the query format. */
 export type DestinationGuideSlide =
   | { kind: 'cover' }
   | { kind: 'itinerary' }
   | { kind: 'costs' }
   | { kind: 'tips' }
-  | { kind: 'photo'; index: number };
+  | { kind: 'photos' };
 
 /**
  * Optional "deep-dive" destination guide — styled after a real Instagram travel-carousel the
@@ -78,10 +80,21 @@ export class DestinationGuideModalComponent {
       keys.push({ kind: 'costs' });
     }
     if (g.extraTips?.length) keys.push({ kind: 'tips' });
-    (g.images ?? []).forEach((_, index) => keys.push({ kind: 'photo', index }));
+    // Always included, unlike the old per-image slides — a search-engine link needs no curated
+    // data of its own, just this destination's name (see googleImagesSearchUrl()).
+    keys.push({ kind: 'photos' });
 
     return keys;
   });
+
+  /** "{City}, {Country} Best Beaches" (or just "{Country} Best Beaches" for a country-level
+   *  guide) on Google Images, new tab — owner's ask, 2026-09-03, replacing curated per-guide
+   *  photos entirely. City includes its parent country for disambiguation (plenty of city names
+   *  repeat worldwide); a country-level guide has no parent to add. */
+  googleImagesSearchUrl(node: TaxonomyNode): string {
+    const place = node.parent ? `${node.label}, ${node.parent.label}` : node.label;
+    return `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(`${place} Best Beaches`)}`;
+  }
 
   readonly currentSlide = computed<DestinationGuideSlide>(
     () => this.slides()[this.currentSlideIndex()] ?? { kind: 'cover' }

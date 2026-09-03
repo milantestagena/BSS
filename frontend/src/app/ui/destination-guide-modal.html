@@ -131,12 +131,21 @@
                 }
               </ul>
             </div>
-          } @else if (slide.kind === 'photo') {
-            <div class="min-h-[20rem] space-y-3 px-12 pb-6 pt-14">
+          } @else if (slide.kind === 'photos') {
+            <!-- Replaces the old curated-photo slide, 2026-09-03 (owner's catch: repeated/
+                 irrelevant Unsplash shots read as unprofessional) — a real Google Images search
+                 instead, always fresh, zero curation. -->
+            <div class="flex min-h-[20rem] flex-col items-center justify-center gap-4 px-12 pb-6 pt-14 text-center">
               <h3 class="text-lg font-bold text-slate-900">{{ i18n.t('guidePhotosTitle') }}</h3>
-              @if (guide.images?.[slide.index]; as image) {
-                <img [src]="image.url" [alt]="image.attribution ?? node.label" class="h-64 w-full rounded-lg object-cover" />
-              }
+              <p class="text-sm text-slate-500">{{ i18n.t('guidePhotosSubtitle') }}</p>
+              <a
+                [href]="googleImagesSearchUrl(node)"
+                target="_blank"
+                rel="noopener"
+                class="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-900 shadow transition hover:bg-amber-400"
+              >
+                {{ i18n.t('guideSeePhotosOnGoogle') }}
+              </a>
             </div>
           }
         }
