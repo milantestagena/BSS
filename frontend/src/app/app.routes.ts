@@ -42,12 +42,12 @@ export const routes: Routes = [
       // WizardComponent.themeIntro for the locale lookup.
       intro: {
         en: {
-          title: "Haven't been to the sea lately???",
+          title: "Haven't been to the sea lately?",
           subtitle: "It's still beach weather on the Mediterranean, don't miss it!",
           cta: 'Take me to the beach!',
         },
         de: {
-          title: 'Schon lange nicht mehr am Meer???',
+          title: 'Schon lange nicht mehr am Meer?',
           subtitle: 'Am Mittelmeer ist noch Strandwetter, verpass es nicht!',
           cta: 'Ab an den Strand!',
         },
