@@ -929,12 +929,14 @@ export class WizardComponent implements OnInit {
     return this.wizard.getAnswer(question.key) === node.id;
   }
 
-  /** Reads the general-knowledge vibe/atmosphere writeup seeded onto the node's meta — see
-   *  WizardSeeder::seedCityAndCountryVibeProfiles(), 2026-08-04. Null if this particular node
-   *  hasn't been written up yet (not every taxonomy node has one). */
+  /** The general-knowledge vibe/atmosphere writeup seeded onto the node — see
+   *  WizardSeeder::seedCityAndCountryVibeProfiles(), 2026-08-04. Reads the dedicated, translated
+   *  `vibeDescription` GraphQL field (2026-09-03 fix — this used to dig `meta.vibe_profile.
+   *  description` out client-side, which could never be locale-aware since @translate only ever
+   *  sees one resolved scalar field, not a path inside the raw meta JSON). Null if this
+   *  particular node hasn't been written up yet (not every taxonomy node has one). */
   vibeDescription(node: TaxonomyNode | null): string | null {
-    const profile = node?.meta?.['vibe_profile'] as { description?: string } | undefined;
-    return profile?.description ?? null;
+    return node?.vibeDescription ?? null;
   }
 
   /** Owner's ask, 2026-08-24: "24°C" for a single-month trip, "22–26°C" once min/max genuinely

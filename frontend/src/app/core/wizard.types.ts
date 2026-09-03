@@ -62,6 +62,10 @@ export interface TaxonomyNode {
   climateAirTempC?: { min: number; max: number } | null;
   /** Same as climateAirTempC, sea surface temperature instead of air. */
   climateSeaTempC?: { min: number; max: number } | null;
+  /** meta.vibe_profile.description, translated for X-Locale — real dedicated field (2026-09-03)
+   *  so this finally honors the locale, unlike reading it out of the raw `meta` blob. Null if
+   *  this node has no vibe_profile description. See WizardComponent.vibeDescription(). */
+  vibeDescription?: string | null;
   /** Populated only when returned from suggestedGeography for type=city — the parent country's
    *  label (+ meta, for the iso_code badge — see wizard.ts's countryCodeFor), so a mixed-country
    *  city grid (multi-select Country/region, 2026-08-13) can show which country each card

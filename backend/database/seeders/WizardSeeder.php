@@ -119,7 +119,9 @@ class WizardSeeder extends Seeder
             // now that they live in the taxonomy_node_relations table, not in meta —
             // see wizard_architecture / admin-editability decision.
             ['slug' => 'gurman', 'en' => 'Foodie', 'sr' => 'Gurman'],
-            ['slug' => 'flegma', 'en' => 'Chillseeker — just to relax', 'sr' => 'Flegma — samo da se opusti'],
+            // "— just to relax" dropped, 2026-09-03 (owner caught it live) — redundant with the
+            // name itself once it's shown together with the persona's own description elsewhere.
+            ['slug' => 'flegma', 'en' => 'Chillseeker', 'sr' => 'Flegma'],
         ];
 
         foreach ($items as $i => $item) {

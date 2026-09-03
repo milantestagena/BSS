@@ -266,6 +266,32 @@ class TaxonomyNode extends Model
     }
 
     /**
+     * meta.vibe_profile.description as a real Eloquent attribute — exists ONLY so
+     * HasTranslations::translate('vibe_profile_description', $locale) can hash/compare it
+     * exactly like it already does for `label` (that method reads $this->{$field} directly, so
+     * a real accessor here is required, not just the raw meta array access wizard.ts's old
+     * client-side reader used). English canonical, same as label. Null if this node has no
+     * vibe_profile description at all.
+     */
+    public function getVibeProfileDescriptionAttribute(): ?string
+    {
+        return $this->meta['vibe_profile']['description'] ?? null;
+    }
+
+    /**
+     * GraphQL-facing wrapper for @method — see vibeDescription field in schema.graphql.
+     * Bug fixed 2026-09-03 (owner caught it live, German UI): every card's "See more" popover
+     * showed this text in English regardless of locale — vibe_profile.description lived only
+     * inside the generic `meta: JSON` blob, which @translate can't reach (it operates on one
+     * resolved GraphQL field, not a path inside a JSON value). Real dedicated field + @translate
+     * combo instead, same mechanism as `label`.
+     */
+    public function vibeDescription(): ?string
+    {
+        return $this->vibe_profile_description;
+    }
+
+    /**
      * Cultural availability rows (alcohol/pork/halal/vegan/organic/cannabis/dress_code/
      * lgbtq_friendly/tap_water) for this location — see CulturalAvailability, 2026-07-30.
      */

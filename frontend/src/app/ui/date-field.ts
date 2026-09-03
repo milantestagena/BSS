@@ -46,9 +46,29 @@ export class DateFieldComponent implements AfterViewInit, OnDestroy {
    *  before ngAfterViewInit too (picker still null then, no-op, guarded by `?.`). */
   constructor() {
     effect(() => {
-      // setDate()'s type (unlike defaultDate's) doesn't accept undefined — an empty string
-      // clears the field just fine, no need for the same `|| undefined` fallback used below.
-      this.picker?.setDate(this.value(), false);
+      const v = this.value();
+      // Bug fixed 2026-09-03, round 2 (owner's own debugging nailed it live: adding a
+      // console.log right here made the date "appear" — the classic Heisenbug signature of
+      // something else clobbering the same tick). date_range writes BOTH slots via setAnswer()
+      // back-to-back inside prefillRecommendedDates()'s synchronous block, which can re-trigger
+      // Angular change detection mid-stream — this effect's DOM write was landing, then getting
+      // stomped by a subsequent CD pass still unwinding the same batch of signal writes.
+      // queueMicrotask defers the actual write to after the current synchronous batch fully
+      // settles — the same slack a console.log call accidentally created, done on purpose
+      // instead. setDate()'s type (unlike defaultDate's) doesn't accept undefined — an empty
+      // string clears the field fine, no `|| undefined` fallback needed like below.
+      queueMicrotask(() => this.picker?.setDate(v, false));
+    });
+
+    // Bug fixed 2026-09-03 (owner caught it live: German UI, placeholder stayed "Choose a
+    // date" instead of "Datum auswählen") — same root cause as the value-sync bug above.
+    // `altInput: true` makes flatpickr create its OWN separate visible <input>, copying the
+    // real (hidden) input's placeholder attribute across only once, at init — an Angular
+    // [placeholder] binding update after that (e.g. an EN/DE locale switch) reaches the hidden
+    // input fine but never the alt one a visitor actually sees.
+    effect(() => {
+      const text = this.placeholder();
+      if (this.picker?.altInput) this.picker.altInput.placeholder = text;
     });
   }
 

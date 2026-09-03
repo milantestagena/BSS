@@ -145,6 +145,8 @@ type TaxonomyNode {
     climateAirTempC: TemperatureRange @rename(attribute: "climate_air_temp_c")
     "Same as climateAirTempC, sea surface temperature instead of air."
     climateSeaTempC: TemperatureRange @rename(attribute: "climate_sea_temp_c")
+    "meta.vibe_profile.description, translated — real dedicated field + @translate (2026-09-03) so the 'See more' popover text finally honors X-Locale like every other label does; reading it out of the raw `meta` JSON blob (the old client-side path) could never be locale-aware since @translate only ever sees one resolved scalar field, not a path inside JSON. Null if this node has no vibe_profile description."
+    vibeDescription: String @method @translate(attribute: "vibe_profile_description")
 }
 
 "A min/max range for a real Open-Meteo temperature reading across the calendar months a trip spans (see GeographyResolver::monthsSpanned) — min === max for a single-month trip, not a range."

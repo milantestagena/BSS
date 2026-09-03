@@ -10,7 +10,13 @@ import { I18nService } from '../../core/i18n.service';
 @Component({
   selector: 'app-question-input',
   standalone: true,
-  imports: [CommonModule, ChoiceComponent, TextFieldComponent, DateFieldComponent, NumberStepperComponent],
+  imports: [
+    CommonModule,
+    ChoiceComponent,
+    TextFieldComponent,
+    DateFieldComponent,
+    NumberStepperComponent,
+  ],
   templateUrl: './question-input.html',
 })
 export class QuestionInputComponent {
