@@ -34,14 +34,24 @@ class SeedDestinationGuideRows extends Command
             return self::FAILURE;
         }
 
+        // Bug fixed 2026-09-03 (owner caught it live: Cape Verde had zero guide rows, city or
+        // country) — the flat price_per_person_eur column was never the only valid "real price
+        // on file" signal, WizardCampaignDestinationWeeklyPrice is an equally real (and newer)
+        // alternative; Cape Verde's two cities are weekly-only with no flat fallback (unlike
+        // every other priced destination, which happens to carry both), so they silently never
+        // qualified here. `hasRealPrice` now checks either.
+        $hasRealPrice = fn ($query) => $query->where('wizard_campaign_id', $campaign->id)
+            ->where(fn ($q) => $q->whereNotNull('price_per_person_eur')
+                ->orWhereHas('weeklyPrices', fn ($w) => $w->whereNotNull('price_per_person_eur')));
+
         $cities = TaxonomyNode::where('type', 'city')
             ->whereNotNull('meta->vibe_profile')
-            ->whereHas('campaignDestinationPrices', fn ($q) => $q->where('wizard_campaign_id', $campaign->id)->whereNotNull('price_per_person_eur'))
+            ->whereHas('campaignDestinationPrices', $hasRealPrice)
             ->get();
 
         $countries = TaxonomyNode::where('type', 'country')
             ->whereNotNull('meta->vibe_profile')
-            ->whereHas('children.campaignDestinationPrices', fn ($q) => $q->where('wizard_campaign_id', $campaign->id)->whereNotNull('price_per_person_eur'))
+            ->whereHas('children.campaignDestinationPrices', $hasRealPrice)
             ->get();
 
         $destinations = $cities->concat($countries);

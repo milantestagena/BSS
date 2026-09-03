@@ -6,6 +6,7 @@ use App\Models\DestinationGuide;
 use App\Models\TaxonomyNode;
 use App\Models\WizardCampaign;
 use App\Models\WizardCampaignDestinationPrice;
+use App\Models\WizardCampaignDestinationWeeklyPrice;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -58,6 +59,26 @@ class SeedDestinationGuideRowsCommandTest extends TestCase
         $this->artisan('campaign:seed-destination-guide-rows', ['campaignKey' => 'kasno-letovanje']);
 
         $this->assertDatabaseHas('destination_guides', ['wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $country->id]);
+    }
+
+    /** Bug fixed 2026-09-03 (owner caught it live: Cape Verde had no guide rows at all) — a
+     *  weekly-only price (no flat price_per_person_eur, real data lives entirely in
+     *  WizardCampaignDestinationWeeklyPrice) must qualify exactly like a flat one. Cape Verde's
+     *  two cities were the only destinations in this shape when the gap was found. */
+    public function test_includes_a_city_priced_only_via_weekly_rows(): void
+    {
+        $campaign = WizardCampaign::create(['key' => 'kasno-letovanje', 'label' => 'Test']);
+        $city = $this->node('city', 'weeklyonly', null, ['vibe_profile' => ['description' => 'test']]);
+        $price = WizardCampaignDestinationPrice::create([
+            'wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $city->id, 'price_per_person_eur' => null,
+        ]);
+        WizardCampaignDestinationWeeklyPrice::create([
+            'wizard_campaign_destination_price_id' => $price->id, 'week_start_date' => '2026-09-05', 'price_per_person_eur' => 65,
+        ]);
+
+        $this->artisan('campaign:seed-destination-guide-rows', ['campaignKey' => 'kasno-letovanje']);
+
+        $this->assertDatabaseHas('destination_guides', ['wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $city->id]);
     }
 
     public function test_running_twice_does_not_create_duplicates(): void
