@@ -623,12 +623,15 @@ export class WizardComponent implements OnInit {
 
     if (node.budgetCaveat) {
       parts.push(this.i18n.t('budgetNoteCaveat'));
-    } else if (node.budgetFit === 'self_catering') {
-      // Owner's redesign, 2026-08-14 (second pass): budgetFit is now the SPECIFIC winning
-      // meal_plan_preference slug (e.g. 'sve_ukljuceno') when meal_plan_preference was answered
-      // — every pick is checked as a priority list, not collapsed to one before testing —
-      // rather than a generic 'meal_plan' bucket. Any real slug here is "a specific meal plan
-      // matched," without naming which one yet.
+    } else if (node.budgetFit === 'self_catering' && this.wizard.getAnswer('meal_style') !== 'sam_se_snalazim') {
+      // Bug fixed 2026-09-03 (owner caught it live): this used to show unconditionally whenever
+      // budgetFit was 'self_catering' — including when the traveler had ALREADY answered
+      // meal_style=sam_se_snalazim themselves, where "fits if you cook for yourself" just
+      // restates their own pick back at them, useless. The genuinely useful case is the
+      // OPPOSITE: someone who picked restaurants (or hasn't answered yet) sees a destination
+      // that's otherwise a bit pricier, with a heads-up that switching to self-catering (buy
+      // your own ham/cheese/bread instead of eating out) would make it work — a real alternative
+      // path, not a restated answer.
       parts.push(this.i18n.t('budgetNoteSelfCatering'));
     } else if (node.budgetFit && node.budgetFit !== 'eating_out') {
       parts.push(this.i18n.t('budgetNoteMealPlan'));
