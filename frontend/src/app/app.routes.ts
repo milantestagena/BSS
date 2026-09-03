@@ -43,12 +43,12 @@ export const routes: Routes = [
       intro: {
         en: {
           title: "Haven't been to the sea lately?",
-          subtitle: "It's still beach weather on the Mediterranean, don't miss it!",
+          subtitle: "It's still beach weather on the Mediterranean.\nDon't miss it!",
           cta: 'Take me to the beach!',
         },
         de: {
           title: 'Schon lange nicht mehr am Meer?',
-          subtitle: 'Am Mittelmeer ist noch Strandwetter, verpass es nicht!',
+          subtitle: 'Am Mittelmeer ist noch Strandwetter.\nVerpass es nicht!',
           cta: 'Ab an den Strand!',
         },
       },
