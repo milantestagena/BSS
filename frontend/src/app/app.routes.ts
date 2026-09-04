@@ -1,6 +1,8 @@
 import { Routes } from '@angular/router';
 import { WizardComponent } from './features/wizard/wizard';
 import { PrivacyPolicyComponent } from './features/legal/privacy-policy';
+import { ImpressumComponent } from './features/legal/impressum';
+import { AboutComponent } from './features/legal/about';
 import { AccountPageComponent } from './features/account/account-page';
 
 /**
@@ -24,6 +26,11 @@ export const routes: Routes = [
   // Required by the CJ Affiliate Publisher Service Agreement as a condition of running
   // Booking.com affiliate links — 2026-08-10.
   { path: 'privacy', component: PrivacyPolicyComponent },
+  // Required by §5 DDG (formerly TMG, replaced May 2024) for any commercial site reaching
+  // German users — added 2026-09-05, the
+  // day after the first DACH ad campaign went live (a real compliance gap until then).
+  { path: 'impressum', component: ImpressumComponent },
+  { path: 'about', component: AboutComponent },
   { path: 'account', component: AccountPageComponent },
   {
     path: 'latesummer',

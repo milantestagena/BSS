@@ -95,6 +95,14 @@ type Mutation {
     recordWizardEvent(sessionId: ID!, eventType: String!, payload: JSON): Boolean!
         @field(resolver: "App\\GraphQL\\Resolvers\\WizardEventResolver@record")
 
+    "Raw daily-visit log with location, no IP — owner's ask, 2026-09-04. Fire-and-forget from the frontend root component once per app load, independent of any wizard session (most visits never start one). See PageVisit model."
+    recordPageVisit(path: String!): Boolean!
+        @field(resolver: "App\\GraphQL\\Resolvers\\PageVisitResolver@record")
+
+    "Newsletter signup, capture only — no send pipeline yet, see NewsletterSubscriber model. Idempotent: re-submitting the same email is a silent no-op."
+    subscribeToNewsletter(email: String!): Boolean!
+        @field(resolver: "App\\GraphQL\\Resolvers\\NewsletterResolver@subscribe")
+
     """
     Owner's ask, 2026-08-24: matches the session's free-text smestaj_preference against the same
     real Booking filter catalog the amenity picker uses (tip_smestaja/accommodation_facility/

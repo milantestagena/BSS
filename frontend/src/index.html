@@ -38,25 +38,11 @@
   <meta name="twitter:description" content="It's still beach weather on the Mediterranean. Don't miss it!">
   <meta name="twitter:image" content="https://tripinele.com/images/Gemini_Generated_Image_ybbh9dybbh9dybbh.png">
 
-  <!-- Meta Pixel Code — 2026-09-04, owner's own TripInele Business Manager. Auto-fires PageView;
-       the real conversion signal (InitiateCheckout at the Booking.com redirect) is fired from
-       Wizard.trackPixelEvent(), see wizard.ts. -->
-  <script>
-  !function(f,b,e,v,n,t,s)
-  {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-  n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-  if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-  n.queue=[];t=b.createElement(e);t.async=!0;
-  t.src=v;s=b.getElementsByTagName(e)[0];
-  s.parentNode.insertBefore(t,s)}(window, document,'script',
-  'https://connect.facebook.net/en_US/fbevents.js');
-  fbq('init', '1432078978797736');
-  fbq('track', 'PageView');
-  </script>
-  <noscript><img height="1" width="1" style="display:none"
-  src="https://www.facebook.com/tr?id=1432078978797736&ev=PageView&noscript=1"
-  /></noscript>
-  <!-- End Meta Pixel Code -->
+  <!-- Meta Pixel moved out of here 2026-09-05 — a GDPR cookie-consent banner is now required
+       (this site targets EU/DACH users) and Pixel loading must be gated on real consent, not
+       fire unconditionally on every page load like a static snippet does. See
+       AnalyticsService/CookieConsentComponent, which load the Pixel script only after the
+       visitor accepts. -->
 </head>
 <body>
   <app-root></app-root>

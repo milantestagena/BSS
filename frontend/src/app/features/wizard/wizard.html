@@ -56,6 +56,16 @@
           (clicked)="startThemed()"
           >{{ intro.cta }}</ui-button
         >
+        <!-- Owner's ask, 2026-09-05 ("upadljivo", day after launch): a brand-new Page/site has
+             no earned trust yet — a visible, unmissable affiliate disclosure right under the
+             CTA (not buried in a footer link) does double duty as both the FTC/EU transparency
+             requirement and a credibility signal ("we're a real Booking.com partner, not some
+             random new site"). Plain text, no pill/background (owner's second call, same
+             session — the rounded badge read as an unnecessary box) — same drop-shadow-on-photo
+             treatment as the subtitle right above it, not a separate chip style. -->
+        <p class="mx-auto mt-4 text-xs font-medium text-white/90 drop-shadow">
+          {{ i18n.t('affiliateBadge') }}
+        </p>
       </div>
     } @else if (wizard.loading()) {
       <!-- Owner's catch, 2026-09-02: rare (only the brief gap between the intro and the chat

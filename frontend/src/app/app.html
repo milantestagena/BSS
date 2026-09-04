@@ -1,6 +1,10 @@
 <app-account-badge></app-account-badge>
 <!-- Reserves space for the fixed header bar above (see AccountBadgeComponent docblock, bug
      fixed 2026-08-14) so no page's content ever starts underneath it. -->
-<div class="pt-14">
-  <router-outlet></router-outlet>
+<div class="flex min-h-screen flex-col pt-14">
+  <div class="flex-1">
+    <router-outlet></router-outlet>
+  </div>
+  <app-footer></app-footer>
 </div>
+<app-cookie-consent></app-cookie-consent>
