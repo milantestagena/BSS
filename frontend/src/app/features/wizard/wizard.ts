@@ -15,6 +15,12 @@ import { SpinnerComponent } from '../../ui/spinner';
 import { InfoPopoverComponent } from '../../ui/info-popover';
 import { DestinationGuideModalComponent } from '../../ui/destination-guide-modal';
 
+/** Meta Pixel's global `fbq` function, loaded by the base snippet in index.html — see
+ *  Wizard.trackPixelEvent()'s docblock for why this is read off `window` rather than declared as
+ *  a bare global (ad-blockers routinely strip the whole pixel script, and referencing an
+ *  undeclared bare identifier throws instead of evaluating to undefined). */
+type MetaPixelFn = (...args: unknown[]) => void;
+
 /** Questions rendered by the combined <app-travelers-input> widget instead of individually —
  *  see travelers-input.ts. */
 const TRAVELERS_QUESTION_KEYS = new Set(['adults_count', 'children_ages', 'needs_crib']);
@@ -331,8 +337,24 @@ export class WizardComponent implements OnInit {
    *  (checkmark badge, border change) can itself reflow the grid, so capturing scrollY any later
    *  than this already missed it. See searchResultsCity's docblock for the rest. */
   selectResultsCity(node: TaxonomyNode, lockedScrollY: number): void {
+    this.trackPixelEvent('InitiateCheckout', { content_name: node.label });
     this.selectedResultsCityId.set(node.id);
     void this.searchResultsCity(lockedScrollY);
+  }
+
+  /** Fires a Meta Pixel event — this is the real conversion signal for the FB/IG ad campaign
+   *  (the actual booking happens off-site on Booking.com, so "clicked through to book" is the
+   *  closest thing we have, see CLAUDE.md §7/marketing status). Best-effort only: reads `fbq` off
+   *  `window` rather than a bare global reference, and swallows any error — an ad-blocker or
+   *  privacy extension blocking the Pixel script must never break the real booking redirect this
+   *  fires alongside (see selectResultsCity). 2026-09-04, owner's own Business Manager Pixel. */
+  private trackPixelEvent(eventName: string, params?: Record<string, unknown>): void {
+    try {
+      const fbq = (window as unknown as { fbq?: MetaPixelFn }).fbq;
+      fbq?.('track', eventName, params);
+    } catch {
+      // Tracking is best-effort — never let it interfere with the actual user action.
+    }
   }
 
   /** Re-runs the results screen against a different shortlisted city — same session, no wizard

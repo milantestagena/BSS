@@ -6,6 +6,57 @@
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/png" href="favicon.png">
+
+  <!--
+    SEO / social-preview meta added 2026-09-04 (launch day, ahead of FB/IG ad setup).
+    IMPORTANT: this is a pure client-side SPA (no SSR/prerendering — see angular.json, no
+    @angular/ssr, no server.ts). One static index.html is served for every route (/, /latesummer,
+    /privacy, /account), so these tags are necessarily the same regardless of which URL a
+    crawler/bot actually requests — there is no per-route variant without adding SSR. Copy/tone
+    pulled from the live "kasno-letovanje" campaign intro (frontend/src/app/app.routes.ts).
+    og:url/canonical point at /latesummer specifically since that's the actual live campaign page
+    the FB/IG ads will link to, not the bare "/" redirect shell.
+  -->
+  <meta name="description" content="It's still beach weather on the Mediterranean — don't miss it. Answer a few quick questions and get a personalized, honest beach holiday match.">
+  <link rel="canonical" href="https://tripinele.com/latesummer">
+
+  <!-- Open Graph (Facebook/Instagram link previews read these directly) -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Tripinele">
+  <meta property="og:title" content="Haven't been to the sea lately?">
+  <meta property="og:description" content="It's still beach weather on the Mediterranean. Don't miss it! Get a personalized, honest beach holiday match in a few clicks.">
+  <meta property="og:url" content="https://tripinele.com/latesummer">
+  <meta property="og:image" content="https://tripinele.com/images/Gemini_Generated_Image_ybbh9dybbh9dybbh.png">
+  <meta property="og:image:width" content="1392">
+  <meta property="og:image:height" content="752">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:locale:alternate" content="de_DE">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Haven't been to the sea lately?">
+  <meta name="twitter:description" content="It's still beach weather on the Mediterranean. Don't miss it!">
+  <meta name="twitter:image" content="https://tripinele.com/images/Gemini_Generated_Image_ybbh9dybbh9dybbh.png">
+
+  <!-- Meta Pixel Code — 2026-09-04, owner's own TripInele Business Manager. Auto-fires PageView;
+       the real conversion signal (InitiateCheckout at the Booking.com redirect) is fired from
+       Wizard.trackPixelEvent(), see wizard.ts. -->
+  <script>
+  !function(f,b,e,v,n,t,s)
+  {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+  n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+  if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+  n.queue=[];t=b.createElement(e);t.async=!0;
+  t.src=v;s=b.getElementsByTagName(e)[0];
+  s.parentNode.insertBefore(t,s)}(window, document,'script',
+  'https://connect.facebook.net/en_US/fbevents.js');
+  fbq('init', '1432078978797736');
+  fbq('track', 'PageView');
+  </script>
+  <noscript><img height="1" width="1" style="display:none"
+  src="https://www.facebook.com/tr?id=1432078978797736&ev=PageView&noscript=1"
+  /></noscript>
+  <!-- End Meta Pixel Code -->
 </head>
 <body>
   <app-root></app-root>
