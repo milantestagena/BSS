@@ -338,6 +338,11 @@ export class WizardComponent implements OnInit {
    *  than this already missed it. See searchResultsCity's docblock for the rest. */
   selectResultsCity(node: TaxonomyNode, lockedScrollY: number): void {
     this.trackPixelEvent('InitiateCheckout', { content_name: node.label });
+    // Owner's ask, 2026-09-05 ("dokle je stigo pa odustao") — the funnel's final step, same
+    // WizardEvent log step_viewed already writes to, so BookingFunnelReport can show a real
+    // drop-off curve (every step_viewed reached vs. how many actually got redirected), not just
+    // a raw page-visit count.
+    void this.wizard.recordEvent('booking_redirect', { destination: node.label });
     this.selectedResultsCityId.set(node.id);
     void this.searchResultsCity(lockedScrollY);
   }
