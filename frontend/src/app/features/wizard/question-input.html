@@ -46,9 +46,13 @@
     }
 
     @case ('date_range') {
-      <div class="flex max-w-md items-center gap-3">
+      <!-- Stacked on mobile, side by side from sm: up, 2026-09-05 (owner's ask, caught live on a
+           real phone: "kalendar u 2 reda") — two full-width date pickers plus a "—" crammed into
+           one row was tight on a narrow screen. The separator only makes sense in the row
+           layout (a lone dash reads oddly on its own line stacked), so it's hidden below sm:. -->
+      <div class="flex max-w-md flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
         <ui-date-field [placeholder]="i18n.t('chooseDate')" [value]="dateFromValue" (valueChange)="onDateFromChange($event)" />
-        <span class="text-stone-200">—</span>
+        <span class="hidden text-stone-200 sm:inline">—</span>
         <ui-date-field [placeholder]="i18n.t('chooseDate')" [value]="dateToValue" (valueChange)="onDateToChange($event)" />
       </div>
     }

@@ -17,7 +17,7 @@
 </div>
 
 <div
-  class="mx-auto max-w-6xl px-4 py-10 lg:grid lg:grid-cols-[1fr_2fr_1fr] lg:items-start lg:gap-8"
+  class="mx-auto h-full max-w-6xl px-0 py-10 sm:px-4 lg:grid lg:grid-cols-[1fr_2fr_1fr] lg:items-start lg:gap-8"
 >
   <!-- Empty spacer — reserves the grid column's width so the middle content doesn't shift.
        The actual panel below is `fixed`, not `sticky`, on purpose (owner's call, 2026-08-04:
@@ -36,7 +36,7 @@
        shortlisted-city pills already do directly. -->
 
 
-  <div class="mx-auto w-full max-w-2xl">
+  <div class="mx-auto flex h-full w-full max-w-2xl flex-col">
     <!-- Owner's ask, 2026-09-05 (day-2-of-launch: 0/14 real visitors clicked past the old separate
          intro screen — "2 buttons problem", one click on the ad's own CTA then a second one here
          before anything happened). The intro screen (title/subtitle/cta button) is gone —
@@ -50,8 +50,16 @@
          on this outer wrapper, not one per inner branch below. Two independently-gradiented
          boxes never line up in color at their seam (each `bg-gradient-to-b` computes its own
          stops against its OWN height) — a single gradient spanning the whole merged panel is
-         the only way the color is actually continuous, not just visually close. -->
-    <div class="rounded-3xl bg-gradient-to-b from-orange-50 via-amber-50 to-rose-50 shadow-xl shadow-black/10">
+         the only way the color is actually continuous, not just visually close.
+
+         flex-1 overflow-y-auto, 2026-09-05 (owner's ask: "nek bude uvek sedisnji deo ekrana, od
+         vrha do dna... nema potrebe da menja veličinu" — a chat panel that keeps growing taller
+         with every answered question reads as constant page-jumping, not a stable conversation
+         window). Bounded to the h-full column above instead — this panel is now the thing that
+         scrolls internally as history accumulates, not the whole page; see
+         WizardComponent.ngAfterViewInit, which points ScrollContainerService at THIS element
+         (#chatPanel) instead of app.html's outer container while the wizard is mounted. -->
+    <div #chatPanel class="flex-1 overflow-y-auto rounded-3xl bg-gradient-to-b from-orange-50 via-amber-50 to-rose-50 shadow-xl shadow-black/10">
       @if (visibleGreetingMessages().length > 0) {
         <!-- Owner's explicit call, same session: "spoj u 1 chat box, izuzetno je bitno" — one
              growing bubble (lines joined with a blank line via whitespace-pre-line) as each

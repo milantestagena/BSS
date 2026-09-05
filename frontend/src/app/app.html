@@ -2,15 +2,18 @@
 <!-- Reserves space for the fixed header bar above (see AccountBadgeComponent docblock, bug
      fixed 2026-08-14) so no page's content ever starts underneath it.
 
-     h-screen (not min-h-screen) + overflow-y-auto on the router-outlet wrapper only, 2026-09-05
-     (owner's call, "stavi skroler na nivo chata... bolje za mobilni, da ne skakuce") — the outer
-     shell is pinned to exactly one viewport height; only the middle content region scrolls
-     internally. Footer and the cookie-consent banner are now plain static siblings below it
-     (no `fixed` positioning needed on either) — they're always the last thing in this
-     fixed-height column, so they're always visible without any risk of a `fixed` element
-     covering page content, and without the address-bar-resize jumpiness a `fixed` bottom
-     element causes on mobile browsers. -->
-<div class="flex h-screen flex-col pt-14">
+     h-dvh (not h-screen), 2026-09-05 (owner caught it live on a real phone: the footer's link
+     row was cut off below the fold) — `100vh`/h-screen measures the LARGEST possible viewport,
+     including the space mobile browsers' address bar temporarily occupies before it
+     auto-hides, so a layout pinned to exactly `100vh` extends below what's actually visible on
+     first load. `100dvh` (dynamic viewport height) tracks the real, current visible area
+     instead — the whole reason h-screen + overflow-y-auto on the router-outlet wrapper exists
+     (owner's call, "stavi skroler na nivo chata... bolje za mobilni, da ne skakuce") only
+     actually holds with the viewport unit that matches reality. Footer and the cookie-consent
+     banner are plain static siblings below the scrolling region — they're always the last thing
+     in this fixed-height column, so they're always fully visible without any risk of a `fixed`
+     element covering page content. -->
+<div class="flex h-dvh flex-col pt-14">
   <div #scrollContainer class="flex-1 overflow-y-auto">
     <router-outlet></router-outlet>
   </div>

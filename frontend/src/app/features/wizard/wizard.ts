@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, effect, signal, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnInit, effect, signal, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { WizardService } from '../../core/wizard.service';
@@ -167,11 +167,14 @@ interface ThemeIntro {
   ],
   templateUrl: './wizard.html',
 })
-export class WizardComponent implements OnInit {
+export class WizardComponent implements OnInit, AfterViewInit {
   /** Anchor rendered right before the active (non-collapsed) step in the chat-scroll list —
    *  see wizard.html. Angular rebinds this ViewChild automatically as @for/@if change which
    *  element carries the template ref, since only one step is ever "active" at a time. */
   @ViewChild('activeStepAnchor') activeStepAnchor?: ElementRef<HTMLElement>;
+
+  /** The chat panel itself — see wizard.html's #chatPanel and ngAfterViewInit below. */
+  @ViewChild('chatPanel') chatPanelRef?: ElementRef<HTMLElement>;
 
   /** Dynamic (tag-matched) options for geography questions, keyed by question key. */
   readonly geographyOptions = signal<Record<string, TaxonomyNode[]>>({});
@@ -324,6 +327,15 @@ export class WizardComponent implements OnInit {
     // ("2 buttons problem", 2026-09-05). Both campaign and generic entry points start the same
     // way now; the campaign's own hook plays as the first greeting bubbles instead.
     await this.startWizard();
+  }
+
+  /** Points ScrollContainerService at this component's own #chatPanel instead of app.html's
+   *  outer container while the wizard is mounted — see that element's docblock in wizard.html
+   *  ("nek bude uvek sedisnji deo ekrana... nema potrebe da menja veličinu", 2026-09-05). Unlike
+   *  activeStepAnchor, #chatPanel isn't behind any @if, so it's available on this very first
+   *  check — no rebinding needed later. */
+  ngAfterViewInit(): void {
+    this.scrollContainer.container.set(this.chatPanelRef?.nativeElement ?? null);
   }
 
   /** The real, affiliate-tracked accommodation search — owner's ask, 2026-08-23: the old mock
