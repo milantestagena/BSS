@@ -1,10 +1,19 @@
 <app-account-badge></app-account-badge>
 <!-- Reserves space for the fixed header bar above (see AccountBadgeComponent docblock, bug
-     fixed 2026-08-14) so no page's content ever starts underneath it. -->
-<div class="flex min-h-screen flex-col pt-14">
-  <div class="flex-1">
+     fixed 2026-08-14) so no page's content ever starts underneath it.
+
+     h-screen (not min-h-screen) + overflow-y-auto on the router-outlet wrapper only, 2026-09-05
+     (owner's call, "stavi skroler na nivo chata... bolje za mobilni, da ne skakuce") — the outer
+     shell is pinned to exactly one viewport height; only the middle content region scrolls
+     internally. Footer and the cookie-consent banner are now plain static siblings below it
+     (no `fixed` positioning needed on either) — they're always the last thing in this
+     fixed-height column, so they're always visible without any risk of a `fixed` element
+     covering page content, and without the address-bar-resize jumpiness a `fixed` bottom
+     element causes on mobile browsers. -->
+<div class="flex h-screen flex-col pt-14">
+  <div #scrollContainer class="flex-1 overflow-y-auto">
     <router-outlet></router-outlet>
   </div>
   <app-footer></app-footer>
+  <app-cookie-consent></app-cookie-consent>
 </div>
-<app-cookie-consent></app-cookie-consent>

@@ -10,6 +10,12 @@ import { I18nService } from '../core/i18n.service';
  * cookie). Shown once per browser (localStorage-remembered choice); "Decline" is a real choice,
  * not a dark pattern — the Pixel simply never loads if declined, the site works identically
  * either way (no feature is gated behind tracking).
+ *
+ * Static (not `fixed`), 2026-09-05 — owner's call: rather than pin this over the viewport and
+ * reserve matching bottom padding elsewhere so it never covers page content, App's own layout
+ * gives the router-outlet its own internally-scrolling region (see app.html) with this banner
+ * as a normal sibling below it — simpler, and avoids the address-bar-resize jumpiness a `fixed`
+ * bottom element causes on mobile browsers ("bolje za mobilni, da ne skakuce").
  */
 @Component({
   selector: 'app-cookie-consent',
@@ -17,7 +23,7 @@ import { I18nService } from '../core/i18n.service';
   imports: [RouterLink],
   template: `
     @if (visible()) {
-      <div class="fixed inset-x-0 bottom-0 z-50 border-t border-stone-700 bg-stone-900/95 px-4 py-4 text-stone-100 backdrop-blur">
+      <div class="border-t border-stone-700 bg-stone-900/95 px-4 py-4 text-stone-100">
         <div class="mx-auto flex max-w-4xl flex-col items-center gap-3 sm:flex-row sm:justify-between">
           <p class="text-sm leading-relaxed">
             {{ i18n.t('cookieConsentText') }}

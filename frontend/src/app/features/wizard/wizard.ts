@@ -5,6 +5,7 @@ import { WizardService } from '../../core/wizard.service';
 import { AuthService } from '../../core/auth.service';
 import { I18nService } from '../../core/i18n.service';
 import { AppLocale, LocaleService } from '../../core/locale.service';
+import { ScrollContainerService } from '../../core/scroll-container.service';
 import { TaxonomyNode, WizardQuestion, WizardStep } from '../../core/wizard.types';
 import { QuestionInputComponent } from './question-input';
 import { TravelersInputComponent, TravelersValue } from './travelers-input';
@@ -15,7 +16,8 @@ import { SpinnerComponent } from '../../ui/spinner';
 import { InfoPopoverComponent } from '../../ui/info-popover';
 import { DestinationGuideModalComponent } from '../../ui/destination-guide-modal';
 
-/** Meta Pixel's global `fbq` function, loaded by the base snippet in index.html — see
+/** Meta Pixel's global `fbq` function, loaded on demand by AnalyticsService once cookie consent
+ *  is given (moved out of a static index.html snippet, 2026-09-05 — see
  *  Wizard.trackPixelEvent()'s docblock for why this is read off `window` rather than declared as
  *  a bare global (ad-blockers routinely strip the whole pixel script, and referencing an
  *  undeclared bare identifier throws instead of evaluating to undefined). */
@@ -213,10 +215,52 @@ export class WizardComponent implements OnInit {
   get themeIntro(): ThemeIntro | null {
     return this.themeIntroData?.[this.locale.locale()] ?? null;
   }
-  /** True while showing the themed landing, before the session has actually started — kept
-   *  separate from wizard.loading() so we don't create a SearchSession for someone who never
-   *  clicks past the intro. */
-  readonly showIntro = signal(false);
+
+  /** Owner's ask, 2026-09-05 (day-2-of-launch, 0/14 real visitors clicked past the old separate
+   *  intro screen — "2 buttons problem": one click on the ad's own CTA, then a second one here
+   *  before anything happened). A short chat-style greeting now plays immediately on load
+   *  instead — the campaign's own hook (title/subtitle, formerly the intro screen's headline)
+   *  plays first when present, followed by messages explaining who we are (Booking.com affiliate
+   *  — trust) and why it's worth answering questions (saves hours of googling). Doubles as the
+   *  original "loader while data loads" idea — real init/geography loading (see startWizard)
+   *  runs concurrently with the greeting's own pacing, not as a separate fake delay;
+   *  greetingDone only flips once BOTH have finished, whichever takes longer. */
+  readonly visibleGreetingMessages = signal<string[]>([]);
+  readonly greetingDone = signal(true);
+
+  /** Order is deliberate (owner's ask, 2026-09-05): greeting+identity first, THEN the emotional
+   *  hook, THEN the call to get started — reads as one warm conversation opener rather than a
+   *  marketing headline bolted onto a disclosure. All three lines type out progressively into a
+   *  SINGLE chat bubble (owner's explicit call, "spoj u 1 chat box, izuzetno je bitno") rather
+   *  than one bubble per line — see the template's greeting block. Hardcoded per-locale rather
+   *  than folding in themeIntro's title/subtitle dynamically — this exact wording was hand-tuned
+   *  (native-speaker German pass) for the one live campaign; revisit if a second campaign with
+   *  meaningfully different hook copy ever launches. */
+  private readonly GREETING_MESSAGES: Record<AppLocale, string[]> = {
+    en: [
+      "Hi! 👋 We're a Booking.com affiliate partner — and we'll save you hours of googling.",
+      "Haven't been to the sea lately? It's still beach weather on the Mediterranean — don't miss it!",
+      "Let's find your perfect place, fast — just answer a few quick questions to get started.",
+    ],
+    de: [
+      'Hallo! 👋 Wir sind Booking.com-Affiliate-Partner – und ersparen dir stundenlanges Googeln.',
+      'Lange nicht mehr am Meer gewesen? Am Mittelmeer ist noch Strandwetter – verpass es nicht!',
+      'Lass uns schnell die passende Unterkunft für dich finden – beantworte dafür einfach ein paar kurze Fragen.',
+    ],
+  };
+
+  private async playGreeting(): Promise<void> {
+    this.visibleGreetingMessages.set([]);
+    this.greetingDone.set(false);
+
+    for (const message of this.GREETING_MESSAGES[this.locale.locale()]) {
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      this.visibleGreetingMessages.update((messages) => [...messages, message]);
+    }
+    // A beat to actually read the last message before the real form appears underneath it.
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    this.greetingDone.set(true);
+  }
 
   /** Skips the effect's first (constructor-time) run — locale.locale() already reflects the
    *  right value for ngOnInit's own initial fetch, a second fetch right away would be wasted. */
@@ -232,7 +276,8 @@ export class WizardComponent implements OnInit {
     public auth: AuthService,
     public i18n: I18nService,
     public locale: LocaleService,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private scrollContainer: ScrollContainerService
   ) {
     // Owner's ask, 2026-08-11 ("ne menja se sve na promenu jezika, a mora") — backend-sourced
     // step/question/option labels are fetched once and cached in WizardService/geographyOptions,
@@ -275,16 +320,9 @@ export class WizardComponent implements OnInit {
     this.campaignKey = (data['campaignKey'] as string) ?? null;
     this.themeIntroData = (data['intro'] as Record<AppLocale, ThemeIntro>) ?? null;
 
-    if (this.campaignKey && this.themeIntro) {
-      this.showIntro.set(true);
-      return;
-    }
-
-    await this.startWizard();
-  }
-
-  async startThemed(): Promise<void> {
-    this.showIntro.set(false);
+    // No more separate click-gated intro screen — see startWizard/playGreeting's docblocks
+    // ("2 buttons problem", 2026-09-05). Both campaign and generic entry points start the same
+    // way now; the campaign's own hook plays as the first greeting bubbles instead.
     await this.startWizard();
   }
 
@@ -373,13 +411,18 @@ export class WizardComponent implements OnInit {
    *  exact reflow, this pins scrollY to wherever it actually was at the moment of the click
    *  (passed in from onDestinationCardSelect, captured before anything else ran) and forces it
    *  back on every 'scroll' event for the whole operation — a guarantee that holds regardless of
-   *  what causes the reflow, not a fix aimed at one specific cause. */
-  async searchResultsCity(lockedScrollY: number = window.scrollY): Promise<void> {
+   *  what causes the reflow, not a fix aimed at one specific cause.
+   *
+   *  Targets ScrollContainerService's element, not `window`, since 2026-09-05 — the page itself
+   *  no longer scrolls (see app.html's "stavi skroler na nivo chata" layout), the nested
+   *  #scrollContainer div does. */
+  async searchResultsCity(lockedScrollY: number = this.scrollContainer.container()?.scrollTop ?? 0): Promise<void> {
     const cityId = this.selectedResultsCityId();
     if (!cityId) return;
 
-    const holdScroll = (): void => window.scrollTo(0, lockedScrollY);
-    window.addEventListener('scroll', holdScroll);
+    const container = this.scrollContainer.container();
+    const holdScroll = (): void => container?.scrollTo(0, lockedScrollY);
+    container?.addEventListener('scroll', holdScroll);
 
     this.wizard.loading.set(true);
     this.showCityRedirectTransition.set(true);
@@ -391,7 +434,7 @@ export class WizardComponent implements OnInit {
         window.location.href = this.bookingUrl;
       }
     } finally {
-      window.removeEventListener('scroll', holdScroll);
+      container?.removeEventListener('scroll', holdScroll);
       // `finally` always runs, even right after triggering the navigation above —
       // window.location.href doesn't tear this page down synchronously, the browser keeps
       // rendering it for a beat while Booking.com's response comes in. Clearing the overlay
@@ -407,6 +450,10 @@ export class WizardComponent implements OnInit {
 
   private async startWizard(): Promise<void> {
     this.budgetManuallyEdited = false;
+    // Greeting plays concurrently with real data loading below, not as a separate fake delay —
+    // see playGreeting's docblock. greetingDone only flips once the greeting's own pacing AND
+    // this whole init sequence have both finished.
+    const greetingPromise = this.playGreeting();
     await this.wizard.init(this.campaignKey ?? undefined);
     // Fire-and-forget — geo-IP lookup latency must never delay the visible wizard, see
     // WizardService.detectHomeCity docblock.
@@ -418,6 +465,7 @@ export class WizardComponent implements OnInit {
     this.prefillDefaultAdultsCount();
     this.prefillAccommodationTypePreference();
     this.syncDefaultBudget();
+    await greetingPromise;
   }
 
   get visibleQuestions(): WizardQuestion[] {
@@ -955,7 +1003,7 @@ export class WizardComponent implements OnInit {
       // twice) — marking the card selected (checkmark badge appearing, border changing) can
       // itself reflow the grid, so locking scrollY any later than this already missed it. See
       // selectResultsCity's docblock for the rest of the story.
-      this.selectResultsCity(node, window.scrollY);
+      this.selectResultsCity(node, this.scrollContainer.container()?.scrollTop ?? 0);
       return;
     }
 
@@ -1157,14 +1205,20 @@ export class WizardComponent implements OnInit {
    *  above it. Visually indistinguishable from the old full-page swap (bug reported 2026-08-04:
    *  "nije u skrol, ide na page 2"), even though it's technically one continuous page. Leaving
    *  a fixed offset keeps the tail of the collapsed history in view, so the transition actually
-   *  reads as a scroll. */
+   *  reads as a scroll.
+   *
+   *  Targets ScrollContainerService's element, not `window`, since 2026-09-05 — see
+   *  searchResultsCity's matching note. getBoundingClientRect().top is always viewport-relative
+   *  regardless of which element actually scrolls, so adding the CONTAINER's own scrollTop (not
+   *  window.scrollY) still correctly converts it into that container's scroll-space. */
   private scrollToActiveStep(): void {
     const HISTORY_PEEK_PX = 96;
     setTimeout(() => {
       const el = this.activeStepAnchor?.nativeElement;
-      if (!el) return;
-      const top = el.getBoundingClientRect().top + window.scrollY - HISTORY_PEEK_PX;
-      window.scrollTo({ top: Math.max(top, 0), behavior: 'smooth' });
+      const container = this.scrollContainer.container();
+      if (!el || !container) return;
+      const top = el.getBoundingClientRect().top + container.scrollTop - HISTORY_PEEK_PX;
+      container.scrollTo({ top: Math.max(top, 0), behavior: 'smooth' });
     }, 0);
   }
 

@@ -8,9 +8,10 @@ import { AccountPageComponent } from './features/account/account-page';
 /**
  * `data.campaignKey` matches a `wizard_campaigns.key` row (backend) — the SINGLE place a
  * campaign is resolved from, see WizardComponent/WizardService, wizard_architecture memory
- * 2026-07-30. `data.intro` is the landing copy shown before the session actually starts (see
- * WizardComponent.startThemed()) — kept here rather than in the DB for now, matching this
- * project's existing "route entry = content, not code" convention.
+ * 2026-07-30. `data.intro` is the campaign's own hook copy, played as the first greeting chat
+ * bubbles on load (see WizardComponent.playGreeting(), 2026-09-05 — no more separate click-gated
+ * intro screen) — kept here rather than in the DB for now, matching this project's existing
+ * "route entry = content, not code" convention.
  *
  * Path is `/latesummer` for now (owner's explicit call, 2026-07-30) — production plan is a
  * per-campaign subdomain (e.g. kasnoletovanje.domain.com) instead. Nothing below this route

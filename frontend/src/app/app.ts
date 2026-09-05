@@ -1,8 +1,9 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnInit, signal, ViewChild } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { AccountBadgeComponent } from './features/account/account-badge';
 import { AuthService } from './core/auth.service';
 import { AnalyticsService } from './core/analytics.service';
+import { ScrollContainerService } from './core/scroll-container.service';
 import { FooterComponent } from './ui/footer';
 import { CookieConsentComponent } from './ui/cookie-consent';
 
@@ -12,12 +13,17 @@ import { CookieConsentComponent } from './ui/cookie-consent';
   templateUrl: './app.html',
   styleUrl: './app.scss'
 })
-export class App implements OnInit {
+export class App implements OnInit, AfterViewInit {
   protected readonly title = signal('frontend');
+
+  // See ScrollContainerService's docblock — WizardComponent reads this to replace what used to
+  // be plain `window.scrollY`/`scrollTo` calls, 2026-09-05.
+  @ViewChild('scrollContainer') private scrollContainerRef?: ElementRef<HTMLElement>;
 
   constructor(
     private auth: AuthService,
-    private analytics: AnalyticsService
+    private analytics: AnalyticsService,
+    private scrollContainerService: ScrollContainerService
   ) {}
 
   // Fire-and-forget, app-wide — same "never block the visible page" convention as
@@ -30,5 +36,9 @@ export class App implements OnInit {
     // the cookie banner — 2026-09-05.
     this.analytics.recordVisit(window.location.pathname);
     this.analytics.initIfConsented();
+  }
+
+  ngAfterViewInit(): void {
+    this.scrollContainerService.container.set(this.scrollContainerRef?.nativeElement ?? null);
   }
 }

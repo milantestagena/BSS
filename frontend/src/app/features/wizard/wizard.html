@@ -37,58 +37,60 @@
 
 
   <div class="mx-auto w-full max-w-2xl">
-    @if (showIntro() && themeIntro; as intro) {
-      <!-- No card/gradient of its own, 2026-08-06 (owner's call) — sits directly on the shared
-           photo backdrop above (see the fixed -z-10 block at the top of this file). -->
-      <div class="py-20 text-center sm:py-28">
-        <h1
-          class="mx-auto mt-3 text-balance text-4xl font-extrabold tracking-tight text-white drop-shadow-md sm:text-5xl"
-        >
-          {{ intro.title }}
-        </h1>
-        <p class="mx-auto mt-4 max-w-md whitespace-pre-line text-base text-white/90 drop-shadow sm:text-lg">
-          {{ intro.subtitle }}
-        </p>
-        <ui-button
-          size="lg"
-          class="mt-9 inline-block rounded-lg shadow-lg shadow-slate-900/30 transition-transform duration-150 hover:scale-105"
-          [loading]="wizard.loading()"
-          (clicked)="startThemed()"
-          >{{ intro.cta }}</ui-button
-        >
-        <!-- Owner's ask, 2026-09-05 ("upadljivo", day after launch): a brand-new Page/site has
-             no earned trust yet — a visible, unmissable affiliate disclosure right under the
-             CTA (not buried in a footer link) does double duty as both the FTC/EU transparency
-             requirement and a credibility signal ("we're a real Booking.com partner, not some
-             random new site"). Plain text, no pill/background (owner's second call, same
-             session — the rounded badge read as an unnecessary box) — same drop-shadow-on-photo
-             treatment as the subtitle right above it, not a separate chip style. -->
-        <p class="mx-auto mt-4 text-xs font-medium text-white/90 drop-shadow">
-          {{ i18n.t('affiliateBadge') }}
-        </p>
-      </div>
-    } @else if (wizard.loading()) {
-      <!-- Owner's catch, 2026-09-02: rare (only the brief gap between the intro and the chat
-           panel mounting) but stood out badly when it did show — left-stuck, cool slate-500
-           against the warm sunset photo it sits directly on. Centered + recolored to match the
-           intro block right above it (text-white + drop-shadow for legibility directly on the
-           photo, same as the intro's title/subtitle) rather than the chat panel's terracotta
-           (#c08761, chosen for a solid background, not this busy photo backdrop). -->
-      <div class="flex items-center justify-center gap-3 py-20 text-white drop-shadow">
-        <ui-spinner size="md" />
-        <span>{{ i18n.t('loading') }}</span>
-      </div>
-    } @else {
-      <!-- Warm panel, 2026-08-21 (owner's call: the direct photo behind the whole Q&A stretch
-           read as noisy — "bode oci"). Landing/results screens keep the full photo (that
-           2026-08-06 decision stands for those two); this middle chat stretch instead sits on a
-           solid panel in the photo's own palette (sampled from its sunset/sand tones), with the
-           actual photo still visible in the reserved side gutters at the lg breakpoint (neither
-           grid column has a background of its own) — "photo-framed" rather than "form pasted on
-           a busy photo". Owner's own framing: an intentionally old-fashioned two-tone layout. -->
-      <div class="rounded-3xl bg-gradient-to-b from-orange-50 via-amber-50 to-rose-50 p-4 shadow-xl shadow-black/10 sm:p-6">
-      <!-- Chat-scroll: every visited step stays on the page — collapsed/read-only once passed,
-           the last one active/editable. See wizard_architecture memory, 2026-08-04. -->
+    <!-- Owner's ask, 2026-09-05 (day-2-of-launch: 0/14 real visitors clicked past the old separate
+         intro screen — "2 buttons problem", one click on the ad's own CTA then a second one here
+         before anything happened). The intro screen (title/subtitle/cta button) is gone —
+         startWizard() now runs immediately on load (see ngOnInit), and the campaign's own
+         hook copy plays as the first greeting bubbles instead of a click-gated hero. Bubbles are
+         NOT nested inside the loading/step @if-chain below (unlike the first version of this) so
+         they stay visible and part of the same scroll once the real step appears underneath,
+         instead of being swapped out — "da se ne izgube posle trece" (owner's explicit ask). -->
+    <!-- Owner's follow-up catch, same session ("i dalje su 2 chata... to bar mora da je
+         jednostavno", then "nijanse se malo razlikuju") — ONE shared gradient/rounding/shadow
+         on this outer wrapper, not one per inner branch below. Two independently-gradiented
+         boxes never line up in color at their seam (each `bg-gradient-to-b` computes its own
+         stops against its OWN height) — a single gradient spanning the whole merged panel is
+         the only way the color is actually continuous, not just visually close. -->
+    <div class="rounded-3xl bg-gradient-to-b from-orange-50 via-amber-50 to-rose-50 shadow-xl shadow-black/10">
+      @if (visibleGreetingMessages().length > 0) {
+        <!-- Owner's explicit call, same session: "spoj u 1 chat box, izuzetno je bitno" — one
+             growing bubble (lines joined with a blank line via whitespace-pre-line) as each
+             message types in, not one bubble per line. -->
+        <div class="p-4 sm:p-6">
+          <div class="flex items-start justify-start">
+            <div class="max-w-[80%] whitespace-pre-line rounded-2xl rounded-bl-sm bg-white px-4 py-2.5 text-sm text-slate-700">
+              {{ visibleGreetingMessages().join('\n\n') }}
+            </div>
+          </div>
+        </div>
+      }
+      @if (!greetingDone()) {
+        <!-- Greeting still playing — the block above already shows every bubble revealed so far;
+             nothing else to render until it (and the real init/geography loading running
+             concurrently, see playGreeting's docblock) both finish. -->
+      } @else if (wizard.loading()) {
+        <!-- Owner's catch, 2026-09-02: rare (only the brief gap between the intro and the chat
+             panel mounting) but stood out badly when it did show. Recolored 2026-09-05
+             (slate-500, no drop-shadow, no own background) — this now always renders inside the
+             shared warm panel above, never directly on the dark photo backdrop like it could
+             before the intro screen was removed. -->
+        <div class="p-4 sm:p-6">
+          <div class="flex items-center justify-center gap-3 py-10 text-slate-500">
+            <ui-spinner size="md" />
+            <span>{{ i18n.t('loading') }}</span>
+          </div>
+        </div>
+      } @else {
+        <!-- Warm panel, 2026-08-21 (owner's call: the direct photo behind the whole Q&A stretch
+             read as noisy — "bode oci"). Landing/results screens keep the full photo (that
+             2026-08-06 decision stands for those two); this middle chat stretch instead sits on a
+             solid panel in the photo's own palette (sampled from its sunset/sand tones), with the
+             actual photo still visible in the reserved side gutters at the lg breakpoint (neither
+             grid column has a background of its own) — "photo-framed" rather than "form pasted on
+             a busy photo". Owner's own framing: an intentionally old-fashioned two-tone layout. -->
+        <div class="p-4 sm:p-6">
+        <!-- Chat-scroll: every visited step stays on the page — collapsed/read-only once passed,
+             the last one active/editable. See wizard_architecture memory, 2026-08-04. -->
       @for (index of wizard.visitedStepIndices(); track index; let isLast = $last) {
         @if (wizard.steps()[index]; as step) {
           @if (!isLast) {
