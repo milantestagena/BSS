@@ -23,6 +23,30 @@ import { DestinationGuideModalComponent } from '../../ui/destination-guide-modal
  *  undeclared bare identifier throws instead of evaluating to undefined). */
 type MetaPixelFn = (...args: unknown[]) => void;
 
+/**
+ * Bug caught live, 2026-09-05 ("otvori se booking u app... al nema parametri, samo lokacija i
+ * vreme") — our real target (CJ's dpbolvw.net redirect, wrapping the fully-parameterized real
+ * Booking.com search URL) isn't a booking.com domain itself, but Android's App Links can still
+ * intercept the LATER hop in that redirect chain once it actually reaches a verified booking.com
+ * URL, handing it to the installed Booking app instead of the browser — the app's own deep-link
+ * router only understands a bare destination+dates, silently dropping dest_id/group_adults/
+ * no_rooms/nflt filters/the CJ tracking itself. An `intent://` URL explicitly targeting Chrome's
+ * package bypasses App Link resolution entirely (standard, documented Android workaround for
+ * exactly this class of problem) — every param and the affiliate wrapper survive because Chrome,
+ * not the OS's app-link chooser, is the one following the redirect chain. No iOS equivalent
+ * exists client-side (Universal Links interception can't be overridden this way there), and
+ * desktop obviously never hits this — a no-op everywhere except Android's own browsers.
+ */
+function androidChromeIntentUrl(url: string): string {
+  if (!/Android/i.test(navigator.userAgent)) return url;
+
+  const withoutScheme = url.replace(/^https?:\/\//i, '');
+  // S.browser_fallback_url, not a bare `package=` with no fallback — a phone without Chrome
+  // installed (some OEMs default to their own browser) would otherwise hit a dead-end intent
+  // resolution instead of just... going to the URL like before this fix ever existed.
+  return `intent://${withoutScheme}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(url)};end`;
+}
+
 /** Questions rendered by the combined <app-travelers-input> widget instead of individually —
  *  see travelers-input.ts. */
 const TRAVELERS_QUESTION_KEYS = new Set(['adults_count', 'children_ages', 'needs_crib']);
@@ -443,7 +467,7 @@ export class WizardComponent implements OnInit, AfterViewInit {
       await this.wizard.switchResultsCity(cityId);
       if (this.bookingUrl) {
         navigatingAway = true;
-        window.location.href = this.bookingUrl;
+        window.location.href = androidChromeIntentUrl(this.bookingUrl);
       }
     } finally {
       container?.removeEventListener('scroll', holdScroll);
