@@ -43,8 +43,16 @@ type MetaPixelFn = (...args: unknown[]) => void;
  * Links interception can't be overridden this way there); desktop and non-Android mobile just
  * navigate normally.
  */
+/** TEMPORARY, 2026-09-05 — owner's ask: real testing from the FB Lite app's own in-app browser
+ *  already avoided the native Booking app WITHOUT this Chrome-forcing logic (only a plain
+ *  Chrome/browser test hit the bug). Hard-disabled here to see what a Facebook in-app browser
+ *  does completely unassisted before deciding whether this whole function is even needed for
+ *  real ad traffic — revert this one line (delete it) to re-enable if the plain URL turns out to
+ *  still misbehave from inside FB's browser. */
+const DISABLE_ANDROID_CHROME_FORCE_FOR_TESTING = true;
+
 function navigateToBooking(url: string): void {
-  if (!/Android/i.test(navigator.userAgent)) {
+  if (DISABLE_ANDROID_CHROME_FORCE_FOR_TESTING || !/Android/i.test(navigator.userAgent)) {
     window.location.href = url;
     return;
   }
