@@ -262,7 +262,20 @@
                          amenity/price heads-up moved to a visible "*" note below the grid
                          instead, not hidden behind a click — see cityAmenityPriceHint below. -->
                     <div class="mb-2 flex items-start justify-between gap-2">
-                      <label class="block text-sm font-semibold text-white">{{ question.label }}</label>
+                      <!-- Owner's ask, 2026-09-05: clicking a card's description opens its detail
+                           popover instead of selecting it (see the card @for below) — without a
+                           visible cue, that reads as broken/unresponsive rather than "a different
+                           click target". Appended directly to the label rather than tucked into
+                           the info popover, since it explains what happens BEFORE the click, not
+                           extra detail after one. -->
+                      <label class="block text-sm font-semibold text-white">
+                        {{ question.label }}
+                        @if (question.key === 'country_region') {
+                          {{ i18n.t('countryNameClickHint') }}
+                        } @else if (question.key === 'city') {
+                          {{ i18n.t('cityNameClickHint') }}
+                        }
+                      </label>
                       @if (anyGroupHasBudgetFitData(question) || question.key === 'city' || question.key === 'country_region') {
                         <ui-info-popover class="-mr-1 -mt-1">
                           <p class="whitespace-pre-line">{{ i18n.t('cityStepHint') }}</p>

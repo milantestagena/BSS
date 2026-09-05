@@ -120,6 +120,8 @@ const STRINGS: Record<'en' | 'de', Record<string, string>> = {
     cookieConsentText: 'We use a tracking pixel to measure how our ads perform. No data is sold — see our Privacy Policy for details.',
     cookieConsentAccept: 'Accept',
     cookieConsentDecline: 'Decline',
+    countryNameClickHint: '(click on country name to select)',
+    cityNameClickHint: '(click on city name to see your offer)',
   },
   de: {
     back: 'Zurück',
@@ -216,6 +218,8 @@ const STRINGS: Record<'en' | 'de', Record<string, string>> = {
     cookieConsentText: 'Wir verwenden ein Tracking-Pixel, um die Leistung unserer Anzeigen zu messen. Es werden keine Daten verkauft — Details in unserer Datenschutzerklärung.',
     cookieConsentAccept: 'Akzeptieren',
     cookieConsentDecline: 'Ablehnen',
+    countryNameClickHint: '(auf den Ländernamen klicken, um auszuwählen)',
+    cityNameClickHint: '(auf den Stadtnamen klicken, um dein Angebot zu sehen)',
   },
 };
 
