@@ -512,6 +512,7 @@ export class WizardComponent implements OnInit, AfterViewInit {
     this.prefillRecommendedDates();
     this.prefillDefaultAdultsCount();
     this.prefillAccommodationTypePreference();
+    this.prefillMealStyle();
     this.syncDefaultBudget();
     await greetingPromise;
   }
@@ -980,6 +981,7 @@ export class WizardComponent implements OnInit, AfterViewInit {
         this.prefillRecommendedDates();
         this.prefillDefaultAdultsCount();
         this.prefillAccommodationTypePreference();
+        this.prefillMealStyle();
         this.syncDefaultBudget();
         this.scrollToActiveStep();
       }
@@ -1174,6 +1176,20 @@ export class WizardComponent implements OnInit, AfterViewInit {
       'accommodation_type_preference',
       options.map((o) => o.slug)
     );
+  }
+
+  /** Owner's ask, 2026-09-05 — meal_style is the one remaining mandatory question that could
+   *  block Proceed outright ("imamo mandatori samo na jednom mestu i to malo koci ceo proces").
+   *  Defaults to eating out (jede_napolju) — the more common real-world pick — so nobody has to
+   *  make this decision just to keep moving; switching to self-catering (sam_se_snalazim) is
+   *  one tap away, exactly like any other prefilled default here. Same "prefill, never overwrite
+   *  a real pick" rule as the other prefills above. */
+  private prefillMealStyle(): void {
+    const step = this.wizard.currentStep();
+    if (!step?.questions.some((q) => q.key === 'meal_style')) return;
+    if (this.wizard.getAnswer('meal_style') != null) return;
+
+    this.wizard.setAnswer('meal_style', 'jede_napolju');
   }
 
   /** Trip length in days, best-effort across whichever source is actually available yet: a real
