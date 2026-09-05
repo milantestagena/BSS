@@ -30,21 +30,33 @@ type MetaPixelFn = (...args: unknown[]) => void;
  * intercept the LATER hop in that redirect chain once it actually reaches a verified booking.com
  * URL, handing it to the installed Booking app instead of the browser — the app's own deep-link
  * router only understands a bare destination+dates, silently dropping dest_id/group_adults/
- * no_rooms/nflt filters/the CJ tracking itself. An `intent://` URL explicitly targeting Chrome's
- * package bypasses App Link resolution entirely (standard, documented Android workaround for
- * exactly this class of problem) — every param and the affiliate wrapper survive because Chrome,
- * not the OS's app-link chooser, is the one following the redirect chain. No iOS equivalent
- * exists client-side (Universal Links interception can't be overridden this way there), and
- * desktop obviously never hits this — a no-op everywhere except Android's own browsers.
+ * no_rooms/nflt filters/the CJ tracking itself.
+ *
+ * An `intent://` URL explicitly targeting Chrome's package is the standard workaround for
+ * exactly this class of problem — but a first attempt (`window.location.href = <intent url>`)
+ * still opened the native app on a real device, 2026-09-05. Chrome for Android only reliably
+ * resolves `intent://` schemes from a genuine anchor-tag click, not a `location.href`
+ * assignment (a documented quirk, not something specific to this app) — this simulates a real
+ * click instead. `S.browser_fallback_url`, not a bare `package=` with no fallback — a phone
+ * without Chrome installed (some OEMs default to their own browser) falls back to the plain URL
+ * rather than hitting a dead intent resolution. No iOS equivalent exists client-side (Universal
+ * Links interception can't be overridden this way there); desktop and non-Android mobile just
+ * navigate normally.
  */
-function androidChromeIntentUrl(url: string): string {
-  if (!/Android/i.test(navigator.userAgent)) return url;
+function navigateToBooking(url: string): void {
+  if (!/Android/i.test(navigator.userAgent)) {
+    window.location.href = url;
+    return;
+  }
 
   const withoutScheme = url.replace(/^https?:\/\//i, '');
-  // S.browser_fallback_url, not a bare `package=` with no fallback — a phone without Chrome
-  // installed (some OEMs default to their own browser) would otherwise hit a dead-end intent
-  // resolution instead of just... going to the URL like before this fix ever existed.
-  return `intent://${withoutScheme}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(url)};end`;
+  const intentUrl = `intent://${withoutScheme}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(url)};end`;
+
+  const link = document.createElement('a');
+  link.href = intentUrl;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 /** Questions rendered by the combined <app-travelers-input> widget instead of individually —
@@ -467,7 +479,7 @@ export class WizardComponent implements OnInit, AfterViewInit {
       await this.wizard.switchResultsCity(cityId);
       if (this.bookingUrl) {
         navigatingAway = true;
-        window.location.href = androidChromeIntentUrl(this.bookingUrl);
+        navigateToBooking(this.bookingUrl);
       }
     } finally {
       container?.removeEventListener('scroll', holdScroll);
