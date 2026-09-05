@@ -16,8 +16,12 @@
   <div class="absolute inset-0 bg-gradient-to-b from-black/35 via-black/10 to-black/40"></div>
 </div>
 
+<!-- Owner's ask, 2026-09-05, caught on a real phone screenshot: zero padding on mobile (both
+     axes) and no rounding, so the panel is a true full-bleed "top to bottom, edge to edge"
+     surface with nothing showing around it — sm:/lg: get their padding and rounding back since
+     the panel no longer touches the screen edges there anyway. -->
 <div
-  class="mx-auto h-full max-w-6xl px-0 py-10 sm:px-4 lg:grid lg:grid-cols-[1fr_2fr_1fr] lg:items-start lg:gap-8"
+  class="mx-auto h-full max-w-6xl px-0 py-0 sm:px-4 sm:py-10 lg:grid lg:grid-cols-[1fr_2fr_1fr] lg:items-start lg:gap-8"
 >
   <!-- Empty spacer — reserves the grid column's width so the middle content doesn't shift.
        The actual panel below is `fixed`, not `sticky`, on purpose (owner's call, 2026-08-04:
@@ -59,7 +63,7 @@
          scrolls internally as history accumulates, not the whole page; see
          WizardComponent.ngAfterViewInit, which points ScrollContainerService at THIS element
          (#chatPanel) instead of app.html's outer container while the wizard is mounted. -->
-    <div #chatPanel class="flex-1 overflow-y-auto rounded-3xl bg-gradient-to-b from-orange-50 via-amber-50 to-rose-50 shadow-xl shadow-black/10">
+    <div #chatPanel class="flex-1 overflow-y-auto rounded-none bg-gradient-to-b from-orange-50 via-amber-50 to-rose-50 shadow-xl shadow-black/10 sm:rounded-3xl">
       @if (visibleGreetingMessages().length > 0) {
         <!-- Owner's explicit call, same session: "spoj u 1 chat box, izuzetno je bitno" — one
              growing bubble (lines joined with a blank line via whitespace-pre-line) as each
