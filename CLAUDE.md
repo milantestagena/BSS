@@ -95,7 +95,8 @@ Ovo je **konceptualno i arhitekturno odvojeno** od user-to-user referral sistema
 
 - **CAC nepoznat** — prioritet je testiranje malim ad kampanjama (~10–15€/dan na Facebook/Instagram) pre commit-a na bilo koji kanal
 - Organski kanali u planu: Facebook parent grupe (community seeding), SEO content (dugoročno, bez troška)
-- Attribution cookie window kod Booking.com/Airbnb je kratak → jake CTA odmah posle Honest Report-a su kritične za hvatanje konverzije pre isteka attribution-a
+- **Attribution kod Booking.com (CJ program 4297289, DACH) — potvrđeno 2026-09-06 direktno iz CJ Program Terms:** nema cookie tracking uopšte. Citat: "Nur Transaktionen, die innerhalb derselben Session erfolgen, sind provisionsfähig" (samo transakcije u ISTOJ sesiji kao klik se priznaju). "Referral Period: 1 dan" u CJ-u je samo tehnički plafon za obradu, ne stvarni prozor. Posledica: jake CTA odmah posle Honest Report-a su kritične, i ako se korisnik vrati kasnije da bukira, MORA ponovo proći kroz naš link (npr. preko newsletter-a) da provizija ostane naša — nema višednevnog kuki-a koji bi to sam pokrio.
+- **Iframe embedding Booking.com sadržaja je eksplicitno ugovorno zabranjen** — isti CJ Program Terms, "Web Site - Prohibited Web Site Content": "No use of iframes or similar functionality." (Potvrđuje raniju odluku da se iframe ne koristi ni kao workaround za Android app-link problem.)
 
 **Geografska strategija (odluka 2026-08-20):** Originalni plan je bio EU generalno, ali
 odbačen — previše jaka konkurencija lokalnih turoperatera na domaćem/Adria tržištu. Umesto
