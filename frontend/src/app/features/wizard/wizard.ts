@@ -283,16 +283,23 @@ export class WizardComponent implements OnInit, OnDestroy, AfterViewInit {
    *  than folding in themeIntro's title/subtitle dynamically — this exact wording was hand-tuned
    *  (native-speaker German pass) for the one live campaign; revisit if a second campaign with
    *  meaningfully different hook copy ever launches. */
+  /** Reordered 2026-09-07 after real-user feedback (Veronika Trpkovska): the affiliate
+   *  disclosure read as a legal disclaimer when it opened the greeting, "not a reason to stay" —
+   *  now it closes it instead, after the value prop has already landed. Also replaces the old
+   *  generic "we'll save you hours of googling" line with concrete specifics (sea temp, cost of
+   *  living, food budget, romantic vs. nightlife fit) matching what the wizard actually asks. */
   private readonly GREETING_MESSAGES: Record<AppLocale, string[]> = {
     en: [
-      "Hi! 👋 We're a Booking.com affiliate partner — and we'll save you hours of googling.",
-      "Haven't been to the sea lately? It's still beach weather on the Mediterranean — don't miss it!",
-      "Let's find your perfect place, fast — just answer a few quick questions to get started.",
+      'Where should you go next? 🌊',
+      "We've spent hours comparing the things that actually matter: how warm the sea is, what things cost, where you can eat without blowing the budget, and whether a place is better for a romantic escape or a night out.",
+      "So you don't have to spend hours doing it yourself.\nJust answer a few quick questions — we'll do the digging for you.",
+      "We're a Booking.com affiliate partner, but you'll book directly through Booking.com — we just help you find the right place.",
     ],
     de: [
-      'Hallo! 👋 Wir sind Booking.com-Affiliate-Partner – und ersparen dir stundenlanges Googeln.',
-      'Lange nicht mehr am Meer gewesen? Am Mittelmeer ist noch Strandwetter – verpass es nicht!',
-      'Lass uns schnell die passende Unterkunft für dich finden – beantworte dafür einfach ein paar kurze Fragen.',
+      'Wohin geht’s als Nächstes? 🌊',
+      'Wir haben bereits Stunden damit verbracht, die Dinge zu vergleichen, die wirklich wichtig sind: Wie warm ist das Meer? Was kostet das Leben vor Ort? Wo kann man gut essen, ohne das Budget zu sprengen? Und eignet sich ein Ort eher für einen romantischen Kurzurlaub oder für eine Nacht mit Freunden?',
+      'Damit du nicht selbst stundenlang suchen musst, übernehmen wir die Recherche für dich. Beantworte einfach ein paar kurze Fragen – wir kümmern uns um den Rest.',
+      'Wir sind Booking.com-Affiliate-Partner, aber du buchst direkt über Booking.com – wir helfen dir nur dabei, den richtigen Ort zu finden.',
     ],
   };
 
