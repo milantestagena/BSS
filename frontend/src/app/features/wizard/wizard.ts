@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, OnInit, effect, signal, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, effect, signal, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { WizardService } from '../../core/wizard.service';
@@ -211,7 +211,7 @@ interface ThemeIntro {
   ],
   templateUrl: './wizard.html',
 })
-export class WizardComponent implements OnInit, AfterViewInit {
+export class WizardComponent implements OnInit, OnDestroy, AfterViewInit {
   /** Anchor rendered right before the active (non-collapsed) step in the chat-scroll list —
    *  see wizard.html. Angular rebinds this ViewChild automatically as @for/@if change which
    *  element carries the template ref, since only one step is ever "active" at a time. */
@@ -362,15 +362,45 @@ export class WizardComponent implements OnInit, AfterViewInit {
     return this.route.snapshot.queryParamMap.get('debug') === '1';
   }
 
+  private readonly onWindowError = (event: ErrorEvent): void => {
+    void this.wizard.recordEvent('client_error', {
+      message: event.message,
+      stack: event.error?.stack?.slice(0, 2000),
+      stepKey: this.wizard.currentStep()?.key,
+    });
+  };
+
+  private readonly onUnhandledRejection = (event: PromiseRejectionEvent): void => {
+    const reason = event.reason as { message?: string; stack?: string } | undefined;
+    void this.wizard.recordEvent('client_error', {
+      message: reason?.message ?? String(event.reason),
+      stack: reason?.stack?.slice(0, 2000),
+      stepKey: this.wizard.currentStep()?.key,
+    });
+  };
+
   async ngOnInit(): Promise<void> {
     const data = this.route.snapshot.data;
     this.campaignKey = (data['campaignKey'] as string) ?? null;
     this.themeIntroData = (data['intro'] as Record<AppLocale, ThemeIntro>) ?? null;
 
+    // Diagnostic added 2026-09-07 — a real production incident (nobody progressing past step 2
+    // for a full day) took hours of DB/log archaeology to even characterize, with no direct
+    // evidence of what actually threw client-side. Any uncaught error or unhandled rejection from
+    // this point on gets logged into the same WizardEvent/funnel pipeline so a future incident is
+    // a query away, not a forensic reconstruction.
+    window.addEventListener('error', this.onWindowError);
+    window.addEventListener('unhandledrejection', this.onUnhandledRejection);
+
     // No more separate click-gated intro screen — see startWizard/playGreeting's docblocks
     // ("2 buttons problem", 2026-09-05). Both campaign and generic entry points start the same
     // way now; the campaign's own hook plays as the first greeting bubbles instead.
     await this.startWizard();
+  }
+
+  ngOnDestroy(): void {
+    window.removeEventListener('error', this.onWindowError);
+    window.removeEventListener('unhandledrejection', this.onUnhandledRejection);
   }
 
   /** Points ScrollContainerService at this component's own #chatPanel instead of app.html's
@@ -1194,7 +1224,7 @@ export class WizardComponent implements OnInit, AfterViewInit {
    *  a real pick" rule as the other prefills above. */
   private prefillMealStyle(): void {
     const step = this.wizard.currentStep();
-    if (!step?.questions.some((q) => q.key === 'meal_style')) return;
+    if (!step?.questions?.some((q) => q.key === 'meal_style')) return;
     if (this.wizard.getAnswer('meal_style') != null) return;
 
     this.wizard.setAnswer('meal_style', 'jede_napolju');
