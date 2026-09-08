@@ -1154,16 +1154,43 @@ export class WizardComponent implements OnInit, OnDestroy, AfterViewInit {
     return `${trimmed}…`;
   }
 
-  /** Left-column fallback when nothing's hovered — see STEP_DESCRIPTIONS. Prepends the
-   *  campaign-context blurb only on the very first step (visitedStepIndices().length === 1),
-   *  since that's the one place a first-time viewer hasn't yet seen enough of the flow to
-   *  infer it's campaign-scoped. */
+  /** Left-column fallback when nothing's hovered — see STEP_DESCRIPTIONS. Used to also prepend
+   *  a campaign-context blurb on the first step, removed 2026-09-08: that blurb ("Squeeze in one
+   *  more warm-weather trip...") duplicated the greeting bubble word-for-word once the greeting
+   *  redesign folded the same hook+CTA into the very first thing a visitor reads — pure
+   *  repetition, not backup context, by the time anyone reaches this popover (owner: "prvi
+   *  pasus je visak").
+   *
+   *  Owner's ask, 2026-09-08, "Traveler type" specifically — the per-persona blurb (owner's own
+   *  wording, not invented copy) belongs HERE, in the step's existing (i) icon, not as a separate
+   *  icon per pill — first tried the per-pill route and got corrected: "mislio sam ovde"
+   *  (pointing at this exact popover). Reads from the same seeded TaxonomyNode.meta.description
+   *  the earlier per-pill attempt used, just surfaced through a different, already-existing UI
+   *  element instead of a new one. */
   stepDescription(step: WizardStep): string {
-    const locale = this.locale.locale();
-    const own = STEP_DESCRIPTIONS[locale][step.key] ?? '';
-    const isFirstStep = this.wizard.visitedStepIndices().length === 1;
+    return STEP_DESCRIPTIONS[this.locale.locale()][step.key] ?? '';
+  }
 
-    return isFirstStep ? `${CAMPAIGN_INTRO_BLURB[locale]}\n\n${own}` : own;
+  /** Per-persona breakdown appended below stepDescription() in the "Traveler type" step's (i)
+   *  popover — separate method (rendered as its own <p> per entry, name bolded) rather than
+   *  folding into stepDescription()'s plain string, since whitespace-pre-line text can't bold
+   *  anything and owner asked for both real bold names and no forced blank line between the
+   *  intro sentence and the list (owner's own wording throughout, not invented copy).
+   *
+   *  NOT step.questions.find(...).options — persona's taxonomyType is resolved dynamically
+   *  (loadGeographyForStep), so that field stays whatever the initial WizardStep query set it to
+   *  (null) and is never actually populated; the real options live in geographyOptions(). */
+  personaBreakdown(step: WizardStep): Array<{ label: string; description: string }> {
+    if (step.key !== 'persona') return [];
+
+    const locale = this.locale.locale();
+    return (this.geographyOptions()['persona'] ?? [])
+      .map((node) => {
+        const description = node.meta?.['description'] as Record<string, string> | undefined;
+        const text = description?.[locale] ?? description?.['en'];
+        return text ? { label: node.label, description: text } : null;
+      })
+      .filter((entry): entry is { label: string; description: string } => entry != null);
   }
 
   /**

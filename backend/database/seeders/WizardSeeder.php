@@ -110,23 +110,44 @@ class WizardSeeder extends Seeder
 
     private function seedPersonas(): void
     {
+        // meta.description added 2026-09-08 — the "shown together with the persona's own
+        // description elsewhere" comment below dates back to 2026-09-03, but no description ever
+        // actually existed until now (meta was null for all 4 nodes). {en, de} map because meta
+        // is raw JSON, not a single @translate-d scalar — see node()'s docblock and
+        // question-input.ts's descriptionFor().
+        // Descriptions are the owner's own wording (2026-09-08), lightly translated, not
+        // Claude-invented copy — see the persona popover discussion for why: "Explorer - ne volis
+        // da sedis na jednom mestu...", "Party Animal - putovanja su zurke", "Foodie - volis da
+        // istrazujes autenticnu lokalnu kuhinju", "Chill seeker - odmor treba da bude odmor."
         $items = [
-            ['slug' => 'istrazivac', 'en' => 'Explorer', 'sr' => 'Istraživač'],
+            ['slug' => 'istrazivac', 'en' => 'Explorer', 'sr' => 'Istraživač', 'description' => [
+                'en' => "You don't like sitting still — you want to wander around and actually experience the city or place.",
+                'de' => 'Du sitzt nicht gern still — du willst herumstreifen und die Stadt oder den Ort wirklich erleben.',
+            ]],
             // "Partygoer" -> "Party animal" (owner's catch, 2026-08-14: "nikad nisam čuo izraz,
             // boo mi oči") — matches the same playful, idiomatic register as the other personas
             // (Explorer, Foodie, Chillseeker), not a stiffer/more journalistic word.
-            ['slug' => 'partijaner', 'en' => 'Party animal', 'sr' => 'Partijaner'],
+            ['slug' => 'partijaner', 'en' => 'Party animal', 'sr' => 'Partijaner', 'description' => [
+                'en' => 'For you, the trip is the party.',
+                'de' => 'Für dich ist die Reise die Party.',
+            ]],
             // Relations (Gurman/Foodie implies dobra_hrana) are wired up in seedRelations()
             // now that they live in the taxonomy_node_relations table, not in meta —
             // see wizard_architecture / admin-editability decision.
-            ['slug' => 'gurman', 'en' => 'Foodie', 'sr' => 'Gurman'],
+            ['slug' => 'gurman', 'en' => 'Foodie', 'sr' => 'Gurman', 'description' => [
+                'en' => 'You love digging into authentic local food.',
+                'de' => 'Du liebst es, authentische lokale Küche zu entdecken.',
+            ]],
             // "— just to relax" dropped, 2026-09-03 (owner caught it live) — redundant with the
             // name itself once it's shown together with the persona's own description elsewhere.
-            ['slug' => 'flegma', 'en' => 'Chillseeker', 'sr' => 'Flegma'],
+            ['slug' => 'flegma', 'en' => 'Chillseeker', 'sr' => 'Flegma', 'description' => [
+                'en' => 'You just want to unwind — a lounger, a drink, the beach.',
+                'de' => 'Du willst einfach nur abschalten — Liege, Drink, Strand.',
+            ]],
         ];
 
         foreach ($items as $i => $item) {
-            $this->node('persona', $item['slug'], $item['en'], $item['sr'], $i);
+            $this->node('persona', $item['slug'], $item['en'], $item['sr'], $i, ['description' => $item['description']]);
         }
     }
 
