@@ -72,6 +72,22 @@
           <div class="flex items-start justify-start">
             <div class="max-w-[80%] whitespace-pre-line rounded-2xl rounded-bl-sm bg-white px-4 py-2.5 text-sm text-slate-700">
               {{ visibleGreetingMessages().join('\n\n') }}
+              <!-- Owner's call, 2026-09-08: this detail belongs to the pitch itself, not behind
+                   the (i) info-icon — "to uglavnom klikcemo kad totalno zaglavimo... ovde niko
+                   nema potrebu za tim". An inline "More…" expander instead, same message bubble,
+                   opt-in without adding to the mandatory-reading delay before the step renders
+                   (greetingDone() doesn't wait on this). -->
+              @if (greetingDone()) {
+                @if (greetingDetailExpanded()) {
+                  {{ ' ' }}{{ i18n.t('greetingDetail') }}
+                } @else {
+                  {{ ' ' }}<button
+                    type="button"
+                    class="font-medium text-orange-600 underline decoration-orange-300 underline-offset-2 hover:text-orange-700"
+                    (click)="greetingDetailExpanded.set(true)"
+                  >{{ i18n.t('greetingMoreLink') }}</button>
+                }
+              }
             </div>
           </div>
         </div>

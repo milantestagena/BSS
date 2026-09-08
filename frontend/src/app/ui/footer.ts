@@ -17,7 +17,7 @@ import { I18nService } from '../core/i18n.service';
   template: `
     <footer class="border-t border-stone-200 bg-stone-50 px-4 py-8 text-sm text-stone-500">
       <div class="mx-auto flex max-w-4xl flex-col items-center gap-3 text-center sm:flex-row sm:justify-between sm:text-left">
-        <p>{{ i18n.t('footerAffiliateNote') }}</p>
+        <p class="font-semibold text-stone-600">{{ i18n.t('footerAffiliateNote') }}</p>
         <nav class="flex gap-4">
           <a routerLink="/about" class="hover:text-stone-700 hover:underline">{{ i18n.t('footerAboutLink') }}</a>
           <a routerLink="/privacy" class="hover:text-stone-700 hover:underline">{{ i18n.t('footerPrivacyLink') }}</a>

@@ -275,6 +275,13 @@ export class WizardComponent implements OnInit, OnDestroy, AfterViewInit {
   readonly visibleGreetingMessages = signal<string[]>([]);
   readonly greetingDone = signal(true);
 
+  /** "More…" expander on the greeting bubble itself, 2026-09-08 — see wizard.html's docblock at
+   *  the greeting block for why this isn't the (i) info-icon instead. Not reset per session
+   *  deliberately: if someone already expanded it once this page load, collapsing it again on a
+   *  later startWizard() (e.g. after switching locale) would be a pointless, mildly annoying
+   *  reset of a choice they already made. */
+  readonly greetingDetailExpanded = signal(false);
+
   /** Order is deliberate (owner's ask, 2026-09-05): greeting+identity first, THEN the emotional
    *  hook, THEN the call to get started — reads as one warm conversation opener rather than a
    *  marketing headline bolted onto a disclosure. All three lines type out progressively into a
@@ -283,24 +290,18 @@ export class WizardComponent implements OnInit, OnDestroy, AfterViewInit {
    *  than folding in themeIntro's title/subtitle dynamically — this exact wording was hand-tuned
    *  (native-speaker German pass) for the one live campaign; revisit if a second campaign with
    *  meaningfully different hook copy ever launches. */
-  /** Reordered 2026-09-07 after real-user feedback (Veronika Trpkovska): the affiliate
-   *  disclosure read as a legal disclaimer when it opened the greeting, "not a reason to stay" —
-   *  now it closes it instead, after the value prop has already landed. Also replaces the old
-   *  generic "we'll save you hours of googling" line with concrete specifics (sea temp, cost of
-   *  living, food budget, romantic vs. nightlife fit) matching what the wizard actually asks. */
+  /** Reworked 2026-09-08 — v3. v2 (2026-09-07) split urgency+value+CTA from the affiliate
+   *  disclosure into two messages; owner's call this round: the footer already carries
+   *  "TripInele is a Booking.com affiliate partner" on every page, permanently and visibly, so
+   *  repeating it here — in the FIRST thing a visitor reads, gone the moment they scroll past it —
+   *  buys nothing the footer doesn't already cover, and it's the one line most likely to read as
+   *  a legal disclaimer per Veronika's original complaint. Down to a single message: just the
+   *  hook + CTA. The affiliate line and the "here's what we actually compare" detail both live in
+   *  greetingDetail (i18n) now, behind the inline "More…" expander instead of the (i) info-icon —
+   *  see wizard.html's docblock at the greeting block for why not the icon. */
   private readonly GREETING_MESSAGES: Record<AppLocale, string[]> = {
-    en: [
-      'Where should you go next? 🌊',
-      "We've spent hours comparing the things that actually matter: how warm the sea is, what things cost, where you can eat without blowing the budget, and whether a place is better for a romantic escape or a night out.",
-      "So you don't have to spend hours doing it yourself.\nJust answer a few quick questions — we'll do the digging for you.",
-      "We're a Booking.com affiliate partner, but you'll book directly through Booking.com — we just help you find the right place.",
-    ],
-    de: [
-      'Wohin geht’s als Nächstes? 🌊',
-      'Wir haben bereits Stunden damit verbracht, die Dinge zu vergleichen, die wirklich wichtig sind: Wie warm ist das Meer? Was kostet das Leben vor Ort? Wo kann man gut essen, ohne das Budget zu sprengen? Und eignet sich ein Ort eher für einen romantischen Kurzurlaub oder für eine Nacht mit Freunden?',
-      'Damit du nicht selbst stundenlang suchen musst, übernehmen wir die Recherche für dich. Beantworte einfach ein paar kurze Fragen – wir kümmern uns um den Rest.',
-      'Wir sind Booking.com-Affiliate-Partner, aber du buchst direkt über Booking.com – wir helfen dir nur dabei, den richtigen Ort zu finden.',
-    ],
+    en: ['Still beach weather — where should you go next? 🌊 Answer a few quick questions and we’ll find your match, fast.'],
+    de: ['Noch Strandwetter — wohin geht’s als Nächstes? 🌊 Beantworte ein paar kurze Fragen, und wir finden schnell die passende Unterkunft für dich.'],
   };
 
   private async playGreeting(): Promise<void> {

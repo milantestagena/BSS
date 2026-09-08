@@ -71,6 +71,9 @@ const STRINGS: Record<'en' | 'de', Record<string, string>> = {
     alsoGoodChoicesHeader: 'Also good choices',
     lessGoodChoicesHeader: 'Less good choices',
     priceLegend: 'Card color shows how much of your budget this uses: green under 70%, yellow 70–100%, red over 100%.',
+    greetingMoreLink: 'More…',
+    greetingDetail:
+      "We've gathered live sea temperatures, real prices, food costs, and neighborhood vibe across 60+ destinations, so we can match you to the right one — not just show you a search result.",
     // Split 2026-09-03 (owner's ask) — the amenity/price part is a more consequential heads-up
     // than the intuitive "green is better than red" color legend, so it moved out of this info
     // popover into a visible "*" note below the city grid instead (see cityAmenityPriceHint).
@@ -176,6 +179,9 @@ const STRINGS: Record<'en' | 'de', Record<string, string>> = {
     alsoGoodChoicesHeader: 'Auch gute Optionen',
     lessGoodChoicesHeader: 'Weniger gute Optionen',
     priceLegend: 'Die Kartenfarbe zeigt, wie viel deines Budgets benötigt wird: Grün unter 70 %, Gelb bei 70–100 %, Rot über 100 %.',
+    greetingMoreLink: 'Mehr…',
+    greetingDetail:
+      'Wir haben live Meerestemperaturen, echte Preise, Essenskosten und die Atmosphäre vor Ort für über 60 Ziele gesammelt, damit wir dir die passende Empfehlung geben können – kein bloßes Suchergebnis.',
     cityStepHint: 'Klicke auf die Beschreibung einer Karte, um mehr über den Ort zu erfahren.',
     cityAmenityPriceHint:
       'Klicke auf den Namen einer Stadt, um das Angebot zu sehen. Manche Ausstattungsmerkmale können den Preis deutlich erhöhen – wenn die Auswahl zu klein ist, erhöhe deine Preisspanne oder entferne eine Anforderung.',
