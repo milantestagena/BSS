@@ -91,16 +91,17 @@ class GeographyResolver
         $allInclusiveById = collect();
         $foodTotalById = collect();
 
+        $accommodationTotalById = collect();
         if ($args['type'] === 'country') {
             $nodes = $this->filterByCulturalAvailability($nodes, $session);
-            [$nodes, $budgetCaveatIds, $budgetFitById, $allInclusiveById, $foodTotalById] = $this->filterByBudget($nodes, $session, 'country');
+            [$nodes, $budgetCaveatIds, $budgetFitById, $allInclusiveById, $foodTotalById, $accommodationTotalById] = $this->filterByBudget($nodes, $session, 'country');
         } elseif ($args['type'] === 'city') {
             // Owner's catch, 2026-09-01: real budget-fit hard-exclusion only ever ran for
             // type=country — a city could show green/"room to spare" while genuinely not
             // fitting the stated budget at all (caught live: Antalya). Same narrowing as
             // country, just against the destination's own real accommodation price instead of
             // the cheapest-child-city stand-in country uses (see accommodationTotalFor).
-            [$nodes, $budgetCaveatIds, $budgetFitById, $allInclusiveById, $foodTotalById] = $this->filterByBudget($nodes, $session, 'city');
+            [$nodes, $budgetCaveatIds, $budgetFitById, $allInclusiveById, $foodTotalById, $accommodationTotalById] = $this->filterByBudget($nodes, $session, 'city');
         }
 
         if ($args['type'] === 'country' || $args['type'] === 'city') {
@@ -148,7 +149,19 @@ class GeographyResolver
         $combinedTotals = [];
         if ($isGeoType) {
             foreach ($nodes as $node) {
-                $accommodation = $this->accommodationTotalFor($node, $args['type'], $session);
+                // Reuse filterByBudget()'s own computation when this node went through it AND
+                // it used the same formula as accommodationTotalFor() would here — owner's
+                // catch, 2026-09-08 ("zasto 2 puta"). True for type=city (filterByBudget calls
+                // this exact method internally), but NOT type=country — filterByBudget's country
+                // branch deliberately uses cheapestAccommodationTotal() (cheapest child city, for
+                // the hard-exclusion decision), while this display/sort value needs the AVERAGE
+                // across child cities (see accommodationTotalFor's country branch) — reusing the
+                // cheapest one here would silently swap "average" for "cheapest" in the
+                // budget_fit_percent shown to the traveler (caught by
+                // GeographyResolverTest::test_budget_fit_percent_uses_average...).
+                $accommodation = ($args['type'] === 'city' && $accommodationTotalById->has($node->id))
+                    ? $accommodationTotalById->get($node->id)
+                    : $this->accommodationTotalFor($node, $args['type'], $session, $preferenceTags->contains('kvalitet'));
                 $priceTotals[$node->id] = $accommodation;
 
                 $food = $foodTotalById->get($node->id);
@@ -429,7 +442,10 @@ class GeographyResolver
      * the session doesn't have enough answered yet (no campaign, no resolvable trip dates/
      * traveler count) or the destination has no price data at all.
      */
-    private function accommodationTotalFor(TaxonomyNode $node, string $type, SearchSession $session): ?float
+    /** `$qualityTier` (2026-09-08) — see estimateAccommodationTotal's docblock. Threaded through
+     *  from filterByBudget's own local read of the session's preference_tags (not the resolver's
+     *  later-computed $preferenceTags — this method runs before that's built). */
+    private function accommodationTotalFor(TaxonomyNode $node, string $type, SearchSession $session, bool $qualityTier = false): ?float
     {
         if (! $session->wizard_campaign_id) {
             return null;
@@ -453,7 +469,7 @@ class GeographyResolver
 
             $sameUnit = WizardCampaignDestinationPrice::wantsSameUnit($totalTravelers, $session->number_of_rooms);
 
-            return $priceRow?->estimateAccommodationTotal($checkin, $checkout, $totalTravelers, $sameUnit);
+            return $priceRow?->estimateAccommodationTotal($checkin, $checkout, $totalTravelers, $sameUnit, $qualityTier);
         }
 
         // Nights, not calendar days present — see WizardCampaignDestinationPrice's night-count
@@ -463,7 +479,7 @@ class GeographyResolver
         // budget_fit_percent (an overall price-level signal), a different question than the
         // budget-fit INCLUDE/EXCLUDE check elsewhere in this file. See averageAccommodationTotal's
         // docblock, 2026-08-14.
-        $total = $this->averageAccommodationTotal($node, $session, $totalTravelers, $nights);
+        $total = $this->averageAccommodationTotal($node, $session, $totalTravelers, $nights, $qualityTier);
 
         return $total > 0.0 ? $total : null;
     }
@@ -530,7 +546,7 @@ class GeographyResolver
         $nights = $this->tripDurationNights($session);
 
         if (! $session->total_budget || ! $session->adults_count || ! $nights || $countries->isEmpty()) {
-            return [$countries, collect(), collect(), collect(), collect()];
+            return [$countries, collect(), collect(), collect(), collect(), collect()];
         }
 
         $totalTravelers = $session->adults_count + count($session->children_ages ?? []);
@@ -554,9 +570,21 @@ class GeographyResolver
         // cook for yourself" to someone who explicitly said they'd eat at restaurants.
         $mealStyle = $session->free_text_answers['meal_style'] ?? null;
 
+        // Owner's ask, 2026-09-08: "Quality over price" should price accommodation at the real
+        // 8+ guest-rating/4+ star tier when that data exists, not just re-sort the regular price
+        // (see estimateAccommodationTotal's docblock). Read directly off the session here rather
+        // than the resolver's own $preferenceTags — that variable isn't built yet at this point
+        // in suggested()'s flow (same reason filterByCulturalAvailability reads it inline too).
+        // A session with no quality_tier_price_per_person_eur data anywhere falls back to the
+        // regular price for every candidate regardless — safe to enable before any real
+        // quality-tier price has been entered.
+        $qualityTier = collect($session->free_text_answers['preference_tags'] ?? [])
+            ->merge($session->free_text_answers['implied_preference_tags'] ?? [])
+            ->contains('kvalitet');
+
         $accommodationTotalFor = $type === 'city'
-            ? fn (TaxonomyNode $city) => $this->accommodationTotalFor($city, 'city', $session) ?? 0.0
-            : fn (TaxonomyNode $country) => $this->cheapestAccommodationTotal($country, $session, $totalTravelers, $nights);
+            ? fn (TaxonomyNode $city) => $this->accommodationTotalFor($city, 'city', $session, $qualityTier) ?? 0.0
+            : fn (TaxonomyNode $country) => $this->cheapestAccommodationTotal($country, $session, $totalTravelers, $nights, $qualityTier);
 
         $result = (new BudgetEstimationEngine)->narrowCandidates(
             $countries,
@@ -579,6 +607,15 @@ class GeographyResolver
         // used to decide fit/no-fit for this candidate, not a second independently-derived
         // estimate (see BudgetEstimationEngine::foodTotalForFit's docblock).
         $foodTotalById = $result->pluck('food_total_eur', 'country.id');
+        // Owner's catch, 2026-09-08: "zasto 2 puta" — narrowCandidates() already computed each
+        // candidate's real accommodation total to decide fit/caveat, but it used to get thrown
+        // away here, forcing suggested() to recompute the exact same number from scratch right
+        // afterward (see accommodationTotalFor's call site below) purely for display/sorting.
+        // Returned now so that recompute becomes a lookup for every node that went through this
+        // method — still only computed once. Nodes that never reach filterByBudget at all (no
+        // total_budget yet) still need a fresh computation downstream; this map has nothing for
+        // them, which is exactly the signal to do so.
+        $accommodationTotalById = $result->pluck('accommodation_total_eur', 'country.id');
 
         // Owner's ask, 2026-08-14 (second refinement) — a purely informational cross-check,
         // independent of the strict fit above: does all-inclusive fit here for this budget?
@@ -592,7 +629,7 @@ class GeographyResolver
             ),
         ]);
 
-        return [$narrowed, $caveatIds, $fitById, $allInclusiveById, $foodTotalById];
+        return [$narrowed, $caveatIds, $fitById, $allInclusiveById, $foodTotalById, $accommodationTotalById];
     }
 
     /**
@@ -737,7 +774,7 @@ class GeographyResolver
      * right for "can they afford anything here," but wrong for "how does this country's overall
      * price level compare to the others," which is what the color is showing.
      */
-    private function cheapestAccommodationTotal(TaxonomyNode $country, SearchSession $session, int $totalTravelers, int $nights): float
+    private function cheapestAccommodationTotal(TaxonomyNode $country, SearchSession $session, int $totalTravelers, int $nights, bool $qualityTier = false): float
     {
         if (! $session->wizard_campaign_id) {
             return 0.0;
@@ -753,7 +790,7 @@ class GeographyResolver
             ->get()
             ->pluck('campaignDestinationPrices')
             ->flatten()
-            ->map(fn ($priceRow) => $priceRow->cheapestNightlyRateFor($checkin, $checkout))
+            ->map(fn ($priceRow) => $priceRow->cheapestNightlyRateFor($checkin, $checkout, $qualityTier))
             ->filter(fn ($v) => $v !== null)
             ->min();
 
@@ -776,7 +813,7 @@ class GeographyResolver
      * entirely. Owner's call: average spreads candidates out by their overall price level
      * instead of colliding on one shared bargain town.
      */
-    private function averageAccommodationTotal(TaxonomyNode $country, SearchSession $session, int $totalTravelers, int $nights): float
+    private function averageAccommodationTotal(TaxonomyNode $country, SearchSession $session, int $totalTravelers, int $nights, bool $qualityTier = false): float
     {
         if (! $session->wizard_campaign_id) {
             return 0.0;
@@ -792,7 +829,7 @@ class GeographyResolver
             ->get()
             ->pluck('campaignDestinationPrices')
             ->flatten()
-            ->map(fn ($priceRow) => $priceRow->cheapestNightlyRateFor($checkin, $checkout))
+            ->map(fn ($priceRow) => $priceRow->cheapestNightlyRateFor($checkin, $checkout, $qualityTier))
             ->filter(fn ($v) => $v !== null)
             ->avg();
 

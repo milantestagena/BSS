@@ -65,7 +65,16 @@ class WizardCampaignDestinationPrice extends Model
      * apartment-occupancy multipliers via roomMultiplierSumFor() instead of used directly — see
      * that method's docblock for the full occupancy model.
      */
-    public function estimateAccommodationTotal(CarbonInterface $checkin, CarbonInterface $checkout, int $totalTravelers, bool $sameUnit = false): float
+    /** `$qualityTier` (2026-09-08): use quality_tier_price_per_person_eur per week instead of
+     *  the regular price, when the session asked for "quality over price" (see
+     *  GeographyResolver's $costPreference === 'kvalitet' branch). Falls back to the regular
+     *  price for any week that has no quality-tier value of its own (see nightlyPriceForWeek) —
+     *  same "absent, not guessed, but never leave a total gap" convention as the rest of this
+     *  class. Built ahead of any real quality-tier data existing (owner's explicit ask,
+     *  2026-09-08: "uradi ga sad, testiramo kad unesem prave vrednosti za Jesenjovanje") — a
+     *  session with no quality_tier_price_per_person_eur values anywhere behaves byte-for-byte
+     *  identically to $qualityTier=false, so this is safe to ship live before that data exists. */
+    public function estimateAccommodationTotal(CarbonInterface $checkin, CarbonInterface $checkout, int $totalTravelers, bool $sameUnit = false, bool $qualityTier = false): float
     {
         $roomMultiplierSum = self::roomMultiplierSumFor($totalTravelers, $sameUnit);
         $seasonStart = $this->campaign?->season_start_date;
@@ -92,7 +101,7 @@ class WizardCampaignDestinationPrice extends Model
         $cursor = $checkin->copy();
         while ($cursor->lt($checkout)) {
             $weekStart = self::weekStartFor($cursor, $seasonStart);
-            $totalPerNight += self::nightlyPriceForWeek($weekStart, $pricedWeeks) ?? 0.0;
+            $totalPerNight += self::nightlyPriceForWeek($weekStart, $pricedWeeks, $qualityTier) ?? 0.0;
             $cursor = $cursor->addDay();
         }
 
@@ -172,7 +181,7 @@ class WizardCampaignDestinationPrice extends Model
      * rate is needed, not a full per-night breakdown. Weekly-aware equivalent of just reading
      * the flat `price_per_person_eur` scalar.
      */
-    public function cheapestNightlyRateFor(CarbonInterface $checkin, CarbonInterface $checkout): ?float
+    public function cheapestNightlyRateFor(CarbonInterface $checkin, CarbonInterface $checkout, bool $qualityTier = false): ?float
     {
         $seasonStart = $this->campaign?->season_start_date;
         $pricedWeeks = $this->weeklyPrices->filter(fn (WizardCampaignDestinationWeeklyPrice $w) => $w->price_per_person_eur !== null);
@@ -185,7 +194,7 @@ class WizardCampaignDestinationPrice extends Model
         $cursor = $checkin->copy();
         while ($cursor->lt($checkout)) {
             $weekStart = self::weekStartFor($cursor, $seasonStart);
-            $rate = self::nightlyPriceForWeek($weekStart, $pricedWeeks);
+            $rate = self::nightlyPriceForWeek($weekStart, $pricedWeeks, $qualityTier);
             if ($rate !== null) {
                 $rates->push($rate);
             }
@@ -208,20 +217,29 @@ class WizardCampaignDestinationPrice extends Model
 
     /** Exact week's price if entered, otherwise its nearest (by calendar distance) priced
      *  neighbor — owner's explicit fallback choice, 2026-08-11. Null only when NO week in the
-     *  whole set has a price yet. */
-    private static function nightlyPriceForWeek(CarbonInterface $weekStart, Collection $pricedWeeks): ?float
+     *  whole set has a price yet.
+     *
+     *  `$qualityTier` (2026-09-08): reads quality_tier_price_per_person_eur instead, falling
+     *  back to that SAME week's regular price when the quality-tier value isn't set for it —
+     *  $pricedWeeks is already filtered to weeks with a real regular price (see callers), so
+     *  this fallback always has something real to use, never a guess. */
+    private static function nightlyPriceForWeek(CarbonInterface $weekStart, Collection $pricedWeeks, bool $qualityTier = false): ?float
     {
         if ($pricedWeeks->isEmpty()) {
             return null;
         }
 
+        $priceFor = fn (WizardCampaignDestinationWeeklyPrice $w): ?float => $qualityTier
+            ? ($w->quality_tier_price_per_person_eur ?? $w->price_per_person_eur)
+            : $w->price_per_person_eur;
+
         $exact = $pricedWeeks->first(fn (WizardCampaignDestinationWeeklyPrice $w) => $w->week_start_date->isSameDay($weekStart));
         if ($exact) {
-            return $exact->price_per_person_eur;
+            return $priceFor($exact);
         }
 
         $nearest = $pricedWeeks->sortBy(fn (WizardCampaignDestinationWeeklyPrice $w) => abs($w->week_start_date->diffInDays($weekStart, false)))->first();
 
-        return $nearest?->price_per_person_eur;
+        return $nearest ? $priceFor($nearest) : null;
     }
 }

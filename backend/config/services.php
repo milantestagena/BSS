@@ -59,6 +59,12 @@ return [
     'cj' => [
         'pid' => env('CJ_AFFILIATE_PID'),
         'link_id' => env('CJ_AFFILIATE_LINK_ID'),
+        // Separate pid/link_id pair, 2026-09-08 - Hotels.com is its own CJ advertiser/program
+        // (application submitted, not yet approved), not a parameter of the Booking.com one
+        // above. Blank until real values exist post-approval - see
+        // SearchSessionQueryCompiler::wrapWithHotelsAffiliateTracking()'s graceful fallback.
+        'hotels_pid' => env('CJ_HOTELS_AFFILIATE_PID'),
+        'hotels_link_id' => env('CJ_HOTELS_AFFILIATE_LINK_ID'),
     ],
 
 ];

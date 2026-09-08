@@ -252,6 +252,77 @@ class SearchSessionQueryCompiler
     }
 
     /**
+     * A REAL, working public hotels.com search URL — same "no API key, no partner approval"
+     * spirit as toBookingUrl() above, built from a real captured example: the owner ran an
+     * actual search (Prague, 2026-10-09 to 2026-10-12, 2 adults) and sent the resulting URL.
+     * Deliberately minimal — only params confirmed to actually matter. `typeaheadCollationId`
+     * (a UUID tied to Hotels.com's own autocomplete widget) and `pwaDialog` (UI state — some
+     * dialog that happened to be open when the URL was captured) were both dropped and
+     * re-tested without them, live, 2026-09-08 — search still resolved correctly (site itself
+     * expanded the plain city name to a full "City, Country" + its own internal regionId via
+     * redirect, same "plain text destination, let the site resolve it" shape as toBookingUrl()'s
+     * `ss` fallback branch).
+     *
+     * No Hotels.com equivalent of Booking's dest_id/nflt filter-chip system has been captured
+     * yet (facilities, sort order, children) — don't guess parameter names here, add them once
+     * a real example exists for each, same discipline as everything else in this class.
+     *
+     * `travelerType`/`star`/`guestRating` (2026-09-08, owner's explicit ask to build ahead of
+     * real data — "uradi ga sad, testiramo kad unesem prave vrednosti") — confirmed real
+     * parameter names/values, see HotelsComFilters. `lgbtq_welcoming` had real coverage when
+     * tested (63 results, Prague); `romantic` was tested and confirmed near-zero coverage
+     * (Prague AND Cyprus both empty) so it's deliberately never sent regardless of any future
+     * relationship_type mapping. `star=40`/`guestRating=45` (4+ stars / 8+ rating) for the
+     * `kvalitet` preference are UNVERIFIED for real per-destination coverage the way
+     * lgbtq_welcoming/romantic were — common enough attributes that zero-coverage seems unlikely,
+     * but not confirmed live the same way. `travelerType` supports multiple values (a real HTML
+     * checkbox group, not a single-value field) — built by hand like toBookingUrl()'s repeated
+     * `age=` params, not through the flat $params map.
+     */
+    public function toHotelsUrl(): ?string
+    {
+        $destination = $this->destinationNode();
+        if (! $destination) {
+            return null;
+        }
+
+        [$checkin, $checkout] = $this->resolveDates();
+        if (! $checkin) {
+            return null;
+        }
+
+        $params = [
+            'destination' => $destination->label,
+            'startDate' => $checkin->toDateString(),
+            'endDate' => $checkout->toDateString(),
+            'adults' => $this->session->adults_count ?: 1,
+            'rooms' => $this->session->number_of_rooms ?: 1,
+            'flexibility' => '0_DAY',
+        ];
+
+        $tags = $this->allPreferenceTagSlugs();
+
+        if ($tags->contains('kvalitet')) {
+            $params['star'] = 40;
+            $params['guestRating'] = 45;
+        }
+
+        $query = [];
+        foreach ($params as $key => $value) {
+            $query[] = $key.'='.rawurlencode((string) $value);
+        }
+
+        // zeli_lgbt_friendly -> travelerType=lgbtq_welcoming, same cultural_availability signal
+        // filterByCulturalAvailability reads elsewhere. Only 'romantic' was tested and dropped —
+        // no other traveler-experience filter maps to an existing session signal yet.
+        if ($tags->contains('zeli_lgbt_friendly')) {
+            $query[] = 'travelerType='.rawurlencode('lgbtq_welcoming');
+        }
+
+        return $this->wrapWithHotelsAffiliateTracking('https://www.hotels.com/Hotel-Search?'.implode('&', $query));
+    }
+
+    /**
      * A REAL, working public flights.booking.com search URL — same "no API key, no partner
      * approval" spirit as toBookingUrl() above, but this scheme isn't publicly documented
      * anywhere (checked, 2026-08-19) so it's built from a real captured example instead: the
@@ -332,6 +403,25 @@ class SearchSessionQueryCompiler
     {
         $pid = config('services.cj.pid');
         $linkId = config('services.cj.link_id');
+
+        if (! $pid || ! $linkId) {
+            return $url;
+        }
+
+        return "https://www.dpbolvw.net/click-{$pid}-{$linkId}?url=".rawurlencode($url);
+    }
+
+    /**
+     * Same graceful-fallback shape as wrapWithAffiliateTracking() above — separate config keys
+     * since Hotels.com is a different CJ advertiser/program (its own pid+link_id pair once
+     * approved), not a parameter of the Booking.com one. Application submitted 2026-09-08, not
+     * yet approved — falls back to the plain URL until real values exist, same "link never
+     * breaks, just doesn't carry tracking yet" behavior as Booking's.
+     */
+    private function wrapWithHotelsAffiliateTracking(string $url): string
+    {
+        $pid = config('services.cj.hotels_pid');
+        $linkId = config('services.cj.hotels_link_id');
 
         if (! $pid || ! $linkId) {
             return $url;
