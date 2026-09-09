@@ -263,6 +263,38 @@ class WizardSeeder extends Seeder
                     ],
                 ],
             ],
+            // Second themed entry point, 2026-09-09 — "Zimsko sunce" campaign (see kampanje.md),
+            // built as a genuinely SEPARATE termin_category/campaign rather than an extension of
+            // kasno_kupanje's own dates (owner's architecture call this session), same reasoning
+            // kasno_kupanje itself gives above: a different time window with a different curated
+            // geography (long-haul Caribbean/Mexico, not Mediterranean-adjacent — see the new
+            // 'dalje_sunce' region_theme in seedSwimDestinations() and the excludes wired below in
+            // seedRelations()).
+            //
+            // window_start/window_end (12-01/04-01) = the real Caribbean/Mexico dry season (see
+            // seedSwimDestinations' Cancún/Punta Cana/Puerto Plata comment) — matches this
+            // campaign's own season_start_date/season_end_date in seedWizardCampaigns().
+            // default_duration_days=10 is a reasoned estimate, NOT owner-confirmed like
+            // kasno_kupanje's 8 (which came from an explicit weekend-bridging ask) — long-haul
+            // DACH charter packages to this region commonly run 10-11+ nights to justify a
+            // ~10-11h flight, unlike a short intra-European hop. Flag for owner review if a real
+            // package length surfaces later.
+            // honest_report_thresholds.sea_temp_c is a placeholder pending real climate:import
+            // data for the 3 new cities (Caribbean sea temp rarely drops much below the
+            // mid-20s°C even in the "coolest" month) — revisit once real numbers are in.
+            [
+                'slug' => 'zimsko_sunce', 'en' => 'Winter sun escape', 'sr' => 'Zimsko sunce',
+                'meta' => [
+                    'date_tag' => 'winter_sun',
+                    'default_duration_days' => 10,
+                    'window_start' => '12-01',
+                    'window_end' => '04-01',
+                    'recommended_days_from_start' => 14,
+                    'honest_report_thresholds' => [
+                        'sea_temp_c' => ['good' => 26, 'caveat' => 24],
+                    ],
+                ],
+            ],
         ];
 
         foreach ($items as $i => $item) {
@@ -780,14 +812,25 @@ class WizardSeeder extends Seeder
     {
         $mediteran = $this->node('region_theme', 'mediteran', 'Mediterranean', 'Mediteran', 3);
 
+        // New region_theme, 2026-09-09 — "Zimsko sunce" campaign (see kampanje.md, owner's
+        // architecture call this session: a genuinely separate campaign, not an extension of
+        // kasno-letovanje's dates). Mexico/Dominican Republic deliberately do NOT attach under
+        // `mediteran` — geographically wrong (Caribbean, not Mediterranean) and would wrongly
+        // pull them into kasno-letovanje's own country/city suggestions, which never presets or
+        // excludes this theme. "Far Sun" reads as a plain region descriptor in the generic
+        // (non-campaign) wizard flow too, distinct from the campaign's own marketing name.
+        $daljeSunce = $this->node('region_theme', 'dalje_sunce', 'Far Sun', 'Dalje sunce', 4);
+
+        $themeNodes = ['mediteran' => $mediteran, 'dalje_sunce' => $daljeSunce];
+
         $countries = [
-            'egipat' => ['en' => 'Egypt', 'sr' => 'Egipat', 'iso' => 'EG'],
-            'kipar' => ['en' => 'Cyprus', 'sr' => 'Kipar', 'iso' => 'CY'],
-            'malta' => ['en' => 'Malta', 'sr' => 'Malta', 'iso' => 'MT'],
-            'tunis' => ['en' => 'Tunisia', 'sr' => 'Tunis', 'iso' => 'TN'],
-            'spanija' => ['en' => 'Spain', 'sr' => 'Španija', 'iso' => 'ES'],
-            'turska' => ['en' => 'Turkey', 'sr' => 'Turska', 'iso' => 'TR'],
-            'portugalija' => ['en' => 'Portugal', 'sr' => 'Portugalija', 'iso' => 'PT'],
+            'egipat' => ['en' => 'Egypt', 'sr' => 'Egipat', 'iso' => 'EG', 'theme' => 'mediteran'],
+            'kipar' => ['en' => 'Cyprus', 'sr' => 'Kipar', 'iso' => 'CY', 'theme' => 'mediteran'],
+            'malta' => ['en' => 'Malta', 'sr' => 'Malta', 'iso' => 'MT', 'theme' => 'mediteran'],
+            'tunis' => ['en' => 'Tunisia', 'sr' => 'Tunis', 'iso' => 'TN', 'theme' => 'mediteran'],
+            'spanija' => ['en' => 'Spain', 'sr' => 'Španija', 'iso' => 'ES', 'theme' => 'mediteran'],
+            'turska' => ['en' => 'Turkey', 'sr' => 'Turska', 'iso' => 'TR', 'theme' => 'mediteran'],
+            'portugalija' => ['en' => 'Portugal', 'sr' => 'Portugalija', 'iso' => 'PT', 'theme' => 'mediteran'],
             // Croatia removed from this loop 2026-08-19 (owner's ask) — it was already the
             // weakest fit for a "still warm" late-season campaign (own vibe_profile comment
             // below: "coolest of the ten by late season") and never got real prices entered.
@@ -803,14 +846,25 @@ class WizardSeeder extends Seeder
             // München, Lufthansa Frankfurt -> Sal) confirmed via research, and it's a true
             // winter-sun destination (stays ~25°C when the Mediterranean has cooled off) —
             // exactly the "still warm" story this campaign already tells, just further out.
-            'zelenortska_ostrva' => ['en' => 'Cape Verde', 'sr' => 'Zelenortska ostrva', 'iso' => 'CV'],
+            'zelenortska_ostrva' => ['en' => 'Cape Verde', 'sr' => 'Zelenortska ostrva', 'iso' => 'CV', 'theme' => 'mediteran'],
+            // Mexico/Dominican Republic, 2026-09-09 — "Zimsko sunce" campaign (see kampanje.md's
+            // owner-researched DACH winter-2026/27 demand ranking: Meksiko/Dominikanska
+            // Republika chosen first, "najbliži postojećem all-inclusive formatu"). Real
+            // confirmed nonstop DACH routes (see seedTerminCategories' zimsko_sunce docblock for
+            // the campaign's own season window): Condor + Eurowings Discover Frankfurt->Cancún
+            // (7x/week, A330); Condor/Eurowings Discover Frankfurt->Punta Cana + Edelweiss
+            // Zürich->Punta Cana; Condor Frankfurt->Puerto Plata (Wed/Sun, A330). Dry season
+            // Dec-Apr, not a heat-avoidance "winter sun" story like Egypt/Cape Verde — see the
+            // dedicated `caribbean_dry_season` season template in seedAccommodationSeasons().
+            'meksiko' => ['en' => 'Mexico', 'sr' => 'Meksiko', 'iso' => 'MX', 'theme' => 'dalje_sunce'],
+            'dominikanska_republika' => ['en' => 'Dominican Republic', 'sr' => 'Dominikanska Republika', 'iso' => 'DO', 'theme' => 'dalje_sunce'],
         ];
 
         $countryNodes = [];
         foreach ($countries as $slug => $c) {
             $countryNodes[$slug] = TaxonomyNode::updateOrCreate(
                 ['type' => 'country', 'slug' => $slug],
-                ['label' => $c['en'], 'parent_id' => $mediteran->id, 'sort_order' => 0],
+                ['label' => $c['en'], 'parent_id' => $themeNodes[$c['theme']]->id, 'sort_order' => 0],
             );
             $countryNodes[$slug]->translations()->updateOrCreate(
                 ['translatable_type' => TaxonomyNode::class, 'translatable_id' => $countryNodes[$slug]->id, 'field' => 'label', 'locale' => 'sr'],
@@ -975,6 +1029,19 @@ class WizardSeeder extends Seeder
             // draw is exactly THAT stability) — overwritten by climate:import right after seeding.
             'santa_marija' => ['Santa Maria', 'Santa Marija', 'zelenortska_ostrva', 16.599, -22.904, [10 => [29, 26.5], 11 => [28, 26], 12 => [27, 25.5]]],
             'sal_rej' => ['Sal Rei', 'Sal Rej', 'zelenortska_ostrva', 16.177, -22.918, [10 => [29, 26.5], 11 => [28, 26], 12 => [27, 25.5]]],
+
+            // Mexico/Dominican Republic, 2026-09-09 — see $countries comment above for the
+            // real DACH route research. Coordinates verified via WebSearch (city-center/Hotel
+            // Zone points, not airport coordinates, which sit noticeably south/inland of where
+            // travelers actually stay). Placeholder climate covers just the campaign's own
+            // season months (Dec-Apr, matching seedTerminCategories' zimsko_sunce window, same
+            // "only the relevant months" convention as the Cape Verde placeholders above) —
+            // overwritten by climate:import right after seeding.
+            'cancun' => ['Cancún', 'Kankun', 'meksiko', 21.1606, -86.8475, [12 => [28, 26], 1 => [27, 25.5], 2 => [28, 25.5], 3 => [29, 26], 4 => [30, 27]]],
+            'punta_kana' => ['Punta Cana', 'Punta Kana', 'dominikanska_republika', 18.5601, -68.3725, [12 => [28, 27], 1 => [27, 26.5], 2 => [27, 26.5], 3 => [28, 27], 4 => [29, 27.5]]],
+            // Condor-only nonstop from Frankfurt (Wed/Sun) — the only one of these three NOT
+            // served by more than one carrier, per this session's flight research.
+            'puerto_plata' => ['Puerto Plata', 'Puerto Plata', 'dominikanska_republika', 19.7872, -70.6917, [12 => [27, 26.5], 1 => [26, 26], 2 => [26, 26], 3 => [27, 26.5], 4 => [28, 27]]],
         ];
 
         foreach ($cities as $slug => [$en, $sr, $countrySlug, $lat, $lng, $climate]) {
@@ -1093,6 +1160,19 @@ class WizardSeeder extends Seeder
             // squarely in the Egypt/Tunisia tier despite island-import costs pushing it up
             // slightly from mainland-Africa prices.
             'zelenortska_ostrva' => ['meal' => 14, 'coffee' => 2.5, 'beer' => 4.5],
+            // Added 2026-09-09 — researched (WebSearch): Cancún's Hotel Zone runs noticeably
+            // pricier than every other country here (real quotes found: resort breakfast
+            // $20-40, casual lunch $25-50, dinner $40-70; a mid-range 3-course meal for two
+            // outside the resort belt ~$56, i.e. ~$28pp — used here as the representative
+            // "moderate sit-down meal" figure, matching this field's own convention elsewhere).
+            // Cappuccino ~$4.40, restaurant domestic beer ~$3.65 (walk to a convenience store
+            // and it's under $2).
+            'meksiko' => ['meal' => 26, 'coffee' => 4.0, 'beer' => 3.5],
+            // Added 2026-09-09 — researched (WebSearch): Punta Cana is pricier than the rest of
+            // the DR but still a bargain overall — "typical" (non-comedor) restaurant meal
+            // ~$12+, upscale 3-course ~$47 for two (~$23.5pp); used €14 as the representative
+            // moderate-meal figure. Cappuccino ~$2.20, local beer ~150 DOP (~$2.50).
+            'dominikanska_republika' => ['meal' => 14, 'coffee' => 2.0, 'beer' => 2.3],
         ];
 
         // store beer / meat per kg / cigarettes pack, in EUR
@@ -1110,6 +1190,16 @@ class WizardSeeder extends Seeder
             // Store beer researched at ~150-200 CVE/25cl bottle (~EUR1.5-1.9); meat/cigarettes
             // no direct source found, estimated at the same Egypt/Tunisia tier.
             'zelenortska_ostrva' => ['beer' => 1.8, 'meat' => 9, 'cigarettes' => 4.5],
+            // Added 2026-09-09 — researched (WebSearch): convenience-store beer well under $2;
+            // local cigarette pack ~$3.50 (60 MXN); meat blended from real per-kg commodity
+            // quotes (beef ~$9.77/kg, chicken noticeably cheaper ~$2.60-3/kg) into one
+            // representative figure, same "one blended number" convention as every other
+            // country's `meat` field here.
+            'meksiko' => ['beer' => 1.6, 'meat' => 9, 'cigarettes' => 3.5],
+            // Added 2026-09-09 — researched (WebSearch): local Presidente beer ~$1.50 at a
+            // store; local cigarette pack ~$3.40 (200 DOP); meat blended from real quotes (beef
+            // ~$10.15/kg, chicken ~$2.45/kg).
+            'dominikanska_republika' => ['beer' => 1.3, 'meat' => 8, 'cigarettes' => 3.2],
         ];
 
         // tier: 1=most free/available, 4=most restricted — see class docblock above
@@ -1134,6 +1224,39 @@ class WizardSeeder extends Seeder
             // tier 4: desalinated seawater, real stomach-upset risk, same severity as Egypt.
             // organic tier 4: small remote island economy, imports most food.
             'zelenortska_ostrva' => ['alcohol' => 1, 'pork' => 1, 'halal' => 3, 'vegan' => 2, 'organic' => 4, 'cannabis' => 3, 'dress_code' => 1, 'lgbtq_friendly' => 2, 'tap_water' => 4],
+            // Researched (WebSearch), 2026-09-09: alcohol/pork freely available (Catholic-
+            // majority, pork a staple of the cuisine). halal tier 3 — no widespread
+            // certification system, but real Middle Eastern restaurants exist in Cancún's Hotel
+            // Zone (Casa Persa, Shawarma Express) and naturally-halal options (seafood, many
+            // bean/cheese-based dishes) are genuinely practical, same "findable with effort"
+            // tier as Cape Verde. lgbtq_friendly tier 2: same-sex marriage legal nationwide since
+            // 2022, Quintana Roo (Cancún's state) since 2012, resort-economy tourist zones
+            // broadly welcoming (Hotel Zone specifically) — capped at 2 not 1 since Cancún isn't
+            // in the same "established gay destination" brand tier as Puerto Vallarta/CDMX, and
+            // real cartel-related violence risk exists in the wider region (unrelated to LGBTQ
+            // status specifically, but a genuine caveat). tap_water tier 4: CDC explicitly
+            // advises against it, same severity as Egypt. cannabis tier 3: Supreme Court
+            // declared prohibition unconstitutional (2021) and personal possession is
+            // effectively decriminalized, but there is no legal retail market — tourists cannot
+            // legally buy it and carry none of residents' amparo protections, real murky-legal
+            // middle ground rather than either free or flatly illegal.
+            'meksiko' => ['alcohol' => 1, 'pork' => 1, 'halal' => 3, 'vegan' => 2, 'organic' => 3, 'cannabis' => 3, 'dress_code' => 1, 'lgbtq_friendly' => 2, 'tap_water' => 4],
+            // Researched (WebSearch), 2026-09-09: alcohol/pork freely available (Catholic/
+            // Evangelical-majority, rum culture, pork a cuisine staple). halal tier 3 — majority
+            // Christian, halal genuinely hard to find outside tourist areas, but a dedicated
+            // all-halal resort (Grand Medina) and some supermarket halal products exist in
+            // practice, same "on request, not absent" tier as Cape Verde/Cyprus. lgbtq_friendly
+            // tier 3: same-sex acts legal since 1822 (one of the oldest decriminalizations
+            // anywhere) but no marriage/anti-discrimination law, socially conservative country
+            // overall with real documented discrimination against locals — resort tourist areas
+            // (Punta Cana/Bávaro specifically) are described as welcoming with a mixed
+            // international crowd, but this is a "keep it low-key outside the resort bubble"
+            // profile, not a genuinely open one. tap_water tier 4: CDC/local guidance both say
+            // avoid it, same severity as Mexico/Egypt. cannabis tier 4: fully illegal for both
+            // recreational and medical use, scheduled alongside hard narcotics — real, harsh
+            // tourist penalties documented (statutory minimums, smuggling charges), the most
+            // restrictive of any country in this whole list.
+            'dominikanska_republika' => ['alcohol' => 1, 'pork' => 1, 'halal' => 3, 'vegan' => 2, 'organic' => 3, 'cannabis' => 4, 'dress_code' => 1, 'lgbtq_friendly' => 3, 'tap_water' => 4],
         ];
 
         $labels = [
@@ -1147,7 +1270,7 @@ class WizardSeeder extends Seeder
         $isoCodes = [
             'egipat' => 'EG', 'kipar' => 'CY', 'malta' => 'MT', 'tunis' => 'TN', 'spanija' => 'ES',
             'turska' => 'TR', 'portugalija' => 'PT', 'hrvatska' => 'HR', 'grcka' => 'GR', 'italija' => 'IT',
-            'zelenortska_ostrva' => 'CV',
+            'zelenortska_ostrva' => 'CV', 'meksiko' => 'MX', 'dominikanska_republika' => 'DO',
         ];
 
         foreach ($hospitality as $slug => $h) {
@@ -1308,6 +1431,16 @@ class WizardSeeder extends Seeder
             // see seedSwimDestinations' Cape Verde comment for why these two specifically.
             'santa_marija' => ["Sal's real town — restaurants, bars and dive shops line the main strip, genuinely one of the world's top kitesurfing/windsurfing spots, plus regular whale shark and manta ray diving trips. More going on than Boa Vista, but still resort-relaxed, not a club scene.", ['istrazivac'], []],
             'sal_rej' => ["Boa Vista's main town — vast, near-empty desert-dune beaches, a famous shipwreck photo spot, and one of the world's most important loggerhead turtle nesting sites in summer. Wilder and quieter than Santa Maria, built for peace and long beach walks over nightlife.", ['istrazivac', 'flegma'], ['partijaner']],
+
+            // Mexico/Dominican Republic, 2026-09-09 — see seedSwimDestinations' comment for the
+            // real route/season research. Mixed-character Cancún deliberately NOT tagged
+            // zivahna_nocna_zabava despite its real spring-break/nightclub reputation (Coco
+            // Bongo etc.) — same "mixed identity, not primarily a party place" reasoning already
+            // used to exclude Corfu/Rhodes/Crete above, its PRIMARY character is the family
+            // all-inclusive resort belt + Mayan-culture gateway.
+            'cancun' => ["Mexico's flagship Caribbean resort strip — a long Hotel Zone peninsula of all-inclusive megaresorts on a world-famous white-sand beach, plus a real nightlife scene after dark and easy day trips to Chichén Itzá and cenote diving. Built for families and groups alike.", ['istrazivac'], []],
+            'punta_kana' => ["The Dominican Republic's biggest all-inclusive resort belt — Bávaro's long white-sand beach lined wall-to-wall with megaresorts, heavily marketed (and genuinely popular) as a honeymoon/couples destination. Less a real town to explore than a pure resort escape.", ['flegma'], []],
+            'puerto_plata' => ["The DR's 'Amber Coast' — a real colonial old town (Fortaleza San Felipe, Victorian gingerbread architecture) and an amber museum, alongside its own Playa Dorada resort belt. Quieter and less commercialized than Punta Cana, with world-class Cabarete kitesurfing nearby.", ['istrazivac', 'flegma'], ['partijaner']],
         ];
 
         foreach ($cities as $slug => [$description, $goodFor, $avoidFor]) {
@@ -1340,6 +1473,8 @@ class WizardSeeder extends Seeder
             'grcka' => 'The islands vary enormously — Santorini/Mykonos are upscale and pricey, Corfu/Rhodes/Crete each hide a famous party strip next to much calmer areas.',
             'italija' => 'Sicily and the south — Palermo/Siracusa are real historic cities, Cefalù/San Vito Lo Capo/Taormina lean beach and postcard scenery, Ischia/Sorrento add the Naples-area islands and coast.',
             'zelenortska_ostrva' => 'Atlantic islands off West Africa, genuinely warm nearly year-round rather than seasonally — Sal (Santa Maria) is the livelier of the two real package-holiday islands, Boa Vista (Sal Rei) is wilder and quieter with vast empty beaches and a real turtle-nesting nature draw.',
+            'meksiko' => "A genuine long-haul dry-season escape (Dec-Apr) rather than a Mediterranean-adjacent one — Cancún's Hotel Zone is the classic plug-and-play all-inclusive resort strip, with real Mayan-culture depth (Chichén Itzá, cenotes) just a day trip away.",
+            'dominikanska_republika' => "Two different sides of the same island — Punta Cana/Bávaro is the country's biggest, most polished all-inclusive resort belt (and a real honeymoon-destination reputation), while Puerto Plata on the north coast is quieter, cheaper, and has an actual historic town alongside its own resorts.",
         ];
 
         foreach ($countryDescriptions as $slug => $description) {
@@ -1434,6 +1569,12 @@ class WizardSeeder extends Seeder
             'spanija' => ['food' => ['dobra_hrana'], 'drinks' => ['vino']],
             'portugalija' => ['food' => ['dobra_hrana']],
             'hrvatska' => ['drinks' => ['vino']],
+            // Added 2026-09-09 — Mexican cuisine is UNESCO Intangible Cultural Heritage and a
+            // globally recognized food reputation, same tier as Turkey/Greece/Italy/Spain above.
+            // Dominican Republic deliberately NOT given this tag — real national dishes exist
+            // (mangú, sancocho) but without the same globally-iconic culinary reputation, same
+            // disciplined "not every country earns it" standard as Cyprus/Malta/Croatia here.
+            'meksiko' => ['food' => ['dobra_hrana']],
         ];
 
         foreach ($countryAtmosphere as $slug => $tags) {
@@ -1570,6 +1711,16 @@ class WizardSeeder extends Seeder
             // shipwreck photo spot (exploration 2), vast beaches routinely on "world's best"
             // lists (beach 3).
             'santa_marija' => [2, 3], 'sal_rej' => [2, 3],
+            // Mexico/Dominican Republic, 2026-09-09. Cancún: real gateway to Chichén Itzá (New7
+            // Wonders, UNESCO) and cenote diving, though the ruins themselves aren't IN Cancún —
+            // same "well-known gateway, not the sight itself" tier as Sorrento->Capri/Amalfi
+            // above (exploration 2); its Hotel Zone beach is internationally iconic (beach 3).
+            // Punta Cana: mostly a pure resort beach with modest excursions beyond it
+            // (exploration 1); Bávaro Beach is routinely ranked among the world's best (beach 3).
+            // Puerto Plata: real colonial fort/old town + amber museum + Cabarete kitesurfing
+            // nearby (exploration 2); Playa Dorada is a genuinely good, established resort
+            // beach, but without Punta Cana/Cancún's "world-famous" reputation (beach 2).
+            'cancun' => [2, 3], 'punta_kana' => [1, 3], 'puerto_plata' => [2, 2],
         ];
 
         foreach ($ratings as $slug => [$explorationTier, $beachTier]) {
@@ -1612,7 +1763,13 @@ class WizardSeeder extends Seeder
         // cocktails, secret beaches"). Mykonos deliberately still excluded despite ALSO showing
         // up on every list — it's already zivahna_nocna_zabava, and the party/romance exclusion
         // rule stays consistent rather than making a one-off exception for it.
-        $tierTwoPlus = ['santorini', 'taormina', 'dubrovnik', 'rodos', 'pafos', 'simi', 'krit', 'paros'];
+        // punta_kana added 2026-09-09 — real, well-established honeymoon/couples-destination
+        // reputation (its own vibe_profile above already says so in plain words), not a stretch
+        // like forcing every new destination in. Cancún/Puerto Plata deliberately NOT added —
+        // neither carries that same specific romantic-destination reputation in their own
+        // vibe_profile text, same discipline as excluding Mykonos-adjacent islands that don't
+        // explicitly earn it either.
+        $tierTwoPlus = ['santorini', 'taormina', 'dubrovnik', 'rodos', 'pafos', 'simi', 'krit', 'paros', 'punta_kana'];
 
         $raveSlugs = TaxonomyNode::whereIn('type', ['city', 'country'])
             ->get()
@@ -1669,11 +1826,16 @@ class WizardSeeder extends Seeder
         // got the tag). Sorrento deliberately NOT added despite a similar-reading description —
         // owner's explicit call: too heavily touristy as an Amalfi/Capri gateway to earn "whole
         // town is peaceful" as a real signal, unlike these five.
-        $quietSlugs = ['marsa_alam', 'larnaka', 'melieha', 'lansarote', 'fuerteventura', 'lampedusa', 'linosa', 'pafos', 'krf', 'sal_rej', 'cefalu', 'faro', 'datca', 'kalkan', 'tabarka'];
+        // puerto_plata added 2026-09-09 — its own vibe_profile already says "quieter and less
+        // commercialized than Punta Cana," same pattern as cefalu/faro/etc. above.
+        $quietSlugs = ['marsa_alam', 'larnaka', 'melieha', 'lansarote', 'fuerteventura', 'lampedusa', 'linosa', 'pafos', 'krf', 'sal_rej', 'cefalu', 'faro', 'datca', 'kalkan', 'tabarka', 'puerto_plata'];
         // sajd (Side) added 2026-09-03 — its own vibe_profile description already said
         // "family-oriented all-inclusive resort belt similar to Antalya's Lara/Belek," the tag
         // just never got added.
-        $familySlugs = ['hurgada', 'sarm_el_seik', 'hamamet', 'monastir', 'antalija', 'kos', 'melieha', 'alanija', 'pafos', 'santa_marija', 'sal_rej', 'sajd'];
+        // cancun/punta_kana added 2026-09-09 — both explicitly described as all-inclusive
+        // resort-belt destinations in their own vibe_profile text above ("built for families",
+        // "biggest all-inclusive resort belt"), same evidence bar as every other entry here.
+        $familySlugs = ['hurgada', 'sarm_el_seik', 'hamamet', 'monastir', 'antalija', 'kos', 'melieha', 'alanija', 'pafos', 'santa_marija', 'sal_rej', 'sajd', 'cancun', 'punta_kana'];
 
         $raveSlugs = TaxonomyNode::whereIn('type', ['city', 'country'])
             ->get()
@@ -1783,6 +1945,17 @@ class WizardSeeder extends Seeder
                 5 => 'van_sezone', 6 => 'van_sezone', 7 => 'van_sezone', 8 => 'van_sezone',
                 9 => 'van_sezone', 10 => 'pred_post_sezona', 11 => 'pred_post_sezona', 12 => 'sezona',
             ],
+            // meksiko/dominikanska_republika, 2026-09-09 — a genuinely DIFFERENT shape from
+            // winter_sun above, not just reused for convenience: the Caribbean/Mexico driver is
+            // DRY vs HURRICANE season, not heat-avoidance (Caribbean summer isn't uncomfortably
+            // hot for tourists the way the Red Sea is) — real dry/high season runs Dec-Apr
+            // (including March, unlike Egypt/Cape Verde's Mar/Apr shoulder), hurricane season
+            // Jun-Nov (peaking Aug-Oct) is the real off-season driver instead.
+            'caribbean_dry_season' => [
+                1 => 'sezona', 2 => 'sezona', 3 => 'sezona', 4 => 'sezona',
+                5 => 'pred_post_sezona', 6 => 'van_sezone', 7 => 'van_sezone', 8 => 'van_sezone',
+                9 => 'van_sezone', 10 => 'van_sezone', 11 => 'pred_post_sezona', 12 => 'sezona',
+            ],
         ];
 
         $countryTemplate = [
@@ -1792,6 +1965,7 @@ class WizardSeeder extends Seeder
             // Real peak season is Nov-Apr (~25C when Europe is cold) — same winter-sun shape as
             // Egypt's Red Sea, confirmed via research 2026-08-19, not just assumed by geography.
             'egipat' => 'winter_sun', 'zelenortska_ostrva' => 'winter_sun',
+            'meksiko' => 'caribbean_dry_season', 'dominikanska_republika' => 'caribbean_dry_season',
         ];
 
         foreach ($countryTemplate as $slug => $templateKey) {
@@ -2106,6 +2280,67 @@ class WizardSeeder extends Seeder
             $syncData[$question->id] = ['sort_order' => $i];
         }
         $campaign->questions()->sync($syncData);
+
+        // "Zimsko sunce" — second themed entry point, 2026-09-09 (see kampanje.md, owner's
+        // architecture call this session: a genuinely SEPARATE campaign/termin_category, not an
+        // extension of kasno-letovanje's own season dates). `label`/`landing_headline` are
+        // Serbian canonical, same pre-existing convention as kasno-letovanje above (see
+        // seedGermanTranslations' own docblock) — EN/DE translations added there too.
+        // `landing_headline` below is a DRAFT for owner review, not finalized marketing copy —
+        // same "Claude drafts, owner approves tone" boundary as everywhere else in this project.
+        $winterCampaign = WizardCampaign::updateOrCreate(
+            ['key' => 'zimsko-sunce'],
+            [
+                'label' => 'Zimsko sunce',
+                'landing_headline' => 'Dok je kod nas sivo i hladno, ovde je i dalje leto',
+                'preset_answers' => ['termin_category' => 'zimsko_sunce'],
+                'is_active' => true,
+                'sort_order' => 1,
+                // Real Caribbean/Mexico dry season window (see seedTerminCategories'
+                // zimsko_sunce docblock) — matches that termin_category's own window_start/
+                // window_end. `meta.provider` deliberately left absent — stays on Booking.com
+                // (see WizardCampaign::provider()), unrelated to the separate in-progress
+                // Hotels.com/Jesenjovanje effort.
+                'season_start_date' => '2026-12-01',
+                'season_end_date' => '2027-04-01',
+            ],
+        );
+
+        $winterQuestionKeys = [
+            // Same shape as kasno-letovanje's own list above — skips 'trip_type' (themed entry
+            // point built directly on termin_category, same reasoning as kasno-letovanje) and
+            // 'termin_category' itself (preset, never rendered). UNLIKE kasno-letovanje, this
+            // list KEEPS 'region_theme' — this campaign's geography (Mexico/Dominican Republic)
+            // lives entirely under the new 'dalje_sunce' region_theme, and excludes() only ever
+            // filters nodes of the type actually being QUERIED (see GeographyResolver::suggested,
+            // "excludes: a node excluded by ANY currently-selected node is removed outright" —
+            // exact-id match, no ancestor cascading). kasno-letovanje's countries are split
+            // across TWO existing region_themes (mediteran, plus the mixed anticki_svet that
+            // Greece/Italy's city-break cities also share), so it narrows geography by excluding
+            // individual countries/cities directly instead. Here, every relevant country sits
+            // under ONE brand-new, 100%-swim-exclusive region_theme, so excluding the three
+            // pre-existing themes AT THE region_theme STEP (see seedRelations below) leaves
+            // 'dalje_sunce' as the only visible option — selecting it then narrows 'country_region'
+            // by parentId, the same generic parent-narrowing mechanism the City step already
+            // uses for country selections (no new code path, just render this generic question).
+            'adults_count', 'children_ages', 'needs_crib', 'number_of_rooms', 'group_type', 'relationship_type',
+            'home_city',
+            'meal_style', 'date_range',
+            'total_budget',
+            'persona', 'persona_group',
+            'preference_tags', 'accommodation_type_preference',
+            'amenities_yes', 'amenities_no',
+            'smestaj_preference', 'smestaj_avoid',
+            'region_theme', 'country_region',
+            'city',
+        ];
+
+        $winterSyncData = [];
+        foreach ($winterQuestionKeys as $i => $key) {
+            $question = WizardQuestion::where('key', $key)->firstOrFail();
+            $winterSyncData[$question->id] = ['sort_order' => $i];
+        }
+        $winterCampaign->questions()->sync($winterSyncData);
     }
 
     /**
@@ -2200,6 +2435,23 @@ class WizardSeeder extends Seeder
         $this->relate('termin_category', 'kasno_kupanje', 'excludes', 'country', 'hrvatska');
         $this->relate('termin_category', 'kasno_kupanje', 'excludes', 'city', 'atina');
         $this->relate('termin_category', 'kasno_kupanje', 'excludes', 'city', 'rim');
+
+        // "Zimsko sunce" themed entry point (2026-09-09) — unlike kasno_kupanje above, this
+        // campaign's countries all sit under ONE brand-new, 100%-swim-exclusive region_theme
+        // ('dalje_sunce'), so excluding every OTHER region_theme at this (region_theme) level is
+        // sufficient on its own — no individual country/city excludes needed, since this
+        // campaign's own $questionKeys (see seedWizardCampaigns) renders the 'region_theme'
+        // question, and 'dalje_sunce' is the only one left standing. mediteran is included here
+        // (unlike kasno_kupanje, which never needs to touch it) precisely because this campaign
+        // is the one that would otherwise see it.
+        $this->relate('termin_category', 'zimsko_sunce', 'excludes', 'region_theme', 'istocna_evropa');
+        $this->relate('termin_category', 'zimsko_sunce', 'excludes', 'region_theme', 'zapadna_evropa');
+        $this->relate('termin_category', 'zimsko_sunce', 'excludes', 'region_theme', 'anticki_svet');
+        $this->relate('termin_category', 'zimsko_sunce', 'excludes', 'region_theme', 'mediteran');
+        // hrvatska has no parent region_theme at all (detached from mediteran 2026-08-19, see
+        // seedSwimDestinations) — a region_theme-level exclude can't reach it, same reason
+        // kasno_kupanje above needs its own direct country-level exclude for it too.
+        $this->relate('termin_category', 'zimsko_sunce', 'excludes', 'country', 'hrvatska');
 
         // weighted_toward proof examples — deliberately from persona/preference_tag, NOT
         // tip_smestaja (accommodation type is still unseeded, waiting on real Booking IDs, see
@@ -2317,6 +2569,7 @@ class WizardSeeder extends Seeder
                 'zapadna_evropa' => 'Westeuropa',
                 'anticki_svet' => 'Antike Welt',
                 'mediteran' => 'Mittelmeerraum',
+                'dalje_sunce' => 'Ferne Sonne',
             ],
             'termin_category' => [
                 'letovanje' => 'Sommerurlaub',
@@ -2328,6 +2581,7 @@ class WizardSeeder extends Seeder
                 'sledeca_sezona' => 'Nächste Saison',
                 'znam_tacno_datum' => 'Ich kenne das genaue Datum!',
                 'kasno_kupanje' => 'Noch eine Woche Sonne',
+                'zimsko_sunce' => 'Winterflucht in die Sonne',
             ],
             'tip_smestaja' => [
                 'hotel' => 'Hotel',
@@ -2394,6 +2648,8 @@ class WizardSeeder extends Seeder
                 'grcka' => 'Griechenland',
                 'srbija' => 'Serbien',
                 'zelenortska_ostrva' => 'Kap Verde',
+                'meksiko' => 'Mexiko',
+                'dominikanska_republika' => 'Dominikanische Republik',
             ],
             // Only the handful with a real, well-known German exonym — everything else falls
             // back to its canonical English (== proper noun) label, see method docblock.
@@ -2508,6 +2764,30 @@ class WizardSeeder extends Seeder
             $campaign->translations()->updateOrCreate(
                 ['translatable_type' => WizardCampaign::class, 'translatable_id' => $campaign->id, 'field' => 'landing_headline', 'locale' => 'en'],
                 ['value' => 'One more week of sun before winter', 'source_hash' => hash('crc32', (string) $campaign->landing_headline), 'status' => 'human'],
+            );
+        }
+
+        // "Zimsko sunce" — same Serbian-canonical + EN/DE translation pattern as above. ALL
+        // THREE of these strings (sr/en/de) are DRAFTS for owner review, 2026-09-09 — marketing
+        // tone/voice is the owner's call, not seeded here as final copy (same boundary as the
+        // frontend intro copy in app.routes.ts).
+        $winterCampaign = WizardCampaign::where('key', 'zimsko-sunce')->first();
+        if ($winterCampaign) {
+            $winterCampaign->translations()->updateOrCreate(
+                ['translatable_type' => WizardCampaign::class, 'translatable_id' => $winterCampaign->id, 'field' => 'label', 'locale' => 'de'],
+                ['value' => 'Winterflucht in die Sonne', 'source_hash' => hash('crc32', $winterCampaign->label), 'status' => 'human'],
+            );
+            $winterCampaign->translations()->updateOrCreate(
+                ['translatable_type' => WizardCampaign::class, 'translatable_id' => $winterCampaign->id, 'field' => 'landing_headline', 'locale' => 'de'],
+                ['value' => 'Bei uns grau und kalt, dort noch immer Sommer', 'source_hash' => hash('crc32', (string) $winterCampaign->landing_headline), 'status' => 'human'],
+            );
+            $winterCampaign->translations()->updateOrCreate(
+                ['translatable_type' => WizardCampaign::class, 'translatable_id' => $winterCampaign->id, 'field' => 'label', 'locale' => 'en'],
+                ['value' => 'Winter Sun Escape', 'source_hash' => hash('crc32', $winterCampaign->label), 'status' => 'human'],
+            );
+            $winterCampaign->translations()->updateOrCreate(
+                ['translatable_type' => WizardCampaign::class, 'translatable_id' => $winterCampaign->id, 'field' => 'landing_headline', 'locale' => 'en'],
+                ['value' => "Grey and cold at home? It's still summer over there", 'source_hash' => hash('crc32', (string) $winterCampaign->landing_headline), 'status' => 'human'],
             );
         }
     }
