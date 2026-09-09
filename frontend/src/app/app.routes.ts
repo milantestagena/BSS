@@ -62,4 +62,28 @@ export const routes: Routes = [
       },
     },
   },
+  // Second themed campaign, 2026-09-09 — "Zimsko sunce" (Winter sun), see backend WizardSeeder's
+  // seedWizardCampaigns()/kampanje.md. Same generic WizardComponent + data-driven campaignKey/
+  // intro mechanism as /latesummer above, nothing new needed here. Path `/wintersun` mirrors the
+  // `/latesummer` naming convention. Copy below is a DRAFT for owner review, not finalized
+  // marketing tone/voice (same boundary as the DB-seeded campaign label/landing_headline).
+  {
+    path: 'wintersun',
+    component: WizardComponent,
+    data: {
+      campaignKey: 'zimsko-sunce',
+      intro: {
+        en: {
+          title: 'Grey and cold at home?',
+          subtitle: "It's still summer in the Caribbean and Mexico.\nGo find it!",
+          cta: 'Take me somewhere warm!',
+        },
+        de: {
+          title: 'Bei dir grau und kalt?',
+          subtitle: 'In der Karibik und in Mexiko ist noch Sommer.\nHol ihn dir!',
+          cta: 'Bring mich irgendwohin, wo es warm ist!',
+        },
+      },
+    },
+  },
 ];
