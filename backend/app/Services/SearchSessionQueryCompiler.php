@@ -304,7 +304,12 @@ class SearchSessionQueryCompiler
 
         if ($tags->contains('kvalitet')) {
             $params['star'] = 40;
-            $params['guestRating'] = 45;
+            // 8+ rating, not 9+ — HotelsComFilters::GUEST_RATING's own docblock: 40="Very good
+            // 8+", 45="Wonderful 9+". Was wrongly 45 until 2026-09-09 (copy-paste from STAR's
+            // scale, never cross-checked against GUEST_RATING's actual meaning) — the owner's
+            // repeated "8+ rating" ask (see kampanje.md/GeographyResolver's kvalitet comments)
+            // was quietly being served a 9+ filter instead.
+            $params['guestRating'] = 40;
         }
 
         $query = [];
@@ -319,7 +324,73 @@ class SearchSessionQueryCompiler
             $query[] = 'travelerType='.rawurlencode('lgbtq_welcoming');
         }
 
+        $this->applyHotelsLodgingTypeFilter($query);
+        $this->applyHotelsMealPlanFilter($query);
+
         return $this->wrapWithHotelsAffiliateTracking('https://www.hotels.com/Hotel-Search?'.implode('&', $query));
+    }
+
+    /**
+     * accommodation_type_preference -> Hotels.com's `lodging` filter (HotelsComFilters::
+     * LODGING_TYPES), 2026-09-09. Same source question as applyAccommodationTypePreferenceFilter
+     * (Booking side) and the same "harmless to send every id, opt-out/default-all-selected
+     * behaves like no filter" assumption — carried over from Booking's confirmed behavior, NOT
+     * independently verified for Hotels.com yet (spot-check live before trusting it narrows
+     * anything). Only maps the 6 real ht_id-style tip_smestaja nodes with a genuine 1:1 category
+     * match (hotel/apartman/vila/holiday_home/guest_house/chalet) — 'ceo_smestaj' ("Entire homes
+     * & apartments") is deliberately UNMAPPED: that's Booking's own privacy_type filter, and no
+     * equivalent has been confirmed in Hotels.com's captured filter set, so it's left absent
+     * rather than guessed at.
+     *
+     * Query format for multiple values is UNVERIFIED — repeated `lodging=` keys is the common
+     * REST convention and what's used here, but no real multi-select capture confirms Hotels.com
+     * reads it this way (vs comma-joined or `lodging[]=`). Cheap to verify live during the Friday
+     * price-research pass — see kampanje.md.
+     */
+    private function applyHotelsLodgingTypeFilter(array &$query): void
+    {
+        $slugs = $this->session->free_text_answers['accommodation_type_preference'] ?? [];
+        if (empty($slugs)) {
+            return;
+        }
+
+        $ids = TaxonomyNode::where('type', 'tip_smestaja')->whereIn('slug', $slugs)->pluck('meta')
+            ->flatMap(fn (?array $meta) => $meta['hotels_lodging_type_ids'] ?? [])
+            ->unique();
+
+        foreach ($ids as $id) {
+            $query[] = 'lodging='.rawurlencode((string) $id);
+        }
+    }
+
+    /**
+     * meal_plan_preference -> Hotels.com's `mealPlan` filter (HotelsComFilters::MEAL_PLAN),
+     * 2026-09-09. Deliberately the OPPOSITE call from toBookingParams()'s meal_plan_preference
+     * comment just above: Booking's own board-plan inventory was too thin/inconsistent to filter
+     * on safely (2x-12x price jumps for the same plan, same town — see that comment), but that
+     * was a statement about BOOKING's inventory, not a universal fact about board-plan filtering.
+     * This is exactly the strength the owner spotted in Hotels.com's own filter sidebar (real,
+     * well-populated Free breakfast/Half board/All-inclusive checkboxes with real counts) that
+     * Booking's messy inventory had forced us to abandon — safe to wire in here, unrelated
+     * decision. Sends every selected preference's id (multiple picks allowed, same "any of these
+     * are fine" semantics as accommodation_type_preference) — same unverified multi-value query
+     * format caveat as applyHotelsLodgingTypeFilter above.
+     */
+    private function applyHotelsMealPlanFilter(array &$query): void
+    {
+        $slugs = $this->session->free_text_answers['meal_plan_preference'] ?? [];
+        if (empty($slugs)) {
+            return;
+        }
+
+        $ids = TaxonomyNode::where('type', 'meal_plan')->whereIn('slug', $slugs)->pluck('meta')
+            ->pluck('hotels_meal_plan_id')
+            ->filter()
+            ->unique();
+
+        foreach ($ids as $id) {
+            $query[] = 'mealPlan='.rawurlencode((string) $id);
+        }
     }
 
     /**

@@ -414,17 +414,23 @@ class WizardSeeder extends Seeder
         // array because a real Booking accommodation_type can map to more than one ht_id
         // (see the migration-guide note on hotel/aparthotel overlap); one-element arrays here
         // since we only have single observed IDs so far.
+        // hotels_lodging_type_ids (2026-09-09) — real HotelsComFilters::LODGING_TYPES values
+        // (genuine 1:1 category match, not a guess), for applyHotelsLodgingTypeFilter(). Array
+        // for the same reason as booking_accommodation_type_ids: room to map to more than one
+        // Hotels.com lodging code later if a real gap shows up, even though today's mapping is
+        // single-value each.
         $tipSmestaja = [
-            ['slug' => 'hotel', 'en' => 'Hotel', 'sr' => 'Hotel', 'id' => 204],
-            ['slug' => 'apartman', 'en' => 'Apartment', 'sr' => 'Apartman', 'id' => 201],
-            ['slug' => 'vila', 'en' => 'Villa', 'sr' => 'Vila', 'id' => 213],
-            ['slug' => 'holiday_home', 'en' => 'Holiday home', 'sr' => 'Kuća za odmor', 'id' => 220],
-            ['slug' => 'guest_house', 'en' => 'Guest house', 'sr' => 'Gostinska kuća', 'id' => 216],
-            ['slug' => 'chalet', 'en' => 'Chalet', 'sr' => 'Šale', 'id' => 228],
+            ['slug' => 'hotel', 'en' => 'Hotel', 'sr' => 'Hotel', 'id' => 204, 'hotels' => 'HOTEL'],
+            ['slug' => 'apartman', 'en' => 'Apartment', 'sr' => 'Apartman', 'id' => 201, 'hotels' => 'APARTMENT'],
+            ['slug' => 'vila', 'en' => 'Villa', 'sr' => 'Vila', 'id' => 213, 'hotels' => 'VILLA'],
+            ['slug' => 'holiday_home', 'en' => 'Holiday home', 'sr' => 'Kuća za odmor', 'id' => 220, 'hotels' => 'VACATION_HOME'],
+            ['slug' => 'guest_house', 'en' => 'Guest house', 'sr' => 'Gostinska kuća', 'id' => 216, 'hotels' => 'GUEST_HOUSE'],
+            ['slug' => 'chalet', 'en' => 'Chalet', 'sr' => 'Šale', 'id' => 228, 'hotels' => 'CHALET'],
         ];
         foreach ($tipSmestaja as $i => $item) {
             $this->node('tip_smestaja', $item['slug'], $item['en'], $item['sr'], $i, [
                 'booking_accommodation_type_ids' => [$item['id']],
+                'hotels_lodging_type_ids' => [$item['hotels']],
                 'source' => 'manual_website',
             ]);
         }
@@ -572,14 +578,20 @@ class WizardSeeder extends Seeder
         // BudgetEstimationEngine::MEAL_PLAN_COVERAGE_RATIOS deliberately still has entries for
         // both — harmless dead code, left alone rather than risk breaking a historical session
         // whose free_text_answers still reference one of these slugs from before this change.
+        // hotels_meal_plan_id (2026-09-09) — real HotelsComFilters::MEAL_PLAN values for
+        // applyHotelsMealPlanFilter(). Genuine category equivalence, not guessed: "breakfast &
+        // dinner" is the standard hospitality-industry definition of half board. Hotels.com's
+        // FULL_BOARD (breakfast+lunch+dinner) has no corresponding row — 'pun_pansion' was
+        // dropped from this array entirely above (see this method's own docblock).
         $mealPlans = [
-            ['slug' => 'dorucak', 'en' => 'Breakfast included', 'sr' => 'Doručak uključen', 'id' => 1],
-            ['slug' => 'dorucak_vecera', 'en' => 'Breakfast & dinner included', 'sr' => 'Doručak i večera uključeni', 'id' => 9],
-            ['slug' => 'sve_ukljuceno', 'en' => 'All-inclusive', 'sr' => 'Sve uključeno', 'id' => 4],
+            ['slug' => 'dorucak', 'en' => 'Breakfast included', 'sr' => 'Doručak uključen', 'id' => 1, 'hotels' => 'FREE_BREAKFAST'],
+            ['slug' => 'dorucak_vecera', 'en' => 'Breakfast & dinner included', 'sr' => 'Doručak i večera uključeni', 'id' => 9, 'hotels' => 'HALF_BOARD'],
+            ['slug' => 'sve_ukljuceno', 'en' => 'All-inclusive', 'sr' => 'Sve uključeno', 'id' => 4, 'hotels' => 'ALL_INCLUSIVE'],
         ];
         foreach ($mealPlans as $i => $item) {
             $this->node('meal_plan', $item['slug'], $item['en'], $item['sr'], $i, [
                 'booking_meal_plan_id' => $item['id'],
+                'hotels_meal_plan_id' => $item['hotels'],
                 'source' => 'manual_website',
             ]);
         }
@@ -2298,11 +2310,14 @@ class WizardSeeder extends Seeder
                 'sort_order' => 1,
                 // Real Caribbean/Mexico dry season window (see seedTerminCategories'
                 // zimsko_sunce docblock) — matches that termin_category's own window_start/
-                // window_end. `meta.provider` deliberately left absent — stays on Booking.com
-                // (see WizardCampaign::provider()), unrelated to the separate in-progress
-                // Hotels.com/Jesenjovanje effort.
+                // window_end.
                 'season_start_date' => '2026-12-01',
                 'season_end_date' => '2027-04-01',
+                // Owner's call, 2026-09-09 (reversed from this campaign's original "stays on
+                // Booking" design): no more investment in Booking's inventory — Zimsko sunce
+                // becomes the real local Hotels.com test bed instead of waiting on Jesenjovanje
+                // (which has no destinations built yet). See WizardCampaign::provider().
+                'meta' => ['provider' => 'hotels_com'],
             ],
         );
 
