@@ -105,4 +105,19 @@ class WizardCampaign extends Model
 
         return TaxonomyNode::where('type', 'termin_category')->where('slug', $slug)->first()?->meta['default_duration_days'] ?? null;
     }
+
+    /**
+     * Which affiliate provider this campaign's booking link goes to — 'booking' or
+     * 'hotels_com'. Owner's ask, 2026-09-08: run kasno-letovanje on Booking and the upcoming
+     * Jesenjovanje on Hotels.com SIMULTANEOUSLY, real parallel comparison instead of a risky
+     * all-at-once switch — "u arhitekturi gledaj da moze da se svichuje kampanja po provajderu".
+     * `meta` JSON key, not a dedicated column — same "admin-editable tunable, not a column per
+     * value" convention as everything else in this campaign-level meta blob (see that column's
+     * own migration docblock). Absent meta (every campaign today) defaults to 'booking' —
+     * existing campaigns behave identically to before this existed.
+     */
+    public function provider(): string
+    {
+        return $this->meta['provider'] ?? 'booking';
+    }
 }
