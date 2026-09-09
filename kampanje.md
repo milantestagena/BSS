@@ -151,6 +151,35 @@ Dogovoreno 2026-08-19. **Prioritet: tag on/off sistem, radimo uskoro** (ne "kad-
 - **Slike — NE sa Booking-a.** Isti rizik kao scraping odluka od 13.7 (tuđ sadržaj, automated means, pretnja affiliate odobrenju). Umesto toga: **Unsplash/Pexels API** — pravi besplatni, licencirani javni izvor namenjen baš za putničke fotografije, isti princip kao WhereNext za cene
 - **Statičan sadržaj, ne dinamički template** (dogovoreno 2026-08-19) — cene/podaci se ne menjaju svaki dan, pa Claude periodično (na zahtev, ili pred novi sezonski ciklus) prođe i osveži/upiše po kampanji, isti obrazac kao `vibe_profile`/hospitality (sačuvano jednom, prikazuje se besplatno). NE live-generisanje po pregledu stranice — skuplje, sporije, nepotrebno kad podaci ionako ne variraju iz sata u sat.
 
+### Koeficijent "obrok u smeštaju" po destinaciji — ideja, ČEKA vlasnikova real podaci (2026-09-09)
+
+Trenutno stanje (kod, ne pretpostavka): `SearchSessionQueryCompiler::accommodationNightlyPriceCeiling()`
+(~linija 803) za `meal_style='u_smestaju'` + izabran `meal_plan_preference` koristi `foodTotal = 0.0`
+— namerno, od 2026-09-02, jer je pravi board-plan premium suviše nepredvidiv iz Booking podataka
+(2x-12x razlika za isti grad) da bi se bilo šta pouzdano oduzelo od budžetskog plafona.
+
+**Vlasnikova ideja, 2026-09-09:** sad kad se realno istražuju Hotels.com cene po gradu, moguće je
+za svaki grad IMPLICITNO izvesti cenu obroka iz razlike cene sobe sa/bez pansiona (npr. half-board
+minus room-only), i uporediti je sa VEĆ POSTOJEĆOM `hospitality`/eating-out procenom za taj isti
+grad. Prvi realan primer: Prag — naša `eating_out` procena ~25€/dan, implicirana cena obroka iz
+hotelskih cena ~35€/dan → **+40% koeficijent** za taj grad. Eksplicitno rečeno da će se ovo
+razlikovati po destinaciji — negde +20%, negde možda i JEFTINIJE nego napolju, ne fiksna globalna
+konstanta.
+
+**Šta bi trebalo da postoji kad podaci stignu** (vlasnik lično radi poređenje, per grad, tokom
+redovnog Hotels.com price research-a — nije za sad, čeka se realan broj po gradu):
+- Nov meta ključ (predlog): `hospitality.meal_at_accommodation_multiplier` po gradu/zemlji (isti
+  nivo kao `local_stores`/`hospitality` meta danas) — multiplikator na postojeću eating-out cenu,
+  ne apsolutan broj (tako automatski prati ako se eating-out procena ikad revidira).
+- `accommodationNightlyPriceCeiling()`'s `0.0` grana za `u_smestaju` postaje `$estimate['eating_out_total_eur'] * ($multiplier ?? 1.0 bez podatka i dalje 0.0 fallback, ne pogađati)` — ako grad nema
+  multiplikator, ostaje na sadašnjem bezbednom `0.0` ponašanju, isti "absent, not guessed" obrazac.
+- Isti broj hrani (a) info-popup koji već postoji za meal-plan kontekst (destination guide/
+  step-description popover) — prikazati "obroci u smeštaju ovde koštaju otprilike X% više/manje
+  nego napolju", i (b) samu budžet-fit matematiku gore.
+- Vezano, ali NIJE isto: `GeographyResolver::mealPlanFitFor()`/`TaxonomyNode::offersMealPlan()` —
+  to je AVAILABILITY signal (da li grad uopšte nudi taj pansion), ovo je CENOVNI koeficijent kad
+  nudi. Oba mogu da postoje nezavisno za isti grad.
+
 ### GBP/London — rešeno, NE otvarati ponovo
 
 - Vlasnikova odluka 2026-08-19: nema potrebe za multi-currency infrastrukturom. Mi unosimo SVOJU EUR procenu cene (isti ručni proces kao svugde), stvarna transakcija/valuta je Booking-ov problem. London ostaje kao kandidat za Jesenjovanje bez ikakve posebne obrade.
