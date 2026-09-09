@@ -4,9 +4,20 @@
 
 ---
 
-## Zimsko sunce (proširenje `kasno-letovanje`, NE nova kampanja)
+## Zimsko sunce (SOPSTVENA kampanja, ne produžetak `kasno-letovanje`)
 
 Cilj: kad bliže destinacije (Mediteran/Atlantik) počnu da hlade prema novembru/decembru, dodati dalje "winter sun" destinacije koje su baš tada u svom sezonskom prozoru. Target start: **početak oktobra 2026** — pokrenuti proaktivno, ne čekati podsetnik.
+
+**Status (2026-09-09): prva faza IZGRAĐENA I LOKALNO TESTIRANA (nije deploy-ovano).** Meksiko
+(Cancún) + Dominikanska Republika (Punta Cana, Puerto Plata) — sopstven `wizard_campaign` red
+(`zimsko-sunce`, sezona 2026-12-01 → 2027-04-01), sopstven `termin_category` (`zimsko_sunce`,
+preset — vidi "Otvoreno pitanje" ispod, rešeno), nov `dalje_sunce` region_theme (NE `mediteran`),
+`/wintersun` frontend ruta (isti generički WizardComponent mehanizam kao `/latesummer`). Real
+Open-Meteo klima potvrđena za sva tri grada — sea_temp_c 26-29°C kroz ceo Dec-Apr prozor, daleko
+iznad 18°C praga. Prazni cenovni redovi skafoldovani (77 destinacija x 18 nedelja) — čekaju
+vlasnikove screenshot cene. Draft EN/DE landing copy napisan, čeka pregled/izmenu tona. 199
+backend testova prolazi. Sledeći korak po `kampanje.md`'s sopstvenom redosledu ispod: Karibi
+(Jamajka/Barbados), pa Maldivi/Mauricijus, pa Tajland poslednji.
 
 ### DACH tražnja (istraženo, WebSearch, ne nagađano)
 
@@ -31,9 +42,9 @@ Cilj: kad bliže destinacije (Mediteran/Atlantik) počnu da hlade prema novembru
 - Accommodation season template (verovatno `winter_sun`)
 - Prazni cenovni redovi (`campaign:seed-destination-price-rows`) — prave cene i dalje čekaju vlasnikov ručni Booking screenshot
 
-### Otvoreno pitanje
+### Otvoreno pitanje — REŠENO 2026-09-09
 
-- Da li ovo produžava `kasno-letovanje`-ovu `season_end_date` (trenutno 2026-11-01) dalje u decembar, ili treba svoj landing copy ("sad je zima, al evo gde je i dalje leto")? Nije odlučeno.
+- Vlasnikova arhitekturna odluka ove sesije: **sopstvena kampanja, ne produžetak** `kasno-letovanje`-ove `season_end_date`. Svoj `wizard_campaign` red, svoj `termin_category` (`zimsko_sunce`), svoj landing copy/ruta (`/wintersun`, "sad je zima kod nas, al evo gde je i dalje leto" duh — vidi draft copy u `app.routes.ts`/`WizardSeeder::seedGermanTranslations()`). Razlog isti kao za `kasno_kupanje` samo: potpuno drugi vremenski prozor + potpuno druga geografija zaslužuju sopstvenu temu, ne grananje unutar postojeće.
 
 ### Predlog redosleda dodavanja (nije odlučeno)
 
