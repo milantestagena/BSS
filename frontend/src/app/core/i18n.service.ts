@@ -23,7 +23,7 @@ const STRINGS: Record<'en' | 'de', Record<string, string>> = {
     proceed: 'Proceed',
     change: 'Change',
     searching: 'Searching...',
-    openingBooking: 'Opening Booking.com...',
+    openingBooking: 'Opening {provider}...',
     signInWithGoogle: 'Sign in with Google',
     signOut: 'Sign out',
     credits: 'credits',
@@ -115,11 +115,27 @@ const STRINGS: Record<'en' | 'de', Record<string, string>> = {
     guideEatingOutLabel: 'Eating out',
     guideSelfCateringLabel: 'Cooking for yourself',
     guidePerPersonPerDay: 'per person / day',
-    affiliateBadge: "Booking.com Affiliate Partner — we may earn a small commission if you book, at no extra cost to you.",
-    footerAffiliateNote: 'TripInele is a Booking.com affiliate partner.',
+    footerAffiliateNote: 'TripInele is a {provider} affiliate partner.',
+    // Split around the provider name, 2026-09-17 — lets the footer render the Hotels.com mention
+    // as a real link (see FooterComponent) instead of plain text, only when meaningful (a Hotels.
+    // com session has a real tracked genericHotelsUrl to point at). Booking's own footer text
+    // stays plain/unsplit (footerAffiliateNote above) — owner's ask was specifically about
+    // Hotels.com mentions.
+    footerAffiliateNotePrefix: 'TripInele is a',
+    footerAffiliateNoteSuffix: 'affiliate partner.',
     footerAboutLink: 'About us',
     footerPrivacyLink: 'Privacy Policy',
     footerImpressumLink: 'Impressum',
+    // Draft, 2026-09-17 — owner's ask: a short "why this provider" line above the city grid for
+    // Hotels.com-provider campaigns (see WizardComponent.isHotelsComCampaign). Deliberately vague/
+    // subjective ("easier to find," not a specific stat) — see kampanje.md's "Marketing
+    // pozicioniranje" note: no fabricated stat claims, TripInele proves nothing itself, the
+    // click-through does that on Hotels.com's own pages. Owner review pending, same "Claude
+    // drafts, owner approves tone" boundary as the rest of this campaign's copy.
+    // Split around "Hotels.com" itself, 2026-09-17 (owner's catch: the whole sentence rendered
+    // as one giant underlined link, should be just the brand name) — see wizard.html.
+    whyHotelsComPrefix: 'Why',
+    whyHotelsComSuffix: "? It's where you're most likely to find exactly what you're after.",
     cookieConsentText: 'We use a tracking pixel to measure how our ads perform. No data is sold — see our Privacy Policy for details.',
     cookieConsentAccept: 'Accept',
     cookieConsentDecline: 'Decline',
@@ -131,7 +147,7 @@ const STRINGS: Record<'en' | 'de', Record<string, string>> = {
     proceed: 'Weiter',
     change: 'Ändern',
     searching: 'Suche läuft...',
-    openingBooking: 'Booking.com wird geöffnet...',
+    openingBooking: '{provider} wird geöffnet...',
     signInWithGoogle: 'Mit Google anmelden',
     signOut: 'Abmelden',
     credits: 'Guthaben',
@@ -216,11 +232,14 @@ const STRINGS: Record<'en' | 'de', Record<string, string>> = {
     guideEatingOutLabel: 'Auswärts essen',
     guideSelfCateringLabel: 'Selbst kochen',
     guidePerPersonPerDay: 'pro Person / Tag',
-    affiliateBadge: 'Booking.com Affiliate-Partner — wir erhalten möglicherweise eine kleine Provision, ohne Mehrkosten für dich.',
-    footerAffiliateNote: 'TripInele ist ein Booking.com Affiliate-Partner.',
+    footerAffiliateNote: 'TripInele ist ein {provider} Affiliate-Partner.',
+    footerAffiliateNotePrefix: 'TripInele ist ein',
+    footerAffiliateNoteSuffix: 'Affiliate-Partner.',
     footerAboutLink: 'Über uns',
     footerPrivacyLink: 'Datenschutz',
     footerImpressumLink: 'Impressum',
+    whyHotelsComPrefix: 'Warum',
+    whyHotelsComSuffix: '? Dort findest du am ehesten genau das, wonach du suchst.',
     cookieConsentText: 'Wir verwenden ein Tracking-Pixel, um die Leistung unserer Anzeigen zu messen. Es werden keine Daten verkauft — Details in unserer Datenschutzerklärung.',
     cookieConsentAccept: 'Akzeptieren',
     cookieConsentDecline: 'Ablehnen',

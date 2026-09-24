@@ -312,6 +312,21 @@ class SearchSessionQueryCompiler
             $params['guestRating'] = 40;
         }
 
+        // sort=PRICE_LOW_TO_HIGH (jeftino) / sort=REVIEW_RELEVANT (kvalitet) — both real,
+        // owner-captured 2026-09-23 from live sort-dropdown clicks on the same city/dates (same
+        // "sort" question the owner asked about after building the interpolated-pricing tool:
+        // "da l je order po ceni ako biram jeftino a po rekomended ako biram kvalitet"). Mirrors
+        // toBookingUrl()'s order= block above/elsewhere in this class — jeftino/kvalitet are
+        // mutually exclusive (seedPreferenceTags' excludes relation), jeftino checked first only
+        // as a stable tie-break if that relation is ever bypassed. Neither picked -> sort left
+        // unset, letting Hotels.com's own default ("Recommended") apply, rather than guessing a
+        // third value that was never actually captured.
+        if ($tags->contains('jeftino')) {
+            $params['sort'] = 'PRICE_LOW_TO_HIGH';
+        } elseif ($tags->contains('kvalitet')) {
+            $params['sort'] = 'REVIEW_RELEVANT';
+        }
+
         $query = [];
         foreach ($params as $key => $value) {
             $query[] = $key.'='.rawurlencode((string) $value);
@@ -324,10 +339,43 @@ class SearchSessionQueryCompiler
             $query[] = 'travelerType='.rawurlencode('lgbtq_welcoming');
         }
 
+        // Real price range, 2026-09-17/18 — owner caught it live across three captures. First,
+        // a single-handle test showed `&price=77&price=-2` (the `-2` read as a slider-precision
+        // artifact, not a real minimum). Two later captures with both handles genuinely moved
+        // (`&price=855&price=2410`, `&price=621&price=1719`) confirmed the real shape: TWO
+        // repeated `price=` params, a min and a max, both TOTAL stay cost (not per-night like
+        // Booking's own `price=EUR-min-{ceiling}-1`) and NEVER the raw stated total_budget
+        // figure — always min=0 (owner's explicit call: "donja treba da bude 0 a gornja kolko
+        // proracunas... nikad ono kolko definisemo ko budzet") paired with whatever we actually
+        // calculate as the max. accommodationNightlyPriceCeiling() returns a per-night figure
+        // (shared with Booking's own use of it) — multiplied by nights here for the max, since
+        // sending it unmultiplied would silently zero out every real result on a multi-night stay.
+        if ($ceiling = $this->accommodationNightlyPriceCeiling()) {
+            $query[] = 'price=0';
+            $query[] = 'price='.($ceiling * $checkin->diffInDays($checkout));
+        }
+
         $this->applyHotelsLodgingTypeFilter($query);
         $this->applyHotelsMealPlanFilter($query);
+        $this->applyHotelsAmenitiesFilter($query);
 
         return $this->wrapWithHotelsAffiliateTracking('https://www.hotels.com/Hotel-Search?'.implode('&', $query));
+    }
+
+    /**
+     * A tracked Hotels.com link that works with NO destination/dates resolved yet — 2026-09-17,
+     * owner's ask: every plain-text "Hotels.com" brand mention (footer disclosure, the "Why
+     * Hotels.com?" greeting line) should itself be a real affiliate link, not just naming the
+     * brand, so even a casual click plants the 7-day cookie (see the Travel Creator Program
+     * cookie terms — ANY booking on the site counts, not just a specific searched item). Wraps
+     * the bare homepage rather than toHotelsUrl()'s destination search — this is meant to work on
+     * every page load, including before any destination is picked. Same graceful fallback as
+     * toHotelsUrl() (wrapWithHotelsAffiliateTracking already returns the plain URL if the
+     * expedia.* config is unset).
+     */
+    public function genericHotelsUrl(): string
+    {
+        return $this->wrapWithHotelsAffiliateTracking('https://www.hotels.com/');
     }
 
     /**
@@ -390,6 +438,43 @@ class SearchSessionQueryCompiler
 
         foreach ($ids as $id) {
             $query[] = 'mealPlan='.rawurlencode((string) $id);
+        }
+    }
+
+    /**
+     * amenities_yes -> Hotels.com's FOUR separate amenity-family query params, 2026-09-18 —
+     * confirmed directly against a real full sidebar capture (data/sidebar.html) rather than
+     * guessed. Unlike Booking's single `applyAmenityYesFilters` (one nested `filters.*` shape),
+     * Hotels.com splits this across `amenities=` (property-level, HotelsComFilters::AMENITIES),
+     * `room_amenities_group=` (a physical room feature, HotelsComFilters::ROOM_AMENITIES),
+     * `room_views_group=` (a view, HotelsComFilters::ROOM_VIEWS), and `beach_access_group=`
+     * (HotelsComFilters::BEACH_ACCESS, `plaza`/"Beachfront" -> `on_the_beach` — genuinely
+     * relevant for kasno-letovanje specifically) — routed here by which meta key each node
+     * actually carries (`hotels_amenity_id`/`hotels_room_amenity_id`/`hotels_room_view_id`/
+     * `hotels_beach_access_id`, set in WizardSeeder), not by the node's own taxonomy type — e.g.
+     * `vesmasina` is a room_facility in our taxonomy but only exists as Hotels.com's
+     * property-level WASHER_DRYER, so it carries `hotels_amenity_id` despite its type. Only
+     * confirmed 1:1 matches got a meta key at all; everything else is silently absent (same
+     * "confirmed real, not guessed" discipline as the rest of this class), so a lot of
+     * amenities_yes picks legitimately add nothing to this URL yet. Query format for multiple
+     * values is unverified for all four params, same caveat as applyHotelsLodgingTypeFilter.
+     */
+    private function applyHotelsAmenitiesFilter(array &$query): void
+    {
+        $slugs = $this->session->free_text_answers['amenities_yes'] ?? [];
+        if (empty($slugs)) {
+            return;
+        }
+
+        $metas = TaxonomyNode::whereIn('type', ['accommodation_facility', 'room_facility'])
+            ->whereIn('slug', $slugs)
+            ->pluck('meta');
+
+        foreach (['hotels_amenity_id' => 'amenities', 'hotels_room_amenity_id' => 'room_amenities_group', 'hotels_room_view_id' => 'room_views_group', 'hotels_beach_access_id' => 'beach_access_group'] as $metaKey => $paramName) {
+            $ids = $metas->pluck($metaKey)->filter()->unique();
+            foreach ($ids as $id) {
+                $query[] = $paramName.'='.rawurlencode((string) $id);
+            }
         }
     }
 
@@ -483,22 +568,25 @@ class SearchSessionQueryCompiler
     }
 
     /**
-     * Same graceful-fallback shape as wrapWithAffiliateTracking() above — separate config keys
-     * since Hotels.com is a different CJ advertiser/program (its own pid+link_id pair once
-     * approved), not a parameter of the Booking.com one. Application submitted 2026-09-08, not
-     * yet approved — falls back to the plain URL until real values exist, same "link never
-     * breaks, just doesn't carry tracking yet" behavior as Booking's.
+     * NOT the CJ pattern above — Hotels.com/Expedia is reached via the separate Expedia Group
+     * Travel Creator Program (approved 2026-09-16, after CJ's own Hotels.com listing rejected the
+     * application twice). See config/services.php's 'expedia' block docblock for how
+     * camref/creativeref/adref were confirmed live and safe to hold as static config. Same
+     * graceful-fallback shape as wrapWithAffiliateTracking() — falls back to the plain unwrapped
+     * URL if any of the three is unset.
      */
     private function wrapWithHotelsAffiliateTracking(string $url): string
     {
-        $pid = config('services.cj.hotels_pid');
-        $linkId = config('services.cj.hotels_link_id');
+        $camref = config('services.expedia.camref');
+        $creativeref = config('services.expedia.creativeref');
+        $adref = config('services.expedia.adref');
 
-        if (! $pid || ! $linkId) {
+        if (! $camref || ! $creativeref || ! $adref) {
             return $url;
         }
 
-        return "https://www.dpbolvw.net/click-{$pid}-{$linkId}?url=".rawurlencode($url);
+        return 'https://www.hotels.com/affiliate?landingPage='.rawurlencode($url)
+            ."&camref={$camref}&creativeref={$creativeref}&adref={$adref}";
     }
 
     /**
@@ -777,7 +865,13 @@ class SearchSessionQueryCompiler
         // to the old flat price_per_person_eur * days math internally if this destination has
         // no weekly rows yet. $totalTravelers is translated into a sum of real apartment-
         // occupancy multipliers internally (roomMultiplierSumFor()), not multiplied directly.
-        $accommodationTotal = $priceRow !== null ? $priceRow->estimateAccommodationTotal($checkin, $checkout, $totalTravelers, $sameUnit) : 0.0;
+        // $qualityTier, 2026-09-24 — same rule GeographyResolver::filterByBudget/accommodationTotalFor
+        // already apply: a `kvalitet` session prices accommodation at the real 8+/4-star tier (when
+        // that week has one, else the regular price). Without this the Honest Report's budget fit
+        // was computed on the REGULAR price while the wizard cards the traveler just clicked
+        // through were computed on the quality one — same session, two different totals.
+        $qualityTier = $this->allPreferenceTagSlugs()->contains('kvalitet');
+        $accommodationTotal = $priceRow !== null ? $priceRow->estimateAccommodationTotal($checkin, $checkout, $totalTravelers, $sameUnit, $qualityTier) : 0.0;
 
         return [
             'country' => $country,
@@ -963,25 +1057,33 @@ class SearchSessionQueryCompiler
         // recommended date default used to anchor to `window_start` (kasno_kupanje's fixed
         // "09-19" marker), landing weeks into the future the moment today passed that date —
         // not a useful "here's a starting point" suggestion. Anchoring to the next upcoming
-        // Saturday instead (checkin today if today IS Saturday) always gives an immediately
-        // actionable default, and lines up with the campaign's own Saturday-aligned pricing
-        // weeks (see WizardCampaign::seasonWeeks()) — checkout one week later, not
-        // `$durationDays` (still used elsewhere, e.g. presetTripLengthDays for the budget
-        // default — this date-picker default is now a separate concern from that trip-length
-        // estimate). `window_start`/`window_end` remain meaningful elsewhere (climate month
-        // filtering, campaign season boundaries) — only the date-DEFAULT anchor changed here.
-        $checkin = $this->nextSaturday();
-        $checkout = $checkin->copy()->addDays(7);
+        // weekday instead (checkin today if today IS that weekday) always gives an immediately
+        // actionable default. Saturday+7 nights remains the default (matches kasno-letovanje/
+        // zimsko-sunce's own Saturday-aligned weekly pricing, see WizardCampaign::seasonWeeks())
+        // — `default_duration_days` is deliberately NOT reused here (still drives
+        // presetTripLengthDays' budget estimate instead, a separate concern).
+        //
+        // `default_checkin_weekday`/`default_stay_nights` (2026-09-17, owner's ask) — a shorter
+        // campaign gets its own real default instead of inheriting the 7-night swim-holiday
+        // shape: Jesenjovanje presets Friday->Sunday (2 nights), a realistic city-break length,
+        // via jesenji_gradski_bek's own meta. Absent on every other termin_category, so
+        // kasno_kupanje/zimsko_sunce behave exactly as before.
+        $checkinWeekday = $termin?->meta['default_checkin_weekday'] ?? Carbon::SATURDAY;
+        $stayNights = $termin?->meta['default_stay_nights'] ?? 7;
+
+        $checkin = $this->nextWeekday($checkinWeekday);
+        $checkout = $checkin->copy()->addDays($stayNights);
 
         return [$checkin, $checkout];
     }
 
-    /** The next Saturday from today, inclusive — today itself if today already is Saturday. */
-    private function nextSaturday(): Carbon
+    /** The next occurrence of the given weekday (Carbon::SATURDAY etc.) from today, inclusive —
+     *  today itself if today already is that weekday. */
+    private function nextWeekday(int $weekday): Carbon
     {
         $today = Carbon::today();
 
-        return $today->copy()->addDays((Carbon::SATURDAY - $today->dayOfWeek + 7) % 7);
+        return $today->copy()->addDays(($weekday - $today->dayOfWeek + 7) % 7);
     }
 
     /**

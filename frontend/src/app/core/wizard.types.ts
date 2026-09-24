@@ -2,6 +2,10 @@ export interface TaxonomyNode {
   id: string;
   slug: string;
   label: string;
+  /** e.g. 'region_theme' | 'country' | 'city' — added 2026-09-18 so a single merged
+   *  region+country picker grid can tell the two node kinds apart (WizardComponent's
+   *  onDestinationCardSelect/isDestinationSelected/combinedDestinationGroups). */
+  type?: string;
   meta?: Record<string, unknown> | null;
   matchScore?: number | null;
   /** Populated only when returned from suggestedGeography — true if forced on by an `implies`
@@ -70,7 +74,7 @@ export interface TaxonomyNode {
    *  label (+ meta, for the iso_code badge — see wizard.ts's countryCodeFor), so a mixed-country
    *  city grid (multi-select Country/region, 2026-08-13) can show which country each card
    *  belongs to. */
-  parent?: { label: string; meta?: Record<string, unknown> | null } | null;
+  parent?: { id: string; label: string; meta?: Record<string, unknown> | null } | null;
 }
 
 /** Optional "deep-dive" destination content — see DestinationGuide (backend) and

@@ -35,6 +35,10 @@ class SearchSessionQueryResolver
             'honestReportSignals' => $compiler->toHonestReportSignals(),
             'bookingUrl' => $bookingUrl,
             'bookingFlightsUrl' => $compiler->toBookingFlightsUrl(),
+            // Always computed (no destination/dates needed, see genericHotelsUrl()'s docblock) —
+            // the frontend only renders it when the session's campaign is actually hotels_com,
+            // same "field always present, relevance decided by the caller" shape as bookingUrl.
+            'genericHotelsUrl' => $compiler->genericHotelsUrl(),
         ];
     }
 }

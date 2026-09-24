@@ -50,6 +50,7 @@ class WizardSeeder extends Seeder
         $this->seedHolidays();
         $this->seedWizardSteps();
         $this->seedWizardCampaigns();
+        $this->seedCampaignDestinations();
         $this->seedRelations();
         $this->seedGermanTranslations();
     }
@@ -295,6 +296,41 @@ class WizardSeeder extends Seeder
                     ],
                 ],
             ],
+            // Third themed entry point, 2026-09-17 — Jesenjovanje's OWN dedicated
+            // termin_category, replacing the generic 'vikend_break' preset it started with.
+            // Same reasoning kasno_kupanje/zimsko_sunce each already give above: a themed
+            // campaign needs its own excludes() to actually narrow geography — 'vikend_break' is
+            // shared with the plain non-campaign flow, so it can never carry campaign-specific
+            // exclusions without also changing what every OTHER "weekend break" answer means
+            // everywhere else. Caught live, 2026-09-17: without this, Jesenjovanje's region_theme
+            // step happily offered Mediterranean/Far Sun as choices, and selecting either
+            // (correctly, once the slug-vs-id scoping bug was separately fixed) surfaced their
+            // real swim countries (Spain/Turkey/Malta/Mexico/...) — real data, just none of it
+            // curated for city-break. default_duration_days=3 — a city break plausibly runs a
+            // little longer than vikend_break's 2, not owner-confirmed like kasno_kupanje's 8.
+            [
+                'slug' => 'jesenji_gradski_bek', 'en' => 'Autumn city break', 'sr' => 'Jesenji gradski bek',
+                'meta' => [
+                    'date_tag' => 'any',
+                    'default_duration_days' => 3,
+                    // Bug fixed 2026-09-17, caught live same day: resolveDates() hard-requires
+                    // window_start to be truthy before it'll suggest ANY default checkin/checkout
+                    // at all (falls back to the campaign's own "next Saturday" anchor regardless
+                    // of this value's specifics, per the 2026-09-02 fix — see that method's own
+                    // docblock) — without it, toHotelsUrl() had no date to resolve, so
+                    // `bookingUrl` was silently always null and city selection did nothing at
+                    // all ("ne otvara mi hotels"). window_end still matters for its OTHER real
+                    // use, climate-month filtering — a generous September-November span matching
+                    // kampanje.md's Herbstferien research.
+                    'window_start' => '09-15',
+                    'window_end' => '11-30',
+                    // Owner's ask, 2026-09-17: "posto je city break krace... prvi sledeci petak,
+                    // nedelja povratak" — a real weekend-trip default instead of inheriting the
+                    // swim campaigns' Saturday+7-night shape. Carbon::FRIDAY = 5.
+                    'default_checkin_weekday' => 5,
+                    'default_stay_nights' => 2,
+                ],
+            ],
         ];
 
         foreach ($items as $i => $item) {
@@ -342,8 +378,12 @@ class WizardSeeder extends Seeder
             ['slug' => 'porodicna_atmosfera', 'en' => 'Family-friendly atmosphere', 'sr' => 'Porodična atmosfera'],
             // Owner's ask, 2026-08-12: "nekima nije samo pesak i uso u vodu" — a distinct axis
             // from van_utabanih_staza (that's about the DESTINATION overall; this is purely
-            // about the beach itself). See seedExplorationAndBeachTags().
-            ['slug' => 'lepe_plaze', 'en' => 'Great beaches', 'sr' => 'Lepe plaže'],
+            // about the beach itself). See seedExplorationAndBeachTags(). Restricted to the two
+            // swim campaigns, 2026-09-17 (owner's catch, live on Jesenjovanje) — a beach-specific
+            // vibe tag has no business on a city-break trip; uses the existing per-campaign
+            // preference_tag on/off mechanism (see GeographyResolver's `campaign_keys` handling)
+            // rather than a new one.
+            ['slug' => 'lepe_plaze', 'en' => 'Great beaches', 'sr' => 'Lepe plaže', 'meta' => ['campaign_keys' => ['kasno-letovanje', 'zimsko-sunce']]],
             // Owner's ask, 2026-08-13 ("za Couple nemamo ni jedan romanticarski index") —
             // relationship_type=par (Couple) suggests this. Deliberately no city/country tagging
             // pass for it yet (unlike food/wine/beach/exploration) — parked until real content
@@ -426,13 +466,31 @@ class WizardSeeder extends Seeder
             ['slug' => 'holiday_home', 'en' => 'Holiday home', 'sr' => 'Kuća za odmor', 'id' => 220, 'hotels' => 'VACATION_HOME'],
             ['slug' => 'guest_house', 'en' => 'Guest house', 'sr' => 'Gostinska kuća', 'id' => 216, 'hotels' => 'GUEST_HOUSE'],
             ['slug' => 'chalet', 'en' => 'Chalet', 'sr' => 'Šale', 'id' => 228, 'hotels' => 'CHALET'],
+            // Hotels.com-only, added 2026-09-17 from a real captured "Property type" filter
+            // sidebar (fieldset data-stid="lodging", Taormina search) — no 'id' (no real Booking
+            // ht_id observed for these yet, so booking_accommodation_type_ids stays absent rather
+            // than guessed; applyAccommodationTypePreferenceFilter's flatMap already tolerates a
+            // missing key, so these simply contribute nothing to a Booking-side search).
+            ['slug' => 'bed_and_breakfast', 'en' => 'Bed & breakfast', 'sr' => 'Prenoćište sa doručkom', 'hotels' => 'BED_AND_BREAKFAST'],
+            ['slug' => 'resort', 'en' => 'Resort', 'sr' => 'Resort', 'hotels' => 'HOTEL_RESORT'],
+            ['slug' => 'aparthotel', 'en' => 'Aparthotel', 'sr' => 'Aparthotel', 'hotels' => 'APART_HOTEL'],
+            ['slug' => 'inn', 'en' => 'Inn', 'sr' => 'Gostionica', 'hotels' => 'INN'],
+            ['slug' => 'farma', 'en' => 'Farm stay', 'sr' => 'Boravak na farmi', 'hotels' => 'AGRITOURISM'],
+            ['slug' => 'townhouse', 'en' => 'Townhouse', 'sr' => 'Gradska kuća', 'hotels' => 'TOWNHOUSE'],
+            ['slug' => 'country_house', 'en' => 'Country house', 'sr' => 'Seoska kuća', 'hotels' => 'COUNTRY_HOUSE'],
+            ['slug' => 'condo', 'en' => 'Condo', 'sr' => 'Kondominijum', 'hotels' => 'CONDO'],
+            ['slug' => 'holiday_park', 'en' => 'Holiday park', 'sr' => 'Odmarališni park', 'hotels' => 'HOLIDAY_PARK'],
+            ['slug' => 'residence', 'en' => 'Residence', 'sr' => 'Rezidencija', 'hotels' => 'RESIDENCE'],
         ];
         foreach ($tipSmestaja as $i => $item) {
-            $this->node('tip_smestaja', $item['slug'], $item['en'], $item['sr'], $i, [
-                'booking_accommodation_type_ids' => [$item['id']],
+            $meta = [
                 'hotels_lodging_type_ids' => [$item['hotels']],
                 'source' => 'manual_website',
-            ]);
+            ];
+            if (isset($item['id'])) {
+                $meta['booking_accommodation_type_ids'] = [$item['id']];
+            }
+            $this->node('tip_smestaja', $item['slug'], $item['en'], $item['sr'], $i, $meta);
         }
 
         // "Entire homes & apartments" — owner's ask, 2026-09-02, real DOM capture
@@ -447,47 +505,73 @@ class WizardSeeder extends Seeder
         ]);
 
         // hotelfacility — property-level amenities (filters.accommodation_facilities).
+        // `hotels` key, 2026-09-18 — Hotels.com's own `amenities=` filter (HotelsComFilters::
+        // AMENITIES), confirmed directly against a real captured filter-sidebar HTML export
+        // (data/sidebar.html, owner's own live page save) rather than guessed. Only the clean
+        // 1:1 matches got a value — usluga_u_sobu/recepcija_24h/sobe_za_nepusace/plaza/
+        // pristupacnost_kolica have no confirmed equivalent in that capture (pristupacnost_kolica
+        // is closest to Hotels.com's separate `accessibility=` filter family, but that's several
+        // more specific sub-values, not one generic "wheelchair accessible" — not force-fit here).
         $accommodationFacilities = [
-            ['slug' => 'bazen', 'en' => 'Swimming pool', 'sr' => 'Bazen', 'id' => 433],
-            ['slug' => 'plaza', 'en' => 'Beachfront', 'sr' => 'Na plaži', 'id' => 146],
-            ['slug' => 'parking', 'en' => 'Parking', 'sr' => 'Parking', 'id' => 2],
-            ['slug' => 'wifi', 'en' => 'Free WiFi', 'sr' => 'Besplatan WiFi', 'id' => 107],
-            ['slug' => 'spa', 'en' => 'Spa & wellness centre', 'sr' => 'Spa i wellness', 'id' => 54],
+            ['slug' => 'bazen', 'en' => 'Swimming pool', 'sr' => 'Bazen', 'id' => 433, 'hotels' => 'POOL'],
+            ['slug' => 'plaza', 'en' => 'Beachfront', 'sr' => 'Na plaži', 'id' => 146, 'hotelsBeach' => 'on_the_beach'],
+            ['slug' => 'parking', 'en' => 'Parking', 'sr' => 'Parking', 'id' => 2, 'hotels' => 'FREE_PARKING'],
+            ['slug' => 'wifi', 'en' => 'Free WiFi', 'sr' => 'Besplatan WiFi', 'id' => 107, 'hotels' => 'WIFI'],
+            ['slug' => 'spa', 'en' => 'Spa & wellness centre', 'sr' => 'Spa i wellness', 'id' => 54, 'hotels' => 'SPA_ON_SITE'],
             // Added 2026-08-13 from owner's own real "Facilities" filter-sidebar export —
             // curated to what's actually relevant for a family/couple beach trip (dropped
             // niche ones like EV charging from the same export).
-            ['slug' => 'restoran', 'en' => 'Restaurant', 'sr' => 'Restoran', 'id' => 3],
+            ['slug' => 'restoran', 'en' => 'Restaurant', 'sr' => 'Restoran', 'id' => 3, 'hotels' => 'RESTAURANT_IN_HOTEL'],
             ['slug' => 'usluga_u_sobu', 'en' => 'Room service', 'sr' => 'Usluga u sobu', 'id' => 5],
             ['slug' => 'recepcija_24h', 'en' => '24-hour front desk', 'sr' => 'Recepcija 24h', 'id' => 8],
-            ['slug' => 'teretana', 'en' => 'Fitness centre', 'sr' => 'Teretana', 'id' => 11],
+            ['slug' => 'teretana', 'en' => 'Fitness centre', 'sr' => 'Teretana', 'id' => 11, 'hotels' => 'GYM'],
             ['slug' => 'sobe_za_nepusace', 'en' => 'Non-smoking rooms', 'sr' => 'Sobe za nepušače', 'id' => 16],
-            ['slug' => 'aerodromski_prevoz', 'en' => 'Airport shuttle', 'sr' => 'Prevoz od aerodroma', 'id' => 17],
-            ['slug' => 'djakuzi', 'en' => 'Hot tub/Jacuzzi', 'sr' => 'Džakuzi', 'id' => 63],
+            ['slug' => 'aerodromski_prevoz', 'en' => 'Airport shuttle', 'sr' => 'Prevoz od aerodroma', 'id' => 17, 'hotels' => 'FREE_AIRPORT_TRANSPORTATION'],
+            ['slug' => 'djakuzi', 'en' => 'Hot tub/Jacuzzi', 'sr' => 'Džakuzi', 'id' => 63, 'hotels' => 'HOT_TUB'],
             ['slug' => 'pristupacnost_kolica', 'en' => 'Wheelchair accessible', 'sr' => 'Pristupačno kolicima', 'id' => 185],
         ];
         foreach ($accommodationFacilities as $i => $item) {
-            $this->node('accommodation_facility', $item['slug'], $item['en'], $item['sr'], $i, [
+            $meta = [
                 'booking_facility_id' => $item['id'],
                 'source' => 'manual_website',
-            ]);
+            ];
+            if (isset($item['hotels'])) {
+                $meta['hotels_amenity_id'] = $item['hotels'];
+            }
+            if (isset($item['hotelsBeach'])) {
+                $meta['hotels_beach_access_id'] = $item['hotelsBeach'];
+            }
+            $this->node('accommodation_facility', $item['slug'], $item['en'], $item['sr'], $i, $meta);
         }
 
         // roomfacility — room-level amenities (filters.room_facilities).
+        // `hotels`/`hotelsView` keys, 2026-09-18 — same real capture as accommodation_facility
+        // above (data/sidebar.html). Hotels.com splits this across TWO separate query params —
+        // `room_amenities_group=` (HotelsComFilters::ROOM_AMENITIES) for a physical feature,
+        // `room_views_group=` (HotelsComFilters::ROOM_VIEWS) for a view — so a view-type slug
+        // gets `hotelsView` instead of `hotels`. `vesmasina` is the one cross-category case:
+        // Hotels.com only has washer/dryer as a PROPERTY-level amenity (WASHER_DRYER), not a
+        // room-level one, despite living under room_facility in our own taxonomy — so it gets
+        // `hotels` pointing at an `amenities=` value like accommodation_facility items do, not
+        // `hotels_room_amenity_id`. `aparat_kafa_caj`/`aparat_caj_kafa` are a pre-existing
+        // duplicate pair (both mean "coffee/tea maker") — mapped identically rather than fixed,
+        // not this task's concern. Everything else below with no `hotels`/`hotelsView` key has
+        // no confirmed equivalent in the capture — left absent, not guessed.
         $roomFacilities = [
-            ['slug' => 'klima', 'en' => 'Air conditioning', 'sr' => 'Klima', 'id' => 11],
-            ['slug' => 'privatno_kupatilo', 'en' => 'Private bathroom', 'sr' => 'Privatno kupatilo', 'id' => 38],
-            ['slug' => 'privatni_bazen', 'en' => 'Private pool', 'sr' => 'Privatni bazen', 'id' => 93],
-            ['slug' => 'pogled_na_more', 'en' => 'Sea view', 'sr' => 'Pogled na more', 'id' => 108],
-            ['slug' => 'balkon', 'en' => 'Balcony', 'sr' => 'Balkon', 'id' => 17],
+            ['slug' => 'klima', 'en' => 'Air conditioning', 'sr' => 'Klima', 'id' => 11, 'hotelsRoom' => 'ra_air_conditioning'],
+            ['slug' => 'privatno_kupatilo', 'en' => 'Private bathroom', 'sr' => 'Privatno kupatilo', 'id' => 38, 'hotelsRoom' => 'ra_private_bathroom'],
+            ['slug' => 'privatni_bazen', 'en' => 'Private pool', 'sr' => 'Privatni bazen', 'id' => 93, 'hotelsRoom' => 'ra_private_pool'],
+            ['slug' => 'pogled_na_more', 'en' => 'Sea view', 'sr' => 'Pogled na more', 'id' => 108, 'hotelsView' => 'ocean_room_view'],
+            ['slug' => 'balkon', 'en' => 'Balcony', 'sr' => 'Balkon', 'id' => 17, 'hotelsRoom' => 'ra_balcony_patio'],
             // Added 2026-08-13 from owner's own real "Room facilities" filter-sidebar export —
             // curated (dropped niche ones from the same export: Fax, Game console, Reading
             // light, Privacy curtain, Pool cover, Yukata, room-level Hot tub — already have the
             // property-level Jacuzzi in accommodation_facility, a second near-duplicate would
             // just be confusing pill choice).
-            ['slug' => 'kuhinja', 'en' => 'Kitchen/kitchenette', 'sr' => 'Kuhinja', 'id' => 999],
-            ['slug' => 'vesmasina', 'en' => 'Washing machine', 'sr' => 'Veš mašina', 'id' => 34],
-            ['slug' => 'frizider', 'en' => 'Refrigerator', 'sr' => 'Frižider', 'id' => 22],
-            ['slug' => 'terasa', 'en' => 'Terrace', 'sr' => 'Terasa', 'id' => 123],
+            ['slug' => 'kuhinja', 'en' => 'Kitchen/kitchenette', 'sr' => 'Kuhinja', 'id' => 999, 'hotelsRoom' => 'ra_kitchen'],
+            ['slug' => 'vesmasina', 'en' => 'Washing machine', 'sr' => 'Veš mašina', 'id' => 34, 'hotels' => 'WASHER_DRYER'],
+            ['slug' => 'frizider', 'en' => 'Refrigerator', 'sr' => 'Frižider', 'id' => 22, 'hotelsRoom' => 'ra_refrigerator'],
+            ['slug' => 'terasa', 'en' => 'Terrace', 'sr' => 'Terasa', 'id' => 123, 'hotelsRoom' => 'ra_balcony_patio'],
             // Added 2026-08-24 from another owner "Room facilities" export. Deliberately NOT
             // curated down this time — owner's correction, same day: earlier drops (Toilet,
             // Towels, Linen, Hairdryer, TV, Ironing facilities, ...) as "near-universal, doesn't
@@ -501,27 +585,37 @@ class WizardSeeder extends Seeder
             ['slug' => 'flat_tv', 'en' => 'Flat-screen TV', 'sr' => 'TV sa ravnim ekranom', 'id' => 75],
             ['slug' => 'kuvalo_za_vodu', 'en' => 'Electric kettle', 'sr' => 'Kuvalo za vodu', 'id' => 86],
             ['slug' => 'toalet', 'en' => 'Toilet', 'sr' => 'Toalet', 'id' => 31],
-            ['slug' => 'aparat_kafa_caj', 'en' => 'Coffee/tea maker', 'sr' => 'Aparat za kafu/čaj', 'id' => 998],
+            ['slug' => 'aparat_kafa_caj', 'en' => 'Coffee/tea maker', 'sr' => 'Aparat za kafu/čaj', 'id' => 998, 'hotelsRoom' => 'ra_coffee_tea_maker'],
             ['slug' => 'televizor', 'en' => 'TV', 'sr' => 'Televizor', 'id' => 8],
             ['slug' => 'peskiri', 'en' => 'Towels', 'sr' => 'Peškiri', 'id' => 124],
-            ['slug' => 'kamin', 'en' => 'Fireplace', 'sr' => 'Kamin', 'id' => 71],
-            ['slug' => 'pogled_na_planinu', 'en' => 'Mountain view', 'sr' => 'Pogled na planinu', 'id' => 112],
+            ['slug' => 'kamin', 'en' => 'Fireplace', 'sr' => 'Kamin', 'id' => 71, 'hotelsRoom' => 'ra_fireplace'],
+            ['slug' => 'pogled_na_planinu', 'en' => 'Mountain view', 'sr' => 'Pogled na planinu', 'id' => 112, 'hotelsView' => 'mountain_room_view'],
             ['slug' => 'posteljina', 'en' => 'Linen', 'sr' => 'Posteljina', 'id' => 125],
             ['slug' => 'bazen_sa_pogledom', 'en' => 'Pool with a view', 'sr' => 'Bazen sa pogledom', 'id' => 159],
             ['slug' => 'zvucna_izolacija', 'en' => 'Soundproofing', 'sr' => 'Zvučna izolacija', 'id' => 79],
             ['slug' => 'grejanje', 'en' => 'Heating', 'sr' => 'Grejanje', 'id' => 40],
             ['slug' => 'basta_namestaj', 'en' => 'Outdoor furniture', 'sr' => 'Baštenski nameštaj', 'id' => 129],
-            ['slug' => 'aparat_caj_kafa', 'en' => 'Tea/Coffee maker', 'sr' => 'Aparat za čaj/kafu', 'id' => 1],
+            ['slug' => 'aparat_caj_kafa', 'en' => 'Tea/Coffee maker', 'sr' => 'Aparat za čaj/kafu', 'id' => 1, 'hotelsRoom' => 'ra_coffee_tea_maker'],
             ['slug' => 'peskiri_bazen', 'en' => 'Pool towels', 'sr' => 'Peškiri za bazen', 'id' => 163],
             ['slug' => 'fen', 'en' => 'Hairdryer', 'sr' => 'Fen', 'id' => 12],
             ['slug' => 'toalet_papir', 'en' => 'Toilet paper', 'sr' => 'Toalet papir', 'id' => 141],
             ['slug' => 'pegla', 'en' => 'Ironing facilities', 'sr' => 'Pegla', 'id' => 25],
         ];
         foreach ($roomFacilities as $i => $item) {
-            $this->node('room_facility', $item['slug'], $item['en'], $item['sr'], $i, [
+            $meta = [
                 'booking_facility_id' => $item['id'],
                 'source' => 'manual_website',
-            ]);
+            ];
+            if (isset($item['hotels'])) {
+                $meta['hotels_amenity_id'] = $item['hotels'];
+            }
+            if (isset($item['hotelsRoom'])) {
+                $meta['hotels_room_amenity_id'] = $item['hotelsRoom'];
+            }
+            if (isset($item['hotelsView'])) {
+                $meta['hotels_room_view_id'] = $item['hotelsView'];
+            }
+            $this->node('room_facility', $item['slug'], $item['en'], $item['sr'], $i, $meta);
         }
 
         // stay_type — new real Booking filter category, first mapped 2026-08-24 (owner's own
@@ -602,9 +696,35 @@ class WizardSeeder extends Seeder
         // Region theme nodes — thematic groupings, root level, tag-matched against trip_type
         // via taxonomy_node_relations (see seedRelations), not meta tags.
         $themes = [
-            'istocna_evropa' => ['en' => 'Eastern Europe', 'sr' => 'Istočna Evropa'],
+            // Relabeled 2026-09-17 (owner's catch: "Austrija nije eastern") — slug stays
+            // 'istocna_evropa' (unchanged, so kasno_kupanje/zimsko_sunce/jesenji_gradski_bek's
+            // excludes relations keep working by identity, not by name), but the real membership
+            // is Czech/Hungary/Austria (Romania planned to join later, per kampanje.md's
+            // "Srednja Evropa" macroregion row) — "Eastern Europe" never fit Austria, "Central
+            // Europe" does. Owner's explicit correction, same session: NOT merged with
+            // zapadna_evropa/Belgium below — "istočna je Rumunija/Bugarska/Ukrajina [gde nemamo
+            // ništa], Zapadna je Belgija, ostalo (Češka/Mađarska/[buduća Rumunija]) je Srednja."
+            'istocna_evropa' => ['en' => 'Central Europe', 'sr' => 'Srednja Evropa'],
             'zapadna_evropa' => ['en' => 'Western Europe', 'sr' => 'Zapadna Evropa'],
-            'anticki_svet' => ['en' => 'Ancient world', 'sr' => 'Antički svet'],
+            // Relabeled 2026-09-17 (owner's catch: "ancient world zaebi... prastari koncept") —
+            // slug/parent_id/children deliberately UNTOUCHED (Italy/Greece's real parent_id
+            // still points here — see kampanje.md's OPASNOST note: a literal delete would orphan
+            // both countries and everything under them, including kasno-letovanje's real swim
+            // cities). Kept as its OWN separate neutral label rather than merged into
+            // 'istocna_evropa' above — kasno_kupanje deliberately does NOT exclude this node
+            // (Italy/Greece must stay visible to it), unlike istocna_evropa which it excludes
+            // wholesale; merging would incorrectly hide Italy/Greece from kasno-letovanje.
+            // Owner's own bigger idea, noted for later (kampanje.md), not built now: a genuinely
+            // THEMATIC region step later ("Ancient", "Medieval", "Mystery", "Mountains"...)
+            // instead of any geographic grouping at all, matched to persona rather than compass
+            // direction.
+            'anticki_svet' => ['en' => 'Timeless capitals', 'sr' => 'Bezvremenske prestonice'],
+            // Jesenjovanje's first real macro-region, 2026-09-17 — see kampanje.md's
+            // "region_group" macroregion table (Balkan row: Serbia/Bosnia/N.Macedonia at the
+            // country level, one relation per country, no per-city work needed later). Built
+            // bottom-up from the actual researched city list (kampanje.md's "Balkan gurmanski
+            // klaster"), not invented top-down — the owner's explicit call this session.
+            'balkan' => ['en' => 'Balkans', 'sr' => 'Balkan'],
         ];
 
         $themeNodes = [];
@@ -631,11 +751,39 @@ class WizardSeeder extends Seeder
                 'en' => 'Greece', 'sr' => 'Grčka', 'parent' => 'anticki_svet',
                 'meta' => ['best_seasons' => ['summer'], 'atmosphere' => ['opusteno', 'anticko'], 'food' => ['dobra_hrana']],
             ],
-            // Not a destination theme fit (no cuisine/atmosphere tags) — exists purely to carry
-            // the home_city_id example (Beograd) for the distance-from-home mechanism.
+            // Real Jesenjovanje destination now, 2026-09-17 (was previously just the home_city_id
+            // example, no destination tags) — moved from istocna_evropa to the new balkan
+            // region_theme, real tags per the owner's explicit ask ("jeftino, dobro vino dobro
+            // pivo, kafa se pije"). iso_code powers the flag icon (see countryFlagUrlFor()).
             'srbija' => [
-                'en' => 'Serbia', 'sr' => 'Srbija', 'parent' => 'istocna_evropa',
-                'meta' => [],
+                'en' => 'Serbia', 'sr' => 'Srbija', 'parent' => 'balkan',
+                'meta' => ['atmosphere' => ['zivahno', 'istorijski'], 'drinks' => ['pivo', 'vino', 'kafa'], 'food' => ['dobra_hrana'], 'budget' => ['jeftino'], 'iso_code' => 'RS'],
+            ],
+            // New, 2026-09-17 — kampanje.md's "Balkan gurmanski klaster". Ottoman-era old town
+            // (Baščaršija), real Bosnian coffee-house culture.
+            'bosna' => [
+                'en' => 'Bosnia and Herzegovina', 'sr' => 'Bosna i Hercegovina', 'parent' => 'balkan',
+                'meta' => ['atmosphere' => ['istorijski'], 'drinks' => ['kafa'], 'food' => ['dobra_hrana'], 'budget' => ['jeftino'], 'iso_code' => 'BA'],
+            ],
+            // New, 2026-09-17 — same batch. Real Tikveš wine region backs the 'vino' tag, not a
+            // guess.
+            'makedonija' => [
+                'en' => 'North Macedonia', 'sr' => 'Severna Makedonija', 'parent' => 'balkan',
+                'meta' => ['atmosphere' => ['istorijski'], 'drinks' => ['vino', 'kafa'], 'food' => ['dobra_hrana'], 'budget' => ['jeftino'], 'iso_code' => 'MK'],
+            ],
+            // New, 2026-09-17 — real-tested tonight via Hotels.com (see toHotelsUrl() live test,
+            // Budapest search). Kept under istocna_evropa alongside Czech rather than a dedicated
+            // macro-region — kampanje.md's own table marks Hungary as "well-known individually,
+            // no macro-region needed", same as Austria/Italy/Greece/Czech/Malta.
+            'madjarska' => [
+                'en' => 'Hungary', 'sr' => 'Mađarska', 'parent' => 'istocna_evropa',
+                'meta' => ['atmosphere' => ['istorijski', 'zivahno'], 'drinks' => ['vino'], 'food' => ['dobra_hrana'], 'iso_code' => 'HU'],
+            ],
+            // New, 2026-09-17 — same real-tested-tonight batch (Vienna). Vienna's coffee-house
+            // culture is UNESCO-listed intangible heritage — real, not a guess.
+            'austrija' => [
+                'en' => 'Austria', 'sr' => 'Austrija', 'parent' => 'istocna_evropa',
+                'meta' => ['atmosphere' => ['istorijski', 'kulturno'], 'drinks' => ['kafa'], 'food' => ['dobra_hrana'], 'iso_code' => 'AT'],
             ],
         ];
 
@@ -675,8 +823,29 @@ class WizardSeeder extends Seeder
                 'local_stores' => ['avg_store_beer_eur' => 1.2, 'avg_meat_price_eur_kg' => 9, 'avg_cigarettes_pack_eur' => 5, 'priced_at' => '2026-07-13', 'source' => 'manual_estimate'],
                 'transport' => ['avg_public_transport_ticket_eur' => 1.4, 'priced_at' => '2026-07-13', 'source' => 'manual_estimate'],
             ]],
-            // Home-city example, not a destination — see 'srbija' country above.
-            'beograd' => ['en' => 'Belgrade', 'sr' => 'Beograd', 'parent' => 'srbija', 'meta' => ['lat' => 44.7866, 'lng' => 20.4489]],
+            // Real Jesenjovanje destination now, 2026-09-17 (was previously just the home_city_id
+            // example with only lat/lng) — real tags added: Belgrade's river-club (splavovi)
+            // nightlife scene is a genuine, well-known reputation, not a guess. Strongest
+            // logistics in the whole Balkan cluster (36 flights/week from Vienna, direct
+            // Frankfurt/Munich via Lufthansa — see kampanje.md).
+            'beograd' => ['en' => 'Belgrade', 'sr' => 'Beograd', 'parent' => 'srbija', 'meta' => ['atmosphere' => ['zivahno', 'nocni_zivot'], 'drinks' => ['pivo'], 'budget' => ['jeftino'], 'lat' => 44.7866, 'lng' => 20.4489]],
+            // New, 2026-09-17 — no own airport (day trip from Belgrade, same model as
+            // Brašov/Bucharest — see kampanje.md), still a real, selectable city_region.
+            'novi_sad' => ['en' => 'Novi Sad', 'sr' => 'Novi Sad', 'parent' => 'srbija', 'meta' => ['atmosphere' => ['zivahno'], 'budget' => ['jeftino'], 'lat' => 45.2671, 'lng' => 19.8335]],
+            // New, 2026-09-17 — Niš Fortress, real Roman heritage (Constantine the Great's
+            // birthplace) backs the 'istorijski' tag.
+            'nis' => ['en' => 'Niš', 'sr' => 'Niš', 'parent' => 'srbija', 'meta' => ['atmosphere' => ['istorijski'], 'budget' => ['jeftino'], 'lat' => 43.3209, 'lng' => 21.8958]],
+            // New, 2026-09-17 — Ottoman-era Baščaršija old town.
+            'sarajevo' => ['en' => 'Sarajevo', 'sr' => 'Sarajevo', 'parent' => 'bosna', 'meta' => ['atmosphere' => ['istorijski'], 'food' => ['dobra_hrana'], 'budget' => ['jeftino'], 'lat' => 43.8563, 'lng' => 18.4131]],
+            // New, 2026-09-17.
+            'skoplje' => ['en' => 'Skopje', 'sr' => 'Skoplje', 'parent' => 'makedonija', 'meta' => ['atmosphere' => ['istorijski'], 'budget' => ['jeftino'], 'lat' => 41.9973, 'lng' => 21.4280]],
+            // New, 2026-09-17 — UNESCO-listed lake town.
+            'ohrid' => ['en' => 'Ohrid', 'sr' => 'Ohrid', 'parent' => 'makedonija', 'meta' => ['atmosphere' => ['istorijski'], 'budget' => ['jeftino'], 'lat' => 41.1231, 'lng' => 20.8016]],
+            // New, 2026-09-17 — real-tested tonight via Hotels.com. "Ruin bar" nightlife
+            // (Szimpla Kert and the like) is a genuine, famous Budapest phenomenon.
+            'budimpesta' => ['en' => 'Budapest', 'sr' => 'Budimpešta', 'parent' => 'madjarska', 'meta' => ['atmosphere' => ['istorijski', 'nocni_zivot'], 'lat' => 47.4979, 'lng' => 19.0402]],
+            // New, 2026-09-17 — real-tested tonight via Hotels.com.
+            'bec' => ['en' => 'Vienna', 'sr' => 'Beč', 'parent' => 'austrija', 'meta' => ['atmosphere' => ['istorijski', 'kulturno'], 'drinks' => ['kafa'], 'lat' => 48.2082, 'lng' => 16.3738]],
         ];
 
         foreach ($cities as $slug => $city) {
@@ -2144,7 +2313,15 @@ class WizardSeeder extends Seeder
                 ['key' => 'budget_tier', 'en' => 'What is your budget per night?', 'sr' => 'Koji ti je budžet po noćenju?', 'input_type' => 'taxonomy_choice', 'taxonomy_type' => 'budget_tier', 'session_field' => 'budget_tier_id', 'allow_free_text' => true],
             ]],
             ['key' => 'zemlja_regija', 'en' => 'Country / region', 'sr' => 'Zemlja / regija', 'questions' => [
-                ['key' => 'region_theme', 'en' => 'Which part of the world interests you?', 'sr' => 'Koji deo sveta te zanima?', 'input_type' => 'taxonomy_choice', 'taxonomy_type' => 'region_theme', 'session_field' => 'free_text_answers.region_theme', 'allow_free_text' => true],
+                // Multi-select, 2026-09-18 (owner's ask) — was taxonomy_choice/bare-string
+                // "region_theme", single-select and hard-gating country_region (pick one region
+                // FIRST, then countries within it). Owner's correction: region and country are
+                // PEER, simultaneous choices — "region nije uzrok da se izabere zemlja... vise
+                // regija mogu da budu izabrane... regije i zemlje istovremeno". See wizard.ts's
+                // combinedDestinationGroups()/effectiveCountryIds() for how the two now merge
+                // into one rendered grid with a client-side union, and
+                // SearchSession::selectedTaxonomyNodeIds() for the new array resolution.
+                ['key' => 'region_theme', 'en' => 'Which part of the world interests you?', 'sr' => 'Koji deo sveta te zanima?', 'input_type' => 'taxonomy_multi_choice', 'taxonomy_type' => 'region_theme', 'session_field' => 'free_text_answers.region_theme_ids', 'allow_free_text' => true],
                 // Multi-select, 2026-08-12 (owner's ask) — was taxonomy_choice/country_region_id
                 // (single FK). Nothing downstream of city selection actually reads country_region_id
                 // directly (booking/budget/cultural-availability all derive country from the
@@ -2241,6 +2418,17 @@ class WizardSeeder extends Seeder
                 // 2026-08-29 (the real Saturday) instead.
                 'season_start_date' => '2026-08-29',
                 'season_end_date' => '2026-11-01',
+                // Switched from Booking to Hotels.com, 2026-09-18 — owner's decision: CJ
+                // (Commission Junction) affiliate account cancelled outright ("gasim CJ nalog"),
+                // Booking dropped from every campaign, not just the newer Hotels.com-native
+                // ones. This campaign's real, extensively-researched prices were sourced from
+                // Booking.com screenshots specifically (see the punch-list note in CLAUDE.md §8)
+                // — those EUR figures still drive budget-fit filtering as an estimate, they were
+                // never Booking-exclusive numbers, just researched on that site. Real
+                // Hotels.com-specific price verification is future work, not a blocker for this
+                // switch (same "estimate, not guessed from nothing" standard as every other
+                // unverified-but-reasonable number in this codebase).
+                'meta' => ['provider' => 'hotels_com'],
             ],
         );
 
@@ -2356,6 +2544,119 @@ class WizardSeeder extends Seeder
             $winterSyncData[$question->id] = ['sort_order' => $i];
         }
         $winterCampaign->questions()->sync($winterSyncData);
+
+        // "Jesenjovanje" — third themed entry point, 2026-09-17. This is the campaign
+        // WizardCampaign::provider()'s own docblock already names as the real Hotels.com test
+        // bed ("kasno-letovanje (Booking) and Jesenjovanje (Hotels.com) run side by side"), and
+        // the reason toHotelsUrl()/wrapWithHotelsAffiliateTracking() exist at all — see
+        // config/services.php's 'expedia' block. Presets termin_category=vikend_break (a city
+        // break IS a weekend trip — reuses the existing generic "Weekend break" node rather than
+        // inventing a new termin_category), same "preset it, skip asking it" shape as the two
+        // campaigns above.
+        //
+        // Bug caught + fixed same day: originally also tried presetting `trip_type: city_break`
+        // here to reuse its existing excludes(termin_category: letovanje/zimovanje) relation —
+        // but SearchSession's real column is `trip_type_id` (an FK to a resolved node ID), not a
+        // `trip_type` slug string. `$session->fill($campaign->preset_answers)` silently dropped
+        // the unknown key — no error, no effect, the exclusion never actually ran. Turned out not
+        // to matter: termin_category is ALREADY directly preset below and never rendered as a
+        // question, so letovanje/zimovanje were never reachable here anyway. Removed rather than
+        // fixed with a real resolved ID — it wasn't adding anything.
+        //
+        // Switched to its own dedicated termin_category (`jesenji_gradski_bek`), 2026-09-17,
+        // replacing the generic `vikend_break` preset this started with — see that
+        // termin_category's own docblock in seedTerminCategories() for why (needed real excludes
+        // relations, seeded below, which a shared generic category can't safely carry).
+        //
+        // Real destinations built so far, 2026-09-17: Prague/Bruges (old demo, istocna_evropa/
+        // zapadna_evropa) + Rome/Athens (anticki_svet, predate this campaign) + the new Balkan
+        // region_theme (Serbia/Bosnia/N.Macedonia) + Hungary/Austria (istocna_evropa) — built
+        // bottom-up from kampanje.md's researched city list, not the full ~73-city roster yet.
+        // season_start_date/season_end_date deliberately left unset — no real per-week pricing
+        // research has started, same "absent, not guessed" convention as everywhere else.
+        $autumnCampaign = WizardCampaign::updateOrCreate(
+            ['key' => 'jesenjovanje'],
+            [
+                'label' => 'Jesenjovanje',
+                'landing_headline' => 'Kratak gradski bek pre zime',
+                'preset_answers' => ['termin_category' => 'jesenji_gradski_bek'],
+                'is_active' => true,
+                'sort_order' => 2,
+                'meta' => ['provider' => 'hotels_com'],
+            ],
+        );
+
+        $autumnQuestionKeys = [
+            // Same shape as the winter campaign's list above, minus region_theme's own reasoning
+            // (kept here too — Jesenjovanje's eventual real geography will span multiple region
+            // themes, same "which part of the world" scoping zimsko-sunce uses).
+            'adults_count', 'children_ages', 'needs_crib', 'number_of_rooms', 'group_type', 'relationship_type',
+            'home_city',
+            'meal_style', 'date_range',
+            'total_budget',
+            'persona', 'persona_group',
+            'preference_tags', 'accommodation_type_preference',
+            'amenities_yes', 'amenities_no',
+            'smestaj_preference', 'smestaj_avoid',
+            'region_theme', 'country_region',
+            'city',
+        ];
+
+        $autumnSyncData = [];
+        foreach ($autumnQuestionKeys as $i => $key) {
+            $question = WizardQuestion::where('key', $key)->firstOrFail();
+            $autumnSyncData[$question->id] = ['sort_order' => $i];
+        }
+        $autumnCampaign->questions()->sync($autumnSyncData);
+    }
+
+    /**
+     * Positive destination membership for the 3 real campaigns, 2026-09-18 — see
+     * GeographyResolver::filterByCampaignOwnership's docblock for the full ownership/
+     * reachability rules this pivot drives. Translates each campaign's current de-facto
+     * excludes-based scoping into explicit rows — excludes() relations (seedRelations, below)
+     * keep working as fine-grained carve-outs WITHIN whatever's attached here, unchanged.
+     *
+     * syncWithoutDetaching, NOT sync() — the owner manages these directly in Filament now
+     * (DestinationsRelationManager); a future db:seed run must never silently detach a row they
+     * added by hand.
+     */
+    private function seedCampaignDestinations(): void
+    {
+        $attach = function (string $campaignKey, array $pairs): void {
+            $campaign = WizardCampaign::where('key', $campaignKey)->firstOrFail();
+            $ids = collect($pairs)->map(
+                fn (array $p) => TaxonomyNode::where('type', $p[0])->where('slug', $p[1])->firstOrFail()->id
+            );
+            $campaign->destinations()->syncWithoutDetaching($ids);
+        };
+
+        // kasno-letovanje: region_theme level. Existing `excludes country hrvatska` / `excludes
+        // city atina/rim` (seedRelations, below) keep carving those out on top, unchanged.
+        $attach('kasno-letovanje', [
+            ['region_theme', 'mediteran'],
+            ['region_theme', 'anticki_svet'],
+        ]);
+
+        // zimsko-sunce: region_theme level only. Existing `excludes country hrvatska` stays
+        // (harmless either way — hrvatska is parentless, unreachable via cascade regardless).
+        $attach('zimsko-sunce', [
+            ['region_theme', 'dalje_sunce'],
+        ]);
+
+        // jesenjovanje: region_theme level for its 3 real macro-regions, PLUS city-level for
+        // Rome/Athens specifically — deliberately NOT the whole `anticki_svet` theme or
+        // `italija`/`grcka` countries, so Italy/Greece become REACHABLE (selectable at the
+        // country/region_theme step, see filterByCampaignOwnership's "reachable" definition)
+        // without their real swim-city siblings (Taormina/Crete/...) leaking into
+        // Jesenjovanje's city step — no per-sibling exclude edge needed.
+        $attach('jesenjovanje', [
+            ['region_theme', 'istocna_evropa'],
+            ['region_theme', 'balkan'],
+            ['region_theme', 'zapadna_evropa'],
+            ['city', 'rim'],
+            ['city', 'atina'],
+        ]);
     }
 
     /**
@@ -2440,6 +2741,13 @@ class WizardSeeder extends Seeder
         // happens at the city level instead, one level down.
         $this->relate('termin_category', 'kasno_kupanje', 'excludes', 'region_theme', 'istocna_evropa');
         $this->relate('termin_category', 'kasno_kupanje', 'excludes', 'region_theme', 'zapadna_evropa');
+        // 'balkan' added 2026-09-17, same day the region_theme itself was created for
+        // Jesenjovanje (Serbia/Bosnia/N.Macedonia) — without this, the new Bosnia/N.Macedonia
+        // countries would leak into kasno-letovanje with nothing excluding them (Serbia alone was
+        // already covered by the direct country-level exclude below, which predates 'balkan' and
+        // still needs to stay — it's what makes Serbia's exclusion survive the region_theme
+        // remaining unexcluded before this line existed).
+        $this->relate('termin_category', 'kasno_kupanje', 'excludes', 'region_theme', 'balkan');
         $this->relate('termin_category', 'kasno_kupanje', 'excludes', 'country', 'ceska');
         $this->relate('termin_category', 'kasno_kupanje', 'excludes', 'country', 'belgija');
         $this->relate('termin_category', 'kasno_kupanje', 'excludes', 'country', 'srbija');
@@ -2463,10 +2771,23 @@ class WizardSeeder extends Seeder
         $this->relate('termin_category', 'zimsko_sunce', 'excludes', 'region_theme', 'zapadna_evropa');
         $this->relate('termin_category', 'zimsko_sunce', 'excludes', 'region_theme', 'anticki_svet');
         $this->relate('termin_category', 'zimsko_sunce', 'excludes', 'region_theme', 'mediteran');
+        // 'balkan' added 2026-09-17, same reasoning as kasno_kupanje's own exclude just above.
+        $this->relate('termin_category', 'zimsko_sunce', 'excludes', 'region_theme', 'balkan');
         // hrvatska has no parent region_theme at all (detached from mediteran 2026-08-19, see
         // seedSwimDestinations) — a region_theme-level exclude can't reach it, same reason
         // kasno_kupanje above needs its own direct country-level exclude for it too.
         $this->relate('termin_category', 'zimsko_sunce', 'excludes', 'country', 'hrvatska');
+
+        // "Jesenjovanje" themed entry point (2026-09-17, see seedTerminCategories'
+        // jesenji_gradski_bek docblock) — excludes the two swim-only region_themes, leaving
+        // istocna_evropa (Czech/Hungary/Austria), zapadna_evropa (Belgium), anticki_svet
+        // (Italy/Greece — Rome/Athens are legitimately fine for city-break, their swim-only
+        // sibling cities like Taormina are a KNOWN remaining gap, not fixed here — see
+        // kampanje.md), and balkan all visible. Caught live: without this, selecting e.g.
+        // "Mediterranean" for Jesenjovanje surfaced real swim countries (Spain/Turkey/Malta/...)
+        // that have zero city-break-curated content.
+        $this->relate('termin_category', 'jesenji_gradski_bek', 'excludes', 'region_theme', 'mediteran');
+        $this->relate('termin_category', 'jesenji_gradski_bek', 'excludes', 'region_theme', 'dalje_sunce');
 
         // weighted_toward proof examples — deliberately from persona/preference_tag, NOT
         // tip_smestaja (accommodation type is still unseeded, waiting on real Booking IDs, see
@@ -2585,6 +2906,7 @@ class WizardSeeder extends Seeder
                 'anticki_svet' => 'Antike Welt',
                 'mediteran' => 'Mittelmeerraum',
                 'dalje_sunce' => 'Ferne Sonne',
+                'balkan' => 'Balkan',
             ],
             'termin_category' => [
                 'letovanje' => 'Sommerurlaub',
@@ -2605,6 +2927,16 @@ class WizardSeeder extends Seeder
                 'holiday_home' => 'Ferienhaus',
                 'guest_house' => 'Gästehaus',
                 'chalet' => 'Chalet',
+                'bed_and_breakfast' => 'Bed & Breakfast',
+                'resort' => 'Resort',
+                'aparthotel' => 'Aparthotel',
+                'inn' => 'Gasthaus',
+                'farma' => 'Aufenthalt auf dem Bauernhof',
+                'townhouse' => 'Stadthaus',
+                'country_house' => 'Landhaus',
+                'condo' => 'Eigentumswohnung',
+                'holiday_park' => 'Ferienpark',
+                'residence' => 'Residenz',
             ],
             'accommodation_facility' => [
                 'bazen' => 'Schwimmbad',
@@ -2664,6 +2996,10 @@ class WizardSeeder extends Seeder
                 'srbija' => 'Serbien',
                 'zelenortska_ostrva' => 'Kap Verde',
                 'meksiko' => 'Mexiko',
+                'bosna' => 'Bosnien und Herzegowina',
+                'makedonija' => 'Nordmazedonien',
+                'madjarska' => 'Ungarn',
+                'austrija' => 'Österreich',
                 'dominikanska_republika' => 'Dominikanische Republik',
             ],
             // Only the handful with a real, well-known German exonym — everything else falls
@@ -2677,6 +3013,13 @@ class WizardSeeder extends Seeder
                 'krf' => 'Korfu',
                 'rodos' => 'Rhodos',
                 'krit' => 'Heraklion (Kreta)',
+                'novi_sad' => 'Novi Sad',
+                'nis' => 'Niš',
+                'sarajevo' => 'Sarajevo',
+                'skoplje' => 'Skopje',
+                'ohrid' => 'Ohrid',
+                'budimpesta' => 'Budapest',
+                'bec' => 'Wien',
             ],
         ];
 
@@ -2803,6 +3146,28 @@ class WizardSeeder extends Seeder
             $winterCampaign->translations()->updateOrCreate(
                 ['translatable_type' => WizardCampaign::class, 'translatable_id' => $winterCampaign->id, 'field' => 'landing_headline', 'locale' => 'en'],
                 ['value' => "Grey and cold at home? It's still summer over there", 'source_hash' => hash('crc32', (string) $winterCampaign->landing_headline), 'status' => 'human'],
+            );
+        }
+
+        // "Jesenjovanje" — same Serbian-canonical + EN/DE translation pattern as above. DRAFT for
+        // owner review, 2026-09-17 — same boundary as the other two campaigns' copy.
+        $autumnCampaign = WizardCampaign::where('key', 'jesenjovanje')->first();
+        if ($autumnCampaign) {
+            $autumnCampaign->translations()->updateOrCreate(
+                ['translatable_type' => WizardCampaign::class, 'translatable_id' => $autumnCampaign->id, 'field' => 'label', 'locale' => 'de'],
+                ['value' => 'Herbstflucht in die Stadt', 'source_hash' => hash('crc32', $autumnCampaign->label), 'status' => 'human'],
+            );
+            $autumnCampaign->translations()->updateOrCreate(
+                ['translatable_type' => WizardCampaign::class, 'translatable_id' => $autumnCampaign->id, 'field' => 'landing_headline', 'locale' => 'de'],
+                ['value' => 'Ein kurzer Städtetrip vor dem Winter', 'source_hash' => hash('crc32', (string) $autumnCampaign->landing_headline), 'status' => 'human'],
+            );
+            $autumnCampaign->translations()->updateOrCreate(
+                ['translatable_type' => WizardCampaign::class, 'translatable_id' => $autumnCampaign->id, 'field' => 'label', 'locale' => 'en'],
+                ['value' => 'Autumn City Break', 'source_hash' => hash('crc32', $autumnCampaign->label), 'status' => 'human'],
+            );
+            $autumnCampaign->translations()->updateOrCreate(
+                ['translatable_type' => WizardCampaign::class, 'translatable_id' => $autumnCampaign->id, 'field' => 'landing_headline', 'locale' => 'en'],
+                ['value' => 'A short city getaway before winter', 'source_hash' => hash('crc32', (string) $autumnCampaign->landing_headline), 'status' => 'human'],
             );
         }
     }

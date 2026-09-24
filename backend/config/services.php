@@ -59,12 +59,28 @@ return [
     'cj' => [
         'pid' => env('CJ_AFFILIATE_PID'),
         'link_id' => env('CJ_AFFILIATE_LINK_ID'),
-        // Separate pid/link_id pair, 2026-09-08 - Hotels.com is its own CJ advertiser/program
-        // (application submitted, not yet approved), not a parameter of the Booking.com one
-        // above. Blank until real values exist post-approval - see
-        // SearchSessionQueryCompiler::wrapWithHotelsAffiliateTracking()'s graceful fallback.
-        'hotels_pid' => env('CJ_HOTELS_AFFILIATE_PID'),
-        'hotels_link_id' => env('CJ_HOTELS_AFFILIATE_LINK_ID'),
+    ],
+
+    // Hotels.com/Expedia via the Expedia Group Travel Creator Program (creator.expediagroup.com),
+    // approved 2026-09-16 — a self-serve program entirely separate from CJ (whose own Hotels.com
+    // DACH listing rejected the application twice, 2026-09-06/14; see
+    // project_alternate_affiliate_cookie_options memory). NOT the same wrapping mechanism as
+    // Booking's CJ deep-link (`dpbolvw.net/click-{pid}-{linkId}`) — confirmed live 2026-09-17 via
+    // the Creator Hub's own "Link builder" tool: pasting any hotels.com search URL returns
+    // `https://www.hotels.com/affiliate?landingPage=<url-encoded url>&camref=X&creativeref=Y&adref=Z`.
+    // `camref`/`creativeref` were confirmed IDENTICAL across two independently-built links (Prague,
+    // Budapest) — account/campaign-level constants, same role as CJ's pid/link_id. `adref` differed
+    // between them, but reusing Prague's `adref` on a brand-new `landingPage` (Vienna, never entered
+    // into the Link builder at all) still correctly redirected to a live Vienna search with tracking
+    // preserved (visible in the landed page's `affdtl` param) — so all three are safe to hold as
+    // static config and stamp onto any dynamically-built destination URL, same "build once, works
+    // for any city forever" property as the Booking wrapper. Used by SearchSessionQueryCompiler::
+    // wrapWithHotelsAffiliateTracking() to wrap toHotelsUrl()'s output — falls back to the plain
+    // unwrapped URL if any of the three is unset, same "never break, just don't track" convention.
+    'expedia' => [
+        'camref' => env('EXPEDIA_AFFILIATE_CAMREF'),
+        'creativeref' => env('EXPEDIA_AFFILIATE_CREATIVEREF'),
+        'adref' => env('EXPEDIA_AFFILIATE_ADREF'),
     ],
 
 ];

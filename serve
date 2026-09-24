@@ -11,8 +11,8 @@ docker compose ps
 echo
 echo "==> Pristupne tačke"
 echo "  Wizard (frontend):     http://localhost:4837"
-echo "  Filament admin:        http://localhost:8000/admin  (admin@bss.test / password)"
-echo "  GraphQL endpoint:      http://localhost:8000/graphql"
+echo "  Filament admin:        http://localhost:8123/admin  (admin@bss.test / password)"
+echo "  GraphQL endpoint:      http://localhost:8123/graphql"
 echo
 
 echo "==> Frontend (Angular, port 4837) — Ctrl+C zaustavlja samo frontend, backend ostaje da radi"

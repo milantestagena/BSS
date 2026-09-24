@@ -39,5 +39,10 @@
              explicitly via config() when they actually want the wrapped shape. -->
         <env name="CJ_AFFILIATE_PID" value=""/>
         <env name="CJ_AFFILIATE_LINK_ID" value=""/>
+        <!-- Same forced-empty reasoning as CJ_AFFILIATE_* above, now that real Expedia values live
+             in local .env too (2026-09-17) -->
+        <env name="EXPEDIA_AFFILIATE_CAMREF" value=""/>
+        <env name="EXPEDIA_AFFILIATE_CREATIVEREF" value=""/>
+        <env name="EXPEDIA_AFFILIATE_ADREF" value=""/>
     </php>
 </phpunit>

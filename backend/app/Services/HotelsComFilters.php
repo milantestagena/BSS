@@ -88,22 +88,46 @@ class HotelsComFilters
         'ra_private_sauna',
     ];
 
-    /** name="room_views_group" — same beach-city-only caveat as ROOM_AMENITIES.
+    /** name="room_views_group" — same beach-city-only caveat as ROOM_AMENITIES. Extended
+     *  2026-09-18 (water/harbor/marina/vineyard/lagoon/golf/river/desert/canal added) from a
+     *  fresh full sidebar capture (data/sidebar.html) — the 2026-09-08 capture this constant
+     *  originally came from was a partial view.
      *  'ocean_room_view' is a real candidate for the swim/kasno-letovanje campaign specifically —
-     *  "room with an actual sea view", not just "near the beach". */
+     *  "room with an actual sea view", not just "near the beach". Wired in 2026-09-18 via
+     *  `room_facility.meta.hotels_room_view_id` (see WizardSeeder's `pogled_na_more`/
+     *  `pogled_na_planinu` rows) + SearchSessionQueryCompiler::applyHotelsAmenitiesFilter. */
     public const ROOM_VIEWS = [
         'ocean_room_view',
+        'water_room_view',
         'mountain_room_view',
         'bay_room_view',
+        'harbor_room_view',
         'park_room_view',
         'city_room_view',
+        'marina_room_view',
         'garden_room_view',
+        'vineyard_room_view',
         'courtyard_room_view',
+        'lagoon_room_view',
         'lake_room_view',
         'pool_room_view',
+        'river_room_view',
         'valley_room_view',
+        'desert_room_view',
+        'canal_room_view',
         'hill_room_view',
         'resort_room_view',
+        'golf_room_view',
+    ];
+
+    /** name="beach_access_group" — confirmed 2026-09-18 from the same full sidebar capture as
+     *  ROOM_VIEWS' extension (data/sidebar.html). 'on_the_beach' ("Nothing between you and the
+     *  sand") is the real candidate for our `accommodation_facility.plaza` ("Beachfront") slug —
+     *  genuinely relevant for the swim/kasno-letovanje campaign specifically, previously missed
+     *  entirely (this whole param family didn't appear in the original 2026-09-08 capture). */
+    public const BEACH_ACCESS = [
+        'near_the_beach',
+        'on_the_beach',
     ];
 
     /** name="lodging" — accommodation TYPE (Hotel, Apartment, Villa...). */

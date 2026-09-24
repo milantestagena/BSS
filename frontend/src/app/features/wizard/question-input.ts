@@ -171,9 +171,26 @@ export class QuestionInputComponent {
     this.valueChange.emit(current);
   }
 
+  /** Owner's ask, 2026-09-17: picking a start date should default the end date to the day right
+   *  after it, rather than leaving the traveler to set both manually — most trips are short here
+   *  (city breaks, weekend trips), so "the very next day" is a far more useful default than an
+   *  empty/stale end date. Only overwrites when the CURRENT end date wouldn't make sense against
+   *  the new start date (empty, or on/before it) — a real end date the traveler already
+   *  deliberately picked further out (e.g. a 5-night stay) is left untouched. Date-only math
+   *  (no time component in these 'Y-m-d' strings), constructed from local Y/M/D parts rather than
+   *  `new Date(isoString)` — the latter parses as UTC midnight, which can render one day off in a
+   *  timezone west of UTC once formatted back with local getters. */
   onDateFromChange(raw: string): void {
     const current = (this.value as [string, string]) || ['', ''];
-    this.valueChange.emit([raw, current[1]]);
+    const end = current[1] && current[1] > raw ? current[1] : this.addDays(raw, 1);
+    this.valueChange.emit([raw, end]);
+  }
+
+  private addDays(isoDate: string, days: number): string {
+    const [year, month, day] = isoDate.split('-').map(Number);
+    const date = new Date(year, month - 1, day + days);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
   }
 
   onDateToChange(raw: string): void {

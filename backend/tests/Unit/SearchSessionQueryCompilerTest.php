@@ -179,6 +179,87 @@ class SearchSessionQueryCompilerTest extends TestCase
         $this->assertStringContainsString(rawurlencode('ss=Antalya'), $url);
     }
 
+    public function test_hotels_url_wraps_with_expedia_affiliate_tracking_when_configured(): void
+    {
+        config([
+            'services.expedia.camref' => '1011l5Rti5',
+            'services.expedia.creativeref' => '1011l66481',
+            'services.expedia.adref' => 'PZCxJ9lYuQ',
+        ]);
+
+        $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'prag2', 'label' => 'Prague', 'sort_order' => 0]);
+        $session = SearchSession::create([
+            'status' => 'in_progress',
+            'city_id' => $city->id,
+            'date_from' => '2026-10-09',
+            'date_to' => '2026-10-12',
+            'adults_count' => 2,
+        ]);
+
+        $url = (new SearchSessionQueryCompiler($session))->toHotelsUrl();
+
+        $this->assertStringStartsWith('https://www.hotels.com/affiliate?landingPage=', $url);
+        $this->assertStringContainsString(rawurlencode('https://www.hotels.com/Hotel-Search?'), $url);
+        $this->assertStringContainsString(rawurlencode('destination=Prague'), $url);
+        $this->assertStringEndsWith('&camref=1011l5Rti5&creativeref=1011l66481&adref=PZCxJ9lYuQ', $url);
+    }
+
+    /** Real, owner-captured 2026-09-23 (a live "sort by price" click on Hotels.com's own results
+     *  page for the same city/dates) — not guessed. See toHotelsUrl()'s matching docblock. */
+    public function test_hotels_url_sorts_by_price_low_to_high_for_jeftino(): void
+    {
+        $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'alanija2', 'label' => 'Alanya', 'sort_order' => 0]);
+        $session = SearchSession::create([
+            'status' => 'in_progress',
+            'city_id' => $city->id,
+            'date_from' => '2026-10-10',
+            'date_to' => '2026-10-17',
+            'adults_count' => 2,
+            'free_text_answers' => ['preference_tags' => ['jeftino']],
+        ]);
+
+        $url = (new SearchSessionQueryCompiler($session))->toHotelsUrl();
+
+        $this->assertStringContainsString('sort=PRICE_LOW_TO_HIGH', $url);
+    }
+
+    /** Real, owner-captured 2026-09-23 (a live "quality over price" sort click, same city/dates as
+     *  the jeftino capture above) — not guessed. */
+    public function test_hotels_url_sorts_by_review_relevant_for_kvalitet(): void
+    {
+        $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'alanija3', 'label' => 'Alanya', 'sort_order' => 0]);
+        $session = SearchSession::create([
+            'status' => 'in_progress',
+            'city_id' => $city->id,
+            'date_from' => '2026-10-10',
+            'date_to' => '2026-10-17',
+            'adults_count' => 2,
+            'free_text_answers' => ['preference_tags' => ['kvalitet']],
+        ]);
+
+        $url = (new SearchSessionQueryCompiler($session))->toHotelsUrl();
+
+        $this->assertStringContainsString('sort=REVIEW_RELEVANT', $url);
+    }
+
+    /** Neither jeftino nor kvalitet picked -> no sort param at all, letting Hotels.com's own
+     *  default apply rather than guessing a third value that was never actually captured. */
+    public function test_hotels_url_omits_sort_when_neither_jeftino_nor_kvalitet_picked(): void
+    {
+        $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'alanija4', 'label' => 'Alanya', 'sort_order' => 0]);
+        $session = SearchSession::create([
+            'status' => 'in_progress',
+            'city_id' => $city->id,
+            'date_from' => '2026-10-10',
+            'date_to' => '2026-10-17',
+            'adults_count' => 2,
+        ]);
+
+        $url = (new SearchSessionQueryCompiler($session))->toHotelsUrl();
+
+        $this->assertStringNotContainsString('sort=', $url);
+    }
+
     public function test_booking_url_includes_repeated_age_params_for_each_child(): void
     {
         $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'antalija2', 'label' => 'Antalya', 'sort_order' => 0]);
@@ -579,6 +660,47 @@ class SearchSessionQueryCompilerTest extends TestCase
         // the 400 budget once food is correctly zeroed instead of added on top.
         $this->assertSame(210.0, $signals['budget']['accommodation_total_eur']);
         $this->assertSame('eating_out', $signals['budget']['fit']);
+
+        Carbon::setTestNow();
+    }
+
+    /** 2026-09-24 — the Honest Report's accommodation total must use the same quality-tier price
+     *  the wizard's own cards/budget filter use for a `kvalitet` session, not silently fall back
+     *  to the regular one. */
+    public function test_budget_signal_uses_quality_tier_price_for_kvalitet_sessions(): void
+    {
+        Carbon::setTestNow('2026-08-05');
+
+        $country = TaxonomyNode::create([
+            'type' => 'country', 'slug' => 'testland', 'label' => 'test', 'sort_order' => 0,
+            'meta' => ['hospitality' => ['avg_restaurant_meal_eur' => 10, 'avg_cafe_coffee_eur' => 2]],
+        ]);
+        $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'testgrad', 'label' => 'test', 'parent_id' => $country->id, 'sort_order' => 0]);
+        TaxonomyNode::create(['type' => 'termin_category', 'slug' => 'kasno_kupanje', 'label' => 'test', 'sort_order' => 0, 'meta' => ['window_start' => '09-20', 'default_duration_days' => 5]]);
+
+        $campaign = \App\Models\WizardCampaign::create([
+            'key' => 'testcamp', 'label' => 'test', 'is_active' => true, 'sort_order' => 0,
+            'season_start_date' => '2026-08-01', 'season_end_date' => '2026-10-01',
+        ]);
+        $priceRow = \App\Models\WizardCampaignDestinationPrice::create([
+            'wizard_campaign_id' => $campaign->id, 'taxonomy_node_id' => $city->id, 'price_per_person_eur' => 30,
+        ]);
+        // The default 7-night recommended stay (Sat Aug 8 -> Sat Aug 15) sits entirely in this one week.
+        \App\Models\WizardCampaignDestinationWeeklyPrice::create([
+            'wizard_campaign_destination_price_id' => $priceRow->id, 'week_start_date' => '2026-08-08',
+            'price_per_person_eur' => 30, 'quality_tier_price_per_person_eur' => 60,
+        ]);
+
+        $base = [
+            'status' => 'in_progress', 'wizard_campaign_id' => $campaign->id, 'termin_category' => 'kasno_kupanje',
+            'city_id' => $city->id, 'adults_count' => 2, 'total_budget' => 2000,
+        ];
+
+        $regular = SearchSession::create($base);
+        $quality = SearchSession::create($base + ['free_text_answers' => ['preference_tags' => ['kvalitet']]]);
+
+        $this->assertSame(210.0, (new SearchSessionQueryCompiler($regular))->toHonestReportSignals()['budget']['accommodation_total_eur']);
+        $this->assertSame(420.0, (new SearchSessionQueryCompiler($quality))->toHonestReportSignals()['budget']['accommodation_total_eur']);
 
         Carbon::setTestNow();
     }

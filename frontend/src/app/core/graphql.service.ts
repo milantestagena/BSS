@@ -20,7 +20,7 @@ const REQUEST_TIMEOUT_MS = 15000;
 // deploy note, 2026-08-06.
 const GRAPHQL_ENDPOINT =
   location.hostname === 'localhost' || location.hostname === '127.0.0.1'
-    ? 'http://127.0.0.1:8000/graphql'
+    ? 'http://127.0.0.1:8123/graphql'
     : '/graphql';
 
 interface GraphQLResponse<T> {

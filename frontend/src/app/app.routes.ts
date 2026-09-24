@@ -86,4 +86,32 @@ export const routes: Routes = [
       },
     },
   },
+  // Third themed campaign, 2026-09-17 — "Jesenjovanje" (Autumn city break), see backend
+  // WizardSeeder's seedWizardCampaigns()/kampanje.md. Same generic WizardComponent +
+  // data-driven campaignKey/intro mechanism as the two routes above. Path `/autumnbreak`
+  // mirrors the `/latesummer`/`/wintersun` naming convention ("fall" renamed to "autumn"
+  // the same day, owner's call — more standard English for a DACH/European audience). This is
+  // the campaign WizardCampaign::provider()'s own docblock names as the real Hotels.com test bed
+  // (meta.provider = 'hotels_com', see that campaign's seeder docblock) — running side by side
+  // with kasno-letovanje's Booking links for a real parallel comparison. Copy below is a DRAFT
+  // for owner review, not finalized marketing tone/voice (same boundary as the other two routes).
+  {
+    path: 'autumnbreak',
+    component: WizardComponent,
+    data: {
+      campaignKey: 'jesenjovanje',
+      intro: {
+        en: {
+          title: 'Craving a city getaway?',
+          subtitle: "Perfect weather for exploring, before it gets cold.\nFind your next favorite city.",
+          cta: 'Show me a city!',
+        },
+        de: {
+          title: 'Lust auf einen Städtetrip?',
+          subtitle: 'Perfektes Wetter zum Entdecken, bevor es kalt wird.\nFinde deine nächste Lieblingsstadt.',
+          cta: 'Zeig mir eine Stadt!',
+        },
+      },
+    },
+  },
 ];

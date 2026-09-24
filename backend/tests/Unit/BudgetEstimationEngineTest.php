@@ -124,15 +124,29 @@ class BudgetEstimationEngineTest extends TestCase
         $this->assertSame('cheapstay', $result->first()['country']->slug);
     }
 
-    public function test_narrow_candidates_ignores_countries_with_no_cost_data(): void
+    /**
+     * Bug fixed 2026-09-17 — this used to be test_narrow_candidates_ignores_countries_with_no_cost_data,
+     * asserting the OLD (wrong) behavior: a country with no hospitality/pricing meta was dropped
+     * from the pool entirely. Caught live on Jesenjovanje's new Balkan countries (no pricing data
+     * yet) — selecting "Balkans" showed zero countries, contradicting this class's own
+     * "absent, not guessed, never a hard exclude" convention used everywhere else. Now kept, with
+     * fit/estimate/totals all null (unknown, not "doesn't fit") — see narrowCandidates' own
+     * docblock at this exact branch.
+     */
+    public function test_narrow_candidates_keeps_countries_with_no_cost_data_but_with_no_fit_signal(): void
     {
         $withData = $this->countryWithPrices(meal: 10, coffee: 2, slug: 'withdata');
         $withoutData = TaxonomyNode::create(['type' => 'country', 'slug' => 'nodata', 'label' => 'test', 'sort_order' => 0]);
 
         $result = (new BudgetEstimationEngine)->narrowCandidates(collect([$withData, $withoutData]), 1000, 2, 2, 7);
 
-        $this->assertCount(1, $result);
-        $this->assertSame('withdata', $result->first()['country']->slug);
+        $this->assertCount(2, $result);
+        $noDataRow = $result->firstWhere('country.slug', 'nodata');
+        $this->assertNull($noDataRow['fit']);
+        $this->assertNull($noDataRow['estimate']);
+        $this->assertNull($noDataRow['accommodation_total_eur']);
+        $this->assertNull($noDataRow['food_total_eur']);
+        $this->assertFalse($noDataRow['caveat']);
     }
 
     public function test_meal_plan_slug_with_an_explicit_coefficient_of_one_costs_exactly_the_eating_out_total(): void

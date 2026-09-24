@@ -88,6 +88,21 @@
                   >{{ i18n.t('greetingMoreLink') }}</button>
                 }
               }
+              <!-- Owner's ask, 2026-09-17: moved here from above the city grid (much earlier in
+                   the flow now) — a real tracked link, not just naming the brand, so even a
+                   casual click plants the 7-day cookie (see genericHotelsUrl's docblock). New tab
+                   — this is a side link, not the main flow's own redirect. -->
+              @if (isHotelsComCampaign && genericHotelsUrl) {
+                <p class="mt-2 text-slate-700">
+                  {{ i18n.t('whyHotelsComPrefix') }}
+                  <a
+                    [href]="genericHotelsUrl"
+                    target="_blank"
+                    rel="noopener"
+                    class="font-medium text-orange-600 underline decoration-orange-300 underline-offset-2 hover:text-orange-700"
+                  >Hotels.com</a>{{ i18n.t('whyHotelsComSuffix') }}
+                </p>
+              }
             </div>
           </div>
         </div>
@@ -178,7 +193,7 @@
                   class="flex w-full max-w-xs flex-col items-center gap-4 rounded-2xl border border-white/50 bg-white/95 p-8 text-center shadow-xl shadow-black/20 ring-1 ring-black/5"
                 >
                   <ui-spinner size="md" />
-                  <p class="text-sm font-medium text-slate-600">{{ i18n.t('openingBooking') }}</p>
+                  <p class="text-sm font-medium text-slate-600">{{ i18n.t('openingBooking', { provider: providerLabel }) }}</p>
                 </div>
               </div>
             }
@@ -270,6 +285,111 @@
                 />
               }
 
+              @if (showCombinedDestinationPicker) {
+                <!-- Region + country merged into ONE multi-select grid, 2026-09-18 (owner's
+                     correction: "region nije uzrok da se izabere zemlja... regije i zemlje
+                     istovremeno") — region_theme and country_region used to be two sequential
+                     questions (single-select region gating a multi-select country list); now
+                     they're peer, simultaneously-toggleable cards in one grid. Adapted from the
+                     old country_region-only card block (still used as-is for the City step
+                     below, via isDestinationCard/DESTINATION_CARD_KEYS) — see
+                     combinedDestinationGroups()/onDestinationCardSelect()/isDestinationSelected()
+                     for the node.type-based branching this needs that a single-`question`
+                     block didn't. -->
+                <div class="mb-6">
+                  <div class="mb-2 flex items-start justify-between gap-2">
+                    <label class="block text-sm font-semibold text-white">{{ destinationPickerLabel }}</label>
+                    @if (anyCombinedGroupHasBudgetFitData) {
+                      <ui-info-popover class="-mr-1 -mt-1">
+                        <p class="whitespace-pre-line">{{ i18n.t('cityStepHint') }}</p>
+                        <p class="mt-2 whitespace-pre-line">{{ i18n.t('priceLegend') }}</p>
+                      </ui-info-popover>
+                    }
+                  </div>
+                  @if (combinedDestinationsHaveRealGrouping) {
+                    <p class="mb-3 text-xs text-stone-200">{{ i18n.t('destinationsGroupedIntro') }}</p>
+                  }
+
+                  @for (group of combinedDestinationGroups(); track group.headerLabel) {
+                    <div class="mb-4">
+                      @if (group.headerLabel) {
+                        <h4 class="mb-1 text-xs font-semibold uppercase tracking-wide text-stone-200">
+                          {{ group.headerLabel }}
+                        </h4>
+                      }
+                      <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                        @for (node of group.nodes; track node.id) {
+                          <div
+                            role="button"
+                            tabindex="0"
+                            class="relative w-full cursor-pointer self-start rounded-xl border bg-white p-4 text-left text-sm font-medium transition hover:border-sky-400 hover:bg-sky-50"
+                            [class.border-sky-500]="isDestinationSelected(node)"
+                            [class.bg-sky-50]="isDestinationSelected(node)"
+                            [class.border-slate-400]="!isDestinationSelected(node)"
+                            [class.ring-2]="isPerfectMatch(node)"
+                            [class.ring-inset]="isPerfectMatch(node)"
+                            [class.ring-amber-400]="isPerfectMatch(node)"
+                            [ngClass]="isPerfectMatch(node) ? '' : budgetFitClass(node)"
+                            (click)="onDestinationCardSelect(node)"
+                            (keydown.enter)="onDestinationCardSelect(node)"
+                            (keydown.space)="$event.preventDefault(); onDestinationCardSelect(node)"
+                          >
+                            <span class="block">{{ node.label }}</span>
+                            <ui-info-popover [customTrigger]="true" (click)="$event.stopPropagation()">
+                              <span trigger class="mt-0.5 block text-xs font-normal text-slate-500">
+                                {{ truncatedVibeDescription(node) ?? (matchedTagLabelsFor(node) || i18n.t('destinationInfoNotDescribed')) }}
+                              </span>
+                              <h3 class="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">{{ node.label }}</h3>
+                              <p class="whitespace-pre-line">{{ vibeDescription(node) ?? i18n.t('destinationInfoNotDescribed') }}</p>
+                              @if (temperatureLabel(node.climateAirTempC) || temperatureLabel(node.climateSeaTempC)) {
+                                <p class="mt-2 flex gap-4 text-xs text-slate-500">
+                                  @if (temperatureLabel(node.climateAirTempC); as air) {
+                                    <span>{{ i18n.t('airTemp') }}: {{ air }}</span>
+                                  }
+                                  @if (temperatureLabel(node.climateSeaTempC); as sea) {
+                                    <span>{{ i18n.t('seaTemp') }}: {{ sea }}</span>
+                                  }
+                                </p>
+                              }
+                              @if (node.hasGuide) {
+                                <button
+                                  type="button"
+                                  class="mt-3 text-sm font-medium text-sky-700 underline decoration-dotted hover:text-sky-900"
+                                  (click)="guideModalNode.set(node)"
+                                >
+                                  {{ i18n.t('seeFullGuide') }}
+                                </button>
+                              }
+                            </ui-info-popover>
+                            @if (budgetNoteFor(node); as budgetNote) {
+                              <span
+                                class="mt-0.5 block text-xs font-normal italic"
+                                [class.text-amber-700]="node.budgetCaveat || node.mealPlanCaveat"
+                                [class.text-emerald-700]="!node.budgetCaveat && !node.mealPlanCaveat"
+                              >{{ budgetNote }}</span>
+                            }
+                            @if (isPerfectMatch(node)) {
+                              <div class="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full border-2 border-amber-400 bg-white shadow-sm">
+                                <svg class="h-3.5 w-3.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                  <path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.563.563 0 0 0-.586 0L6.982 21.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.563.563 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
+                                </svg>
+                              </div>
+                            }
+                            @if (isDestinationSelected(node)) {
+                              <div class="absolute bottom-2 right-2 flex h-6 w-6 items-center justify-center rounded-full border-2 border-sky-500 bg-sky-500 shadow-sm">
+                                <svg class="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                  <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                </svg>
+                              </div>
+                            }
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+
               @for (question of visibleQuestions; track question.id) {
                 @if (isGeographyLoading(question)) {
                   <div class="mb-6">
@@ -302,15 +422,17 @@
                            click target". Appended directly to the label rather than tucked into
                            the info popover, since it explains what happens BEFORE the click, not
                            extra detail after one. -->
+                      <!-- country_region moved to the merged region+country picker above,
+                           2026-09-18 — this block now only ever renders the City step, so the
+                           'country_region' branch below is dead but left in place rather than
+                           restructured, since 'city' is still the only live case either way. -->
                       <label class="block text-sm font-semibold text-white">
                         {{ question.label }}
-                        @if (question.key === 'country_region') {
-                          {{ i18n.t('countryNameClickHint') }}
-                        } @else if (question.key === 'city') {
+                        @if (question.key === 'city') {
                           {{ i18n.t('cityNameClickHint') }}
                         }
                       </label>
-                      @if (anyGroupHasBudgetFitData(question) || question.key === 'city' || question.key === 'country_region') {
+                      @if (anyGroupHasBudgetFitData(question) || question.key === 'city') {
                         <ui-info-popover class="-mr-1 -mt-1">
                           <p class="whitespace-pre-line">{{ i18n.t('cityStepHint') }}</p>
                           @if (anyGroupHasBudgetFitData(question)) {
@@ -350,16 +472,16 @@
                               role="button"
                               tabindex="0"
                               class="relative w-full cursor-pointer self-start rounded-xl border bg-white p-4 text-left text-sm font-medium transition hover:border-sky-400 hover:bg-sky-50"
-                              [class.border-sky-500]="isDestinationSelected(question, node)"
-                              [class.bg-sky-50]="isDestinationSelected(question, node)"
-                              [class.border-slate-400]="!isDestinationSelected(question, node)"
+                              [class.border-sky-500]="isDestinationSelected(node)"
+                              [class.bg-sky-50]="isDestinationSelected(node)"
+                              [class.border-slate-400]="!isDestinationSelected(node)"
                               [class.ring-2]="isPerfectMatch(node)"
                               [class.ring-inset]="isPerfectMatch(node)"
                               [class.ring-amber-400]="isPerfectMatch(node)"
                               [ngClass]="isPerfectMatch(node) ? '' : budgetFitClass(node)"
-                              (click)="onDestinationCardSelect(question, node)"
-                              (keydown.enter)="onDestinationCardSelect(question, node)"
-                              (keydown.space)="$event.preventDefault(); onDestinationCardSelect(question, node)"
+                              (click)="onDestinationCardSelect(node)"
+                              (keydown.enter)="onDestinationCardSelect(node)"
+                              (keydown.space)="$event.preventDefault(); onDestinationCardSelect(node)"
                             >
                               <!-- Owner's ask, 2026-08-24, FOURTH pass — the "which one is this"
                                    country hint moved from a corner text badge to a tiny flag
@@ -466,7 +588,7 @@
                                    subtle next to the price-rank left-border color — a clearer
                                    bottom-right checkmark badge instead, same "small badge pinned
                                    to a corner" language as the Superstar star above. -->
-                              @if (isDestinationSelected(question, node)) {
+                              @if (isDestinationSelected(node)) {
                                 <div class="absolute bottom-2 right-2 flex h-6 w-6 items-center justify-center rounded-full border-2 border-sky-500 bg-sky-500 shadow-sm">
                                   <svg class="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />

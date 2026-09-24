@@ -161,6 +161,20 @@ class SearchSession extends Model
 
         $ids = $ids->merge($countryRegionIds);
 
+        // Multi-select region_theme, 2026-09-18 — region and country are now peer, simultaneous
+        // choices (owner's ask: "region nije uzrok da se izabere zemlja... regije i zemlje
+        // istovremeno"), same bare-slug-array shape as country_region_ids above. Previously
+        // (single-select, bare string field `region_theme`) this taxonomy type was never
+        // resolved here at all — a traveler's own region_theme pick was invisible to the
+        // excludes/implies engine, only ever used client-side as a parentId filter. Safe/
+        // additive: no region_theme node has ever had its own outgoing excludes/implies edge
+        // (only termin_category -> excludes -> region_theme exists, the other direction).
+        $regionThemeIds = TaxonomyNode::where('type', 'region_theme')
+            ->whereIn('slug', collect($this->free_text_answers['region_theme_ids'] ?? []))
+            ->pluck('id');
+
+        $ids = $ids->merge($regionThemeIds);
+
         // termin_category is the one taxonomy-linked field stored as a bare slug string, not an
         // `_id` FK (see the search_sessions migration) — was missing here entirely, which meant
         // any implies/excludes edge authored FROM a termin_category node (e.g. a themed entry

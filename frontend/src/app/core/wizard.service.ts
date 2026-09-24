@@ -2,6 +2,21 @@ import { Injectable, computed, signal } from '@angular/core';
 import { GraphqlService } from './graphql.service';
 import { DestinationGuide, SearchSession, TaxonomyNode, WizardAnswers, WizardCampaign, WizardQuestion, WizardStep } from './wizard.types';
 
+/**
+ * Display name for whichever affiliate provider a campaign's booking link goes to — see
+ * WizardCampaign::provider() (backend). Used anywhere user-facing copy needs to name the
+ * provider (footer disclosure, the "Opening X..." redirect transition), so a new provider only
+ * needs one line added here, not a find-and-replace across every hardcoded provider-name string —
+ * see i18n.service.ts's footerAffiliateNote/openingBooking {provider} interpolation, 2026-09-17.
+ *
+ * Defaults to 'Hotels.com', 2026-09-18 — Booking.com/CJ retired entirely (owner cancelled the CJ
+ * account, every campaign switched to Hotels.com), so a session with no campaign/meta.provider at
+ * all should assume the provider that's actually still live, not a defunct affiliate program.
+ */
+export function providerDisplayName(meta: Record<string, unknown> | null): string {
+  return meta?.['provider'] === 'booking' ? 'Booking.com' : 'Hotels.com';
+}
+
 const WIZARD_STEPS_QUERY = `
   query WizardSteps {
     wizardSteps {
@@ -114,9 +129,9 @@ const UPDATE_SESSION_MUTATION = `
 const SUGGESTED_GEOGRAPHY_QUERY = `
   query SuggestedGeography($sessionId: ID!, $type: String!, $parentId: ID, $parentIds: [ID!]) {
     suggestedGeography(sessionId: $sessionId, type: $type, parentId: $parentId, parentIds: $parentIds) {
-      id slug label matchScore meta implied matchedTags budgetFitPercent budgetFit budgetCaveat allInclusiveFits perfectMatch hasGuide excludesSlugs mealPlanCaveat vibeDescription
+      id slug label type matchScore meta implied matchedTags budgetFitPercent budgetFit budgetCaveat allInclusiveFits perfectMatch hasGuide excludesSlugs mealPlanCaveat vibeDescription
       climateAirTempC { min max } climateSeaTempC { min max }
-      parent { label meta }
+      parent { id label meta }
     }
   }
 `;

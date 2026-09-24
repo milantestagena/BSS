@@ -53,7 +53,7 @@ import { RouterLink } from '@angular/router';
         <section>
           <h2 class="mb-2 text-base font-semibold text-slate-900">Haftungshinweis</h2>
           <p>
-            TripInele ist ein unabhängiges Reise-Suchwerkzeug und Booking.com-Affiliate-Partner
+            TripInele ist ein unabhängiges Reise-Suchwerkzeug und Hotels.com-Affiliate-Partner
             (siehe <a class="text-sky-600 underline" routerLink="/privacy">Datenschutzerklärung</a>).
             Trotz sorgfältiger inhaltlicher Kontrolle übernehmen wir keine Haftung für die Inhalte
             externer Links — für den Inhalt verlinkter Seiten sind ausschließlich deren Betreiber

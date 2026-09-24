@@ -55,7 +55,7 @@ export class AuthService {
    *  backend on a different port, production shares one origin. */
   private backendOrigin(): string {
     return location.hostname === 'localhost' || location.hostname === '127.0.0.1'
-      ? 'http://127.0.0.1:8000'
+      ? 'http://127.0.0.1:8123'
       : '';
   }
 }

@@ -86,6 +86,16 @@ class GeographyResolver
         // Eager-loaded so excludes_slugs (below) is one query for the whole result set, not
         // N+1 — 2026-08-23, jeftino/kvalitet mutual exclusion.
         $nodes = $query->with('excludes')->get();
+
+        // Campaign ownership scoping, 2026-09-18 — see filterByCampaignOwnership's docblock.
+        // Runs before the budget/cultural/climate chain below: a hard structural scope (like
+        // excludes above), not a soft preference — and scoping down first means those (more
+        // expensive, per-node) passes never waste work on a destination this campaign doesn't
+        // offer at all.
+        if (in_array($args['type'], ['region_theme', 'country', 'city'], true)) {
+            $nodes = $this->filterByCampaignOwnership($nodes, $session, $args['type']);
+        }
+
         $budgetCaveatIds = collect();
         $budgetFitById = collect();
         $allInclusiveById = collect();
@@ -485,6 +495,92 @@ class GeographyResolver
     }
 
     /**
+     * Positive-membership geography scoping, 2026-09-18 — owner's ask after region_theme-level
+     * excludes() silently failed to cascade to newly added child countries (Hungary/Austria/
+     * Bosnia/N.Macedonia leaked into kasno-letovanje/zimsko-sunce because nobody added the
+     * matching per-country excludes — excludes is identity-only, never cascades to a node's
+     * children). wizard_campaign_destinations is the new positive, admin-editable "this campaign
+     * FIRMLY owns these and only these" pivot (see WizardCampaign::destinations(),
+     * DestinationsRelationManager). ADDITIVE, not a replacement — existing excludes edges (e.g.
+     * kasno-letovanje's `excludes city rim/atina`) still carve out exceptions WITHIN whatever
+     * this method allows through.
+     *
+     * A campaign with ZERO attached destinations rows (or a session with no campaign at all)
+     * applies NO restriction — same "absent = no restriction" convention as campaign_keys/
+     * budget-fit-missing-data elsewhere in this file. Unlike filterByClimate/
+     * filterByCulturalAvailability/filterByBudget, this does NOT revert to unfiltered when
+     * narrowing to a SPECIFIC type produces zero matches for a campaign that DOES have rows —
+     * doing so would silently let a campaign "cross over" the moment an admin's data entry is
+     * incomplete for one type, exactly the failure mode this entity exists to prevent.
+     *
+     * Two notions, both derived from the same flat pivot (no extra column):
+     * - "Owned" (cascades fully downward): a region_theme attached directly owns every country
+     *   under it; a country attached directly OR owned via its region_theme owns every city
+     *   under it.
+     * - "Reachable" (selectable as a stepping stone, does NOT cascade its own children): a
+     *   country that owns nothing itself but is the immediate parent of a directly-attached CITY
+     *   (e.g. jesenjovanje attaches 'rim' alone) must still be offered at the country step, or the
+     *   funnel (region_theme -> country -> city, each narrowed by the previous step's
+     *   parentId(s)) could never reach that city — but it does NOT drag in the rest of that
+     *   country's real cities (Taormina/Palermo/... stay out). Same one level up for region_theme.
+     *
+     * Known caveat, not fixed here: isPerfectMatch/climateSummaryFor/the price aggregators below
+     * call `$country->children()` directly and don't know about "reachable-only" scoping, so a
+     * reachable country's card COULD show a stat influenced by an out-of-scope sibling city.
+     * Price is naturally shielded (those aggregators only average campaign-scoped price rows);
+     * climate/perfect_match are not. Narrow, cosmetic, out of scope for this fix.
+     */
+    private function filterByCampaignOwnership(Collection $nodes, SearchSession $session, string $type): Collection
+    {
+        if (! $session->wizard_campaign_id) {
+            return $nodes;
+        }
+
+        $destinations = $session->campaign
+            ->destinations()
+            ->get(['taxonomy_nodes.id', 'taxonomy_nodes.type', 'taxonomy_nodes.parent_id']);
+
+        if ($destinations->isEmpty()) {
+            return $nodes;
+        }
+
+        $byType = $destinations->groupBy('type');
+        $directRegionThemeIds = $byType->get('region_theme', collect())->pluck('id');
+        $directCountryIds = $byType->get('country', collect())->pluck('id');
+        $directCityIds = $byType->get('city', collect())->pluck('id');
+
+        $cascadedCountryIds = $directRegionThemeIds->isEmpty()
+            ? collect()
+            : TaxonomyNode::where('type', 'country')->whereIn('parent_id', $directRegionThemeIds)->pluck('id');
+        $ownedCountryIds = $directCountryIds->merge($cascadedCountryIds)->unique();
+
+        $cascadedCityIds = $ownedCountryIds->isEmpty()
+            ? collect()
+            : TaxonomyNode::where('type', 'city')->whereIn('parent_id', $ownedCountryIds)->pluck('id');
+        $ownedCityIds = $directCityIds->merge($cascadedCityIds)->unique();
+
+        $directCityParentIds = $directCityIds->isEmpty()
+            ? collect()
+            : TaxonomyNode::whereIn('id', $directCityIds)->pluck('parent_id')->filter()->unique();
+        $reachableCountryIds = $ownedCountryIds->merge($directCityParentIds)->unique();
+
+        $reachableRegionThemeIds = $reachableCountryIds->isEmpty()
+            ? $directRegionThemeIds
+            : $directRegionThemeIds->merge(
+                TaxonomyNode::whereIn('id', $reachableCountryIds)->pluck('parent_id')->filter()->unique()
+            )->unique();
+
+        $allowedIds = match ($type) {
+            'region_theme' => $reachableRegionThemeIds,
+            'country' => $reachableCountryIds,
+            'city' => $ownedCityIds,
+            default => collect(),
+        };
+
+        return $nodes->filter(fn (TaxonomyNode $node) => $allowedIds->contains($node->id))->values();
+    }
+
+    /**
      * Hard-excludes countries that fail a cultural-availability requirement the session
      * explicitly asked for (selected preference_tag with `meta.cultural_category`+`max_tier`,
      * e.g. "zeli_alkohol_slobodno" -> alcohol tier must be <= 2). No fallback — unlike budget,
@@ -625,7 +721,7 @@ class GeographyResolver
         $allInclusiveById = $result->mapWithKeys(fn (array $row) => [
             $row['country']->id => $budgetEngine->allInclusiveFits(
                 $row['country'], (float) $session->total_budget, $session->adults_count,
-                count($session->children_ages ?? []), $foodDays, $row['accommodation_total_eur']
+                count($session->children_ages ?? []), $foodDays, $row['accommodation_total_eur'] ?? 0.0
             ),
         ]);
 

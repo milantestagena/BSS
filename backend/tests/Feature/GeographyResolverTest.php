@@ -1062,4 +1062,241 @@ class GeographyResolverTest extends TestCase
 
         $this->assertTrue($results->isEmpty());
     }
+
+    /**
+     * Covers GeographyResolver::filterByCampaignOwnership — the fix for a real leak caught live
+     * 2026-09-17/18: excludes() is identity-only and never cascades through parent_id, so
+     * excluding a region_theme did nothing to hide its child countries; only countries with
+     * their OWN direct exclude edge were ever actually protected. New countries (Hungary/
+     * Austria/Bosnia/N.Macedonia) never got that per-country edge and leaked into swim
+     * campaigns. wizard_campaign_destinations is the new positive-membership fix — see that
+     * method's docblock for the full ownership/reachability rules.
+     */
+    public function test_campaign_ownership_restricts_country_options_to_the_owned_region_theme(): void
+    {
+        $balkan = $this->node('region_theme', 'balkan');
+        $srbija = $this->node('country', 'srbija');
+        $srbija->update(['parent_id' => $balkan->id]);
+        $bosna = $this->node('country', 'bosna');
+        $bosna->update(['parent_id' => $balkan->id]);
+
+        $istocnaEvropa = $this->node('region_theme', 'istocna_evropa');
+        $ceska = $this->node('country', 'ceska');
+        $ceska->update(['parent_id' => $istocnaEvropa->id]);
+
+        $campaign = \App\Models\WizardCampaign::create(['key' => 'test-campaign', 'label' => 'Test']);
+        $campaign->destinations()->attach($balkan->id);
+
+        $session = SearchSession::create(['status' => 'in_progress', 'wizard_campaign_id' => $campaign->id]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'country']);
+
+        $ids = $results->pluck('id');
+        $this->assertTrue($ids->contains($srbija->id));
+        $this->assertTrue($ids->contains($bosna->id));
+        $this->assertFalse($ids->contains($ceska->id));
+    }
+
+    public function test_campaign_ownership_cascades_region_theme_to_city_level(): void
+    {
+        $balkan = $this->node('region_theme', 'balkan');
+        $srbija = $this->node('country', 'srbija');
+        $srbija->update(['parent_id' => $balkan->id]);
+        $beograd = $this->node('city', 'beograd');
+        $beograd->update(['parent_id' => $srbija->id]);
+
+        $istocnaEvropa = $this->node('region_theme', 'istocna_evropa');
+        $ceska = $this->node('country', 'ceska');
+        $ceska->update(['parent_id' => $istocnaEvropa->id]);
+        $prag = $this->node('city', 'prag');
+        $prag->update(['parent_id' => $ceska->id]);
+
+        $campaign = \App\Models\WizardCampaign::create(['key' => 'test-campaign', 'label' => 'Test']);
+        $campaign->destinations()->attach($balkan->id);
+
+        $session = SearchSession::create(['status' => 'in_progress', 'wizard_campaign_id' => $campaign->id]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'city']);
+
+        $ids = $results->pluck('id');
+        $this->assertTrue($ids->contains($beograd->id));
+        $this->assertFalse($ids->contains($prag->id));
+    }
+
+    public function test_campaign_ownership_is_a_no_op_when_the_campaign_has_no_destinations_rows(): void
+    {
+        $balkan = $this->node('region_theme', 'balkan');
+        $srbija = $this->node('country', 'srbija');
+        $srbija->update(['parent_id' => $balkan->id]);
+        $istocnaEvropa = $this->node('region_theme', 'istocna_evropa');
+        $ceska = $this->node('country', 'ceska');
+        $ceska->update(['parent_id' => $istocnaEvropa->id]);
+
+        // No destinations() rows attached at all — safe default, must show everything.
+        $campaign = \App\Models\WizardCampaign::create(['key' => 'test-campaign', 'label' => 'Test']);
+
+        $session = SearchSession::create(['status' => 'in_progress', 'wizard_campaign_id' => $campaign->id]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'country']);
+
+        $ids = $results->pluck('id');
+        $this->assertTrue($ids->contains($srbija->id));
+        $this->assertTrue($ids->contains($ceska->id));
+    }
+
+    public function test_campaign_ownership_is_a_no_op_for_a_session_with_no_campaign(): void
+    {
+        $balkan = $this->node('region_theme', 'balkan');
+        $srbija = $this->node('country', 'srbija');
+        $srbija->update(['parent_id' => $balkan->id]);
+
+        $session = SearchSession::create(['status' => 'in_progress']);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'country']);
+
+        $this->assertTrue($results->pluck('id')->contains($srbija->id));
+    }
+
+    /**
+     * The Rome/Athens case: a campaign can own a single CITY directly (without owning its whole
+     * country) and still have that city reachable through the real 3-step wizard funnel — the
+     * gap the Plan review caught: "owned" alone isn't enough, because the city step is scoped by
+     * whatever country the user picked at the country step, so an unowned country would never
+     * even become selectable.
+     */
+    public function test_campaign_ownership_lets_a_directly_attached_city_surface_without_its_country(): void
+    {
+        $antickiSvet = $this->node('region_theme', 'anticki_svet');
+        $italija = $this->node('country', 'italija');
+        $italija->update(['parent_id' => $antickiSvet->id]);
+        $rim = $this->node('city', 'rim');
+        $rim->update(['parent_id' => $italija->id]);
+        $taormina = $this->node('city', 'taormina');
+        $taormina->update(['parent_id' => $italija->id]);
+
+        $campaign = \App\Models\WizardCampaign::create(['key' => 'test-campaign', 'label' => 'Test']);
+        $campaign->destinations()->attach($rim->id);
+
+        $session = SearchSession::create(['status' => 'in_progress', 'wizard_campaign_id' => $campaign->id]);
+
+        // (a) Rome appears at the city step with no parentId filter.
+        $cities = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'city']);
+        $this->assertTrue($cities->pluck('id')->contains($rim->id));
+
+        // (b) Italy is reachable at the country step, even though it's not itself owned.
+        $countries = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'country']);
+        $this->assertTrue($countries->pluck('id')->contains($italija->id));
+
+        // (c) Once scoped to Italy specifically, its unowned sibling city (Taormina) still does
+        // NOT appear — reachable is not the same as owned, no accidental full cascade.
+        $citiesUnderItaly = (new GeographyResolver)->suggested(null, [
+            'sessionId' => $session->id, 'type' => 'city', 'parentId' => (string) $italija->id,
+        ]);
+        $ids = $citiesUnderItaly->pluck('id');
+        $this->assertTrue($ids->contains($rim->id));
+        $this->assertFalse($ids->contains($taormina->id));
+    }
+
+    public function test_campaign_ownership_makes_the_grandparent_region_theme_reachable_too(): void
+    {
+        $antickiSvet = $this->node('region_theme', 'anticki_svet');
+        $italija = $this->node('country', 'italija');
+        $italija->update(['parent_id' => $antickiSvet->id]);
+        $rim = $this->node('city', 'rim');
+        $rim->update(['parent_id' => $italija->id]);
+
+        $campaign = \App\Models\WizardCampaign::create(['key' => 'test-campaign', 'label' => 'Test']);
+        $campaign->destinations()->attach($rim->id);
+
+        $session = SearchSession::create(['status' => 'in_progress', 'wizard_campaign_id' => $campaign->id]);
+
+        $themes = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'region_theme']);
+
+        $this->assertTrue($themes->pluck('id')->contains($antickiSvet->id));
+    }
+
+    /**
+     * Proves the new ownership layer is ADDITIVE, not a replacement for excludes() — a node
+     * that's nominally owned via cascade can still be carved out by a real excludes edge, same
+     * as kasno-letovanje's own `excludes city rim/atina` continuing to hide those two cities
+     * even though anticki_svet is fully owned by that campaign.
+     */
+    public function test_campaign_ownership_composes_with_an_existing_excludes_edge(): void
+    {
+        $antickiSvet = $this->node('region_theme', 'anticki_svet');
+        $italija = $this->node('country', 'italija');
+        $italija->update(['parent_id' => $antickiSvet->id]);
+        $grcka = $this->node('country', 'grcka');
+        $grcka->update(['parent_id' => $antickiSvet->id]);
+
+        $terminCategory = $this->node('termin_category', 'kasno_kupanje');
+        $terminCategory->excludes()->attach($grcka->id, ['relation_type' => 'excludes']);
+
+        $campaign = \App\Models\WizardCampaign::create(['key' => 'test-campaign', 'label' => 'Test']);
+        $campaign->destinations()->attach($antickiSvet->id);
+
+        $session = SearchSession::create([
+            'status' => 'in_progress',
+            'wizard_campaign_id' => $campaign->id,
+            'termin_category' => 'kasno_kupanje',
+        ]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'country']);
+
+        $ids = $results->pluck('id');
+        $this->assertTrue($ids->contains($italija->id));
+        $this->assertFalse($ids->contains($grcka->id));
+    }
+
+    /**
+     * Region and country are now peer, simultaneous multi-select choices, 2026-09-18 (owner's
+     * correction — region_theme was previously single-select and never resolved into
+     * selectedTaxonomyNodeIds() at all, only used client-side as a scoping parentId). Confirms
+     * the new region_theme_ids array is actually visible to the excludes/implies engine.
+     */
+    public function test_selected_region_theme_slugs_resolve_into_selected_taxonomy_node_ids(): void
+    {
+        $mediteran = $this->node('region_theme', 'mediteran');
+
+        $session = SearchSession::create([
+            'status' => 'in_progress',
+            'free_text_answers' => ['region_theme_ids' => ['mediteran']],
+        ]);
+
+        $this->assertTrue($session->selectedTaxonomyNodeIds()->contains($mediteran->id));
+    }
+
+    /**
+     * The frontend no longer passes a region_theme's id as `country`'s parentId (region and
+     * country are fetched independently and unioned client-side, 2026-09-18) — this confirms
+     * filterByCampaignOwnership ALONE is sufficient to correctly scope a `type: country` call
+     * with NO parentId/parentIds at all, across a campaign that owns MULTIPLE region_themes at
+     * once (proving dropping the old single-parentId scoping doesn't lose any coverage).
+     */
+    public function test_type_country_returns_full_owned_pool_with_no_parent_filter(): void
+    {
+        $themeA = $this->node('region_theme', 'theme_a');
+        $countryA = $this->node('country', 'country_a');
+        $countryA->update(['parent_id' => $themeA->id]);
+
+        $themeB = $this->node('region_theme', 'theme_b');
+        $countryB = $this->node('country', 'country_b');
+        $countryB->update(['parent_id' => $themeB->id]);
+
+        $themeC = $this->node('region_theme', 'theme_c');
+        $countryC = $this->node('country', 'country_c');
+        $countryC->update(['parent_id' => $themeC->id]);
+
+        $campaign = \App\Models\WizardCampaign::create(['key' => 'test-campaign', 'label' => 'Test']);
+        $campaign->destinations()->attach([$themeA->id, $themeB->id, $themeC->id]);
+
+        $session = SearchSession::create(['status' => 'in_progress', 'wizard_campaign_id' => $campaign->id]);
+
+        $results = (new GeographyResolver)->suggested(null, ['sessionId' => $session->id, 'type' => 'country']);
+
+        $ids = $results->pluck('id');
+        $this->assertTrue($ids->contains($countryA->id));
+        $this->assertTrue($ids->contains($countryB->id));
+        $this->assertTrue($ids->contains($countryC->id));
+    }
 }

@@ -346,7 +346,20 @@ class BudgetEstimationEngine
             ->map(function (TaxonomyNode $country) use ($totalBudget, $adults, $children, $days, $accommodationTotalFor, $mealPlanSlugs, $mealStyle) {
                 $estimate = $this->estimate($country, $adults, $children, $days);
                 if ($estimate === null) {
-                    return null;
+                    // Bug fixed 2026-09-17 — used to `return null` here, which the old ->filter()
+                    // call right after this map() dropped from the candidate pool ENTIRELY: any
+                    // country with no hospitality/pricing meta yet (every new Jesenjovanje country
+                    // — Balkan/Hungary/Austria — plus the old Czech/Belgium demo nodes, none of
+                    // which have ever had this data) silently vanished the moment a real session
+                    // answered total_budget, contradicting this exact class's own "absent, not
+                    // guessed, never a hard exclude" convention used everywhere else (see e.g.
+                    // GeographyResolver's climate filter, "offering a country... is worse than not
+                    // offering it at all" reasoning). Caught live: selecting "Balkans" showed zero
+                    // countries. Now passes through with no budget signal at all (fit/caveat/
+                    // totals all null) instead of disappearing — same shape the resolver already
+                    // expects for "never reached this filter" nodes (see filterByBudget's own
+                    // accommodationTotalById docblock).
+                    return ['country' => $country, 'estimate' => null, 'accommodation_total_eur' => null, 'food_total_eur' => null, 'fit' => null, 'caveat' => false];
                 }
 
                 $accommodationTotal = $accommodationTotalFor ? $accommodationTotalFor($country) : 0.0;
@@ -360,9 +373,10 @@ class BudgetEstimationEngine
                     'fit' => $fit,
                     'caveat' => false,
                 ];
-            })
-            ->filter();
+            });
 
+        // fit === null (no pricing data) is deliberately NOT 'insufficient' — it means "unknown",
+        // not "doesn't fit", so it stays in the normal (non-caveat) results alongside real fits.
         $fitting = $evaluated->filter(fn (array $row) => $row['fit'] !== 'insufficient');
 
         if ($fitting->isNotEmpty()) {
@@ -370,7 +384,7 @@ class BudgetEstimationEngine
         }
 
         return $evaluated
-            ->sortBy(fn (array $row) => $row['estimate']['self_catering_total_eur'] + $row['accommodation_total_eur'] - $totalBudget)
+            ->sortBy(fn (array $row) => ($row['estimate']['self_catering_total_eur'] ?? 0.0) + ($row['accommodation_total_eur'] ?? 0.0) - $totalBudget)
             ->take(2)
             ->map(fn (array $row) => [...$row, 'caveat' => true])
             ->values();

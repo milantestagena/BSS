@@ -3,11 +3,10 @@ import { RouterLink } from '@angular/router';
 import { LocaleService } from '../../core/locale.service';
 
 /**
- * Required by the CJ Affiliate Publisher Service Agreement (Section 2(e)/6) as a condition of
- * running Booking.com affiliate links on this site — 2026-08-10. Written to describe what this
- * app actually does (wizard answers, IP-based home-city convenience lookup, CJ/Booking
- * tracking on click-through) rather than generic boilerplate. Update this if the app's actual
- * data practices change — e.g. once real user accounts/auth exist (see CLAUDE.md phase plan).
+ * Written to describe what this app actually does (wizard answers, IP-based home-city
+ * convenience lookup, affiliate tracking on click-through) rather than generic boilerplate.
+ * Update this if the app's actual data practices change — e.g. once real user accounts/auth
+ * exist (see CLAUDE.md phase plan).
  *
  * German version added 2026-09-05 — owner's native-speaker review: "Datenschutzerklärung" as
  * the DE title (not a literal "Privacy Policy"), naturally translated rather than word-for-word.
@@ -16,6 +15,15 @@ import { LocaleService } from '../../core/locale.service';
  * reason. Both languages updated same day to disclose the Meta Pixel (added the night before,
  * consent-gated — see AnalyticsService/CookieConsentComponent) and the newsletter email capture
  * (About page) — neither existed when this policy was first written.
+ *
+ * Updated 2026-09-18: Booking.com/CJ removed entirely — owner cancelled the CJ (Commission
+ * Junction) affiliate account outright and switched every campaign to Hotels.com (see
+ * WizardCampaign::provider(), kampanje.md). What was originally "Required by the CJ Affiliate
+ * Publisher Service Agreement (Section 2(e)/6) as a condition of running Booking.com affiliate
+ * links" (2026-08-10) no longer applies — there is no Booking relationship left to disclose.
+ * Hotels.com's own affiliate wrapper stays on hotels.com's domain (no separate third-party
+ * network like CJ/Epsilon sits in front of it), so it's disclosed directly by name rather than
+ * naming a network operator.
  */
 @Component({
   selector: 'app-privacy-policy',
@@ -28,7 +36,7 @@ import { LocaleService } from '../../core/locale.service';
       </a>
       @if (locale.locale() === 'de') {
         <h1 class="mb-2 text-2xl font-bold text-slate-900">Datenschutzerklärung</h1>
-        <p class="mb-8 text-sm text-slate-400">Zuletzt aktualisiert: 5. September 2026</p>
+        <p class="mb-8 text-sm text-slate-400">Zuletzt aktualisiert: 18. September 2026</p>
 
         <div class="space-y-6 text-sm leading-relaxed">
           <section>
@@ -74,14 +82,13 @@ import { LocaleService } from '../../core/locale.service';
           <section>
             <h2 class="mb-2 text-base font-semibold text-slate-900">Cookies &amp; Tracking durch Dritte</h2>
             <p class="mb-3">
-              Wenn Sie von dieser Website zu Booking.com weitergeleitet werden, können
-              Booking.com und dessen Affiliate-Netzwerk (CJ Affiliate / Commission Junction,
-              betrieben von Epsilon International UK Ltd) Cookies oder ähnliche
-              Tracking-Technologien auf Ihrem Gerät setzen, um zu erfassen, dass die
-              Weiterleitung von uns stammt — so können wir eine Provision erhalten, wenn Sie
-              buchen. Wir haben keinen Einfluss auf dieses Tracking; es unterliegt der
-              <a class="text-sky-600 underline" href="https://www.cj.com/privacy-notice" target="_blank" rel="noopener">Datenschutzerklärung von CJ Affiliate</a>
-              und der <a class="text-sky-600 underline" href="https://www.booking.com/content/privacy.html" target="_blank" rel="noopener">Datenschutzerklärung von Booking.com</a>.
+              Wenn Sie von dieser Website zu Hotels.com weitergeleitet werden, kann Hotels.com
+              (betrieben von der Expedia Group, über deren Travel-Creator-Partnerprogramm) ein
+              Cookie auf Ihrem Gerät setzen, um zu erfassen, dass die Weiterleitung von uns stammt
+              — so können wir eine Provision erhalten, wenn Sie buchen, ohne Mehrkosten für Sie.
+              Wir haben keinen Einfluss auf dieses Tracking selbst, und sobald Sie diese Website
+              verlassen, gilt ausschließlich die
+              <a class="text-sky-600 underline" href="https://www.hotels.com/legal/privacy" target="_blank" rel="noopener">Datenschutzerklärung von Hotels.com</a>.
             </p>
             <p class="mb-3">
               Mit Ihrer Einwilligung (siehe das Cookie-Banner bei Ihrem ersten Besuch) verwenden
@@ -103,7 +110,7 @@ import { LocaleService } from '../../core/locale.service';
             <h2 class="mb-2 text-base font-semibold text-slate-900">Wie wir diese Daten verwenden</h2>
             <p>
               Ausschließlich, um den Reise-Assistenten zu betreiben, Ihnen relevante Empfehlungen
-              anzuzeigen und zu messen, ob die von uns an Booking.com weitergeleiteten Besucher
+              anzuzeigen und zu messen, ob die von uns an Hotels.com weitergeleiteten Besucher
               dort eine Buchung vornehmen. Wir verkaufen Ihre Daten nicht und verwenden sie nicht
               für andere Zwecke als den Betrieb und die Verbesserung dieser Website.
             </p>
@@ -144,7 +151,7 @@ import { LocaleService } from '../../core/locale.service';
         </div>
       } @else {
         <h1 class="mb-2 text-2xl font-bold text-slate-900">Privacy Policy</h1>
-        <p class="mb-8 text-sm text-slate-400">Last updated: 5 September 2026</p>
+        <p class="mb-8 text-sm text-slate-400">Last updated: 18 September 2026</p>
 
         <div class="space-y-6 text-sm leading-relaxed">
           <section>
@@ -185,13 +192,12 @@ import { LocaleService } from '../../core/locale.service';
           <section>
             <h2 class="mb-2 text-base font-semibold text-slate-900">Cookies &amp; third-party tracking</h2>
             <p class="mb-3">
-              When you click through to Booking.com from this site, Booking.com and its affiliate
-              network (CJ Affiliate / Commission Junction, operated by Epsilon International UK
-              Ltd) may set cookies or similar tracking technology on your device to record that
-              the referral came from us — this is how we may earn a commission if you book. We do
-              not control this tracking; it's governed by
-              <a class="text-sky-600 underline" href="https://www.cj.com/privacy-notice" target="_blank" rel="noopener">CJ Affiliate's own privacy policy</a>
-              and <a class="text-sky-600 underline" href="https://www.booking.com/content/privacy.html" target="_blank" rel="noopener">Booking.com's privacy policy</a>.
+              When you click through to Hotels.com from this site, Hotels.com (operated by Expedia
+              Group, via its Travel Creator affiliate program) may set a cookie on your device to
+              record that the referral came from us — this is how we may earn a commission if you
+              book, at no extra cost to you. We do not control this tracking ourselves, and once
+              you leave this site it's governed entirely by
+              <a class="text-sky-600 underline" href="https://www.hotels.com/legal/privacy" target="_blank" rel="noopener">Hotels.com's own privacy policy</a>.
             </p>
             <p class="mb-3">
               With your consent (see the cookie banner shown on your first visit), we also use
@@ -211,8 +217,8 @@ import { LocaleService } from '../../core/locale.service';
             <h2 class="mb-2 text-base font-semibold text-slate-900">How we use this data</h2>
             <p>
               Solely to run the recommendation wizard, show you relevant suggestions, and measure
-              whether the referrals we send to Booking.com result in a booking. We do not sell
-              your data, and we do not use it for anything beyond making this site work.
+              whether the referrals we send to Hotels.com result in a booking. We do not sell your
+              data, and we do not use it for anything beyond making this site work.
             </p>
           </section>
 

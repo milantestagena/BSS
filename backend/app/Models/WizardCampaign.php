@@ -47,6 +47,19 @@ class WizardCampaign extends Model
             ->orderByPivot('sort_order');
     }
 
+    /**
+     * Positive, explicit destination membership — 2026-09-18, see
+     * GeographyResolver::filterByCampaignOwnership for the ownership/reachability rules a row
+     * participates in, and DestinationsRelationManager for how the owner assigns these directly
+     * in Filament. A row can point at a region_theme, country, OR city taxonomy_node — no
+     * `relation_type`-style payload column, meaning comes purely from the attached node's own
+     * `type`.
+     */
+    public function destinations(): BelongsToMany
+    {
+        return $this->belongsToMany(TaxonomyNode::class, 'wizard_campaign_destinations');
+    }
+
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true)->orderBy('sort_order');
@@ -108,16 +121,21 @@ class WizardCampaign extends Model
 
     /**
      * Which affiliate provider this campaign's booking link goes to — 'booking' or
-     * 'hotels_com'. Owner's ask, 2026-09-08: run kasno-letovanje on Booking and the upcoming
-     * Jesenjovanje on Hotels.com SIMULTANEOUSLY, real parallel comparison instead of a risky
+     * 'hotels_com'. Built 2026-09-08 to run kasno-letovanje on Booking and the upcoming
+     * Jesenjovanje on Hotels.com SIMULTANEOUSLY, a real parallel comparison instead of a risky
      * all-at-once switch — "u arhitekturi gledaj da moze da se svichuje kampanja po provajderu".
      * `meta` JSON key, not a dedicated column — same "admin-editable tunable, not a column per
      * value" convention as everything else in this campaign-level meta blob (see that column's
-     * own migration docblock). Absent meta (every campaign today) defaults to 'booking' —
-     * existing campaigns behave identically to before this existed.
+     * own migration docblock).
+     *
+     * Default flipped 'booking' -> 'hotels_com', 2026-09-18 — the comparison concluded: owner
+     * cancelled the CJ (Commission Junction) affiliate account outright and switched every
+     * existing campaign to `meta.provider = 'hotels_com'` explicitly (kasno-letovanje included).
+     * A session with no campaign, or a campaign that somehow has no meta.provider set, should
+     * default to the provider that's actually still live.
      */
     public function provider(): string
     {
-        return $this->meta['provider'] ?? 'booking';
+        return $this->meta['provider'] ?? 'hotels_com';
     }
 }

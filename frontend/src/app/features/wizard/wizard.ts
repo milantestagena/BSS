@@ -1,7 +1,7 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, effect, signal, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
-import { WizardService } from '../../core/wizard.service';
+import { WizardService, providerDisplayName } from '../../core/wizard.service';
 import { AuthService } from '../../core/auth.service';
 import { I18nService } from '../../core/i18n.service';
 import { AppLocale, LocaleService } from '../../core/locale.service';
@@ -53,6 +53,10 @@ const DISABLE_ANDROID_CHROME_FORCE_FOR_TESTING = true;
 
 function navigateToBooking(url: string): void {
   if (DISABLE_ANDROID_CHROME_FORCE_FOR_TESTING || !/Android/i.test(navigator.userAgent)) {
+    // REVERTED 2026-09-17, same day — briefly tried window.open('_blank') so TripInele's own tab
+    // would stay open, but owner tested live (Taormina link) and it opened as a genuinely
+    // separate OS window, not a tab — more disruptive than the same-tab redirect it replaced.
+    // Back to same-tab navigation.
     window.location.href = url;
     return;
   }
@@ -122,10 +126,21 @@ const SMESTAJ_AVOID_KEY = 'smestaj_avoid';
  *  access makes "unusual" requests actually actionable. */
 const SMESTAJ_PREFERENCE_KEY = 'smestaj_preference';
 
-/** "Screen 2" — country_region/city render as bigger cards instead of plain pills, with a
- *  hover-revealed vibe_profile description in the reserved left column. See
- *  wizard_architecture "FINAL WORKFLOW DESIGN", 2026-08-04. */
-const DESTINATION_CARD_KEYS = new Set(['country_region', 'city']);
+/** "Screen 2" — city renders as bigger cards instead of plain pills, with a hover-revealed
+ *  vibe_profile description in the reserved left column. See wizard_architecture "FINAL
+ *  WORKFLOW DESIGN", 2026-08-04. Shrunk to just 'city' on 2026-09-18 — country_region moved
+ *  into DESTINATION_PICKER_KEYS below, merged with region_theme into one combined grid (see
+ *  showCombinedDestinationPicker/combinedDestinationGroups). */
+const DESTINATION_CARD_KEYS = new Set(['city']);
+
+/** Rendered together as ONE merged, multi-select destination-picker grid, not two separate
+ *  question blocks — 2026-09-18, owner's correction: region and country are PEER, simultaneous
+ *  choices ("region nije uzrok da se izabere zemlja... regije i zemlje istovremeno"), not a
+ *  single-select-region-then-multi-select-country drill-down. See
+ *  showCombinedDestinationPicker/combinedDestinationGroups/effectiveCountryIds. country_region's
+ *  mere presence in a campaign's question list triggers the merged widget; region_theme is
+ *  optional per-campaign (kasno-letovanje omits it, same as always). */
+const DESTINATION_PICKER_KEYS = new Set(['region_theme', 'country_region']);
 
 /** Shown while transitioning from "screen 1" (all Q&A done) into "screen 2" (destination
  *  cards) — owner's own framing: "zarolamo neki loader koji kao nesto mnogo racuna :D".
@@ -238,7 +253,9 @@ export class WizardComponent implements OnInit, OnDestroy, AfterViewInit {
    *  loading overlay instead, same idea as showCalculatingTransition: covers that reflow
    *  entirely rather than trying to prevent it, and the page is about to navigate away anyway.
    *  Reset on bfcache restore (see constructor's pageshow listener) so a Back press lands on the
-   *  normal chat, not a stuck loading screen frozen in the cached snapshot. */
+   *  normal chat, not a stuck loading screen frozen in the cached snapshot. (2026-09-17: briefly
+   *  removed this reasoning when navigateToBooking tried opening a new tab instead — reverted the
+   *  same day, see that function's docblock, so this same-tab model is back in effect.) */
   readonly showCityRedirectTransition = signal(false);
 
   get calculatingMessages(): string[] {
@@ -304,11 +321,24 @@ export class WizardComponent implements OnInit, OnDestroy, AfterViewInit {
     de: ['Noch Strandwetter — wohin geht’s als Nächstes? 🌊 Beantworte ein paar kurze Fragen, und wir finden schnell die passende Unterkunft für dich.'],
   };
 
+  /** Bug fixed 2026-09-17 — themeIntro (route data, real per-campaign title/subtitle/cta) has
+   *  existed since 2026-09-05 but was NEVER actually read here: this always played the single
+   *  hardcoded GREETING_MESSAGES string regardless of campaign, so every campaign — including
+   *  Jesenjovanje/autumnbreak — showed the latesummer-specific "Still beach weather" hook. Caught
+   *  live, 2026-09-17. Falls back to GREETING_MESSAGES only on the plain '' route (no themeIntro
+   *  at all, unchanged behavior there). */
+  private greetingMessages(): string[] {
+    const intro = this.themeIntro;
+    if (!intro) return this.GREETING_MESSAGES[this.locale.locale()];
+
+    return [`${intro.title} ${intro.subtitle} ${intro.cta}`];
+  }
+
   private async playGreeting(): Promise<void> {
     this.visibleGreetingMessages.set([]);
     this.greetingDone.set(false);
 
-    for (const message of this.GREETING_MESSAGES[this.locale.locale()]) {
+    for (const message of this.greetingMessages()) {
       await new Promise((resolve) => setTimeout(resolve, 700));
       this.visibleGreetingMessages.update((messages) => [...messages, message]);
     }
@@ -429,6 +459,27 @@ export class WizardComponent implements OnInit, OnDestroy, AfterViewInit {
     return (this.wizard.compiledQuery()?.['bookingUrl'] as string | undefined) ?? null;
   }
 
+  /** 'Booking.com' or 'Hotels.com', whichever this campaign's meta.provider actually points at —
+   *  see providerDisplayName's own docblock. Used to interpolate the "Opening {provider}..."
+   *  redirect-transition message so it doesn't lie for hotels_com campaigns. */
+  get providerLabel(): string {
+    return providerDisplayName(this.wizard.campaignMeta());
+  }
+
+  /** Gates the "Why Hotels.com?" link after the greeting (wizard.html) — only meaningful for a
+   *  campaign actually running on Hotels.com, see WizardCampaign::provider(). */
+  get isHotelsComCampaign(): boolean {
+    return this.wizard.campaignMeta()?.['provider'] === 'hotels_com';
+  }
+
+  /** A tracked Hotels.com link that works with no destination chosen yet — see
+   *  SearchSessionQueryCompiler::genericHotelsUrl()'s docblock. Every plain-text "Hotels.com"
+   *  brand mention (footer, the "Why Hotels.com?" greeting line) links here, 2026-09-17 (owner's
+   *  ask) — even a casual click plants the 7-day cookie. */
+  get genericHotelsUrl(): string | null {
+    return (this.wizard.compiledQuery()?.['genericHotelsUrl'] as string | undefined) ?? null;
+  }
+
   /** Locally-selected city, set by selectResultsCity() right before it redirects — not a UI
    *  selection state to render anywhere anymore (the old results-screen city-switcher pills this
    *  was built for are gone, 2026-08-24), just how searchResultsCity() knows which city to
@@ -531,7 +582,7 @@ export class WizardComponent implements OnInit, OnDestroy, AfterViewInit {
       container?.removeEventListener('scroll', holdScroll);
       // `finally` always runs, even right after triggering the navigation above —
       // window.location.href doesn't tear this page down synchronously, the browser keeps
-      // rendering it for a beat while Booking.com's response comes in. Clearing the overlay
+      // rendering it for a beat while the provider's response comes in. Clearing the overlay
       // unconditionally here would re-reveal the page for that whole gap, right before the real
       // page swap — only cleared when NOT navigating away; a bfcache restore (pageshow listener
       // in the constructor) covers the "stuck forever" risk on the redirect path instead.
@@ -557,7 +608,6 @@ export class WizardComponent implements OnInit, OnDestroy, AfterViewInit {
     await this.loadGeographyForCurrentStep();
     this.prefillRecommendedDates();
     this.prefillDefaultAdultsCount();
-    this.prefillAccommodationTypePreference();
     this.prefillMealStyle();
     this.syncDefaultBudget();
     await greetingPromise;
@@ -570,6 +620,7 @@ export class WizardComponent implements OnInit, OnDestroy, AfterViewInit {
       (q) =>
         this.wizard.isQuestionVisible(q) &&
         !TRAVELERS_QUESTION_KEYS.has(q.key) &&
+        !DESTINATION_PICKER_KEYS.has(q.key) &&
         q.key !== ROOMS_QUESTION_KEY &&
         q.key !== HOME_CITY_QUESTION_KEY &&
         q.key !== AMENITY_YES_KEY &&
@@ -631,6 +682,23 @@ export class WizardComponent implements OnInit, OnDestroy, AfterViewInit {
    *  (adults/children/crib) renders via the combined widget instead of the per-question loop. */
   get showTravelersWidget(): boolean {
     return !!this.wizard.currentStep()?.questions.some((q) => q.key === 'adults_count');
+  }
+
+  /** True when the current step has a country_region question — region_theme (if this
+   *  campaign asks it at all) and country_region render together as ONE merged, multi-select
+   *  grid instead of two separate question blocks. See DESTINATION_PICKER_KEYS/
+   *  combinedDestinationGroups. kasno-letovanje never asks region_theme, so for it this grid
+   *  simply never gets any region_theme options — no special-casing needed. */
+  get showCombinedDestinationPicker(): boolean {
+    return !!this.wizard.currentStep()?.questions.some((q) => q.key === 'country_region');
+  }
+
+  /** Reuses country_region's own (translated, seeder-authored) label for the merged grid's
+   *  header — it's the more specific of the two ("Suggested country/region" vs region_theme's
+   *  "Which part of the world interests you?"), and it's the question that's ALWAYS present
+   *  whenever this grid renders (region_theme is optional per-campaign). */
+  get destinationPickerLabel(): string {
+    return this.wizard.currentStep()?.questions.find((q) => q.key === 'country_region')?.label ?? '';
   }
 
   /** Drives <app-travelers-input>'s header — see TravelersInputComponent.adultsLabel docblock
@@ -862,7 +930,18 @@ export class WizardComponent implements OnInit, OnDestroy, AfterViewInit {
    * distinct match counts actually exist.
    */
   groupedDestinations(question: WizardQuestion): { headerLabel: string; nodes: TaxonomyNode[] }[] {
-    const nodes = this.optionsFor(question) ?? [];
+    return this.groupByMatchAndPrice(this.optionsFor(question) ?? []);
+  }
+
+  /** region_theme + country_region cards, merged into ONE grid, 2026-09-18 — see
+   *  showCombinedDestinationPicker/DESTINATION_PICKER_KEYS. Same tiering as groupedDestinations
+   *  (below), just spread over both taxonomy types' already-loaded options at once — region and
+   *  country are peer, simultaneously-selectable choices now, not a sequential drill-down. */
+  combinedDestinationGroups(): { headerLabel: string; nodes: TaxonomyNode[] }[] {
+    return this.groupByMatchAndPrice([...(this.geographyOptions()['region_theme'] ?? []), ...(this.geographyOptions()['country_region'] ?? [])]);
+  }
+
+  private groupByMatchAndPrice(nodes: TaxonomyNode[]): { headerLabel: string; nodes: TaxonomyNode[] }[] {
     const byPrice = (a: TaxonomyNode, b: TaxonomyNode) =>
       (a.budgetFitPercent ?? Number.MAX_SAFE_INTEGER) - (b.budgetFitPercent ?? Number.MAX_SAFE_INTEGER);
 
@@ -931,6 +1010,13 @@ export class WizardComponent implements OnInit, OnDestroy, AfterViewInit {
     return this.groupedDestinations(question).some((group) => group.nodes.some((n) => n.budgetFitPercent != null));
   }
 
+  /** Same as anyGroupHasBudgetFitData, for the merged region+country grid (2026-09-18) — region_
+   *  theme cards never carry budgetFitPercent (see combinedDestinationGroups' docblock), so this
+   *  is true whenever at least one COUNTRY card in the mix has it. */
+  get anyCombinedGroupHasBudgetFitData(): boolean {
+    return this.combinedDestinationGroups().some((group) => group.nodes.some((n) => n.budgetFitPercent != null));
+  }
+
   /** Absolute %-of-budget coloring for a destination card — owner-confirmed thresholds,
    *  2026-09-01: <70% green (comfortable room to spare), 70-100% yellow, >100% red. Replaces the
    *  old 5-tier priceRank (purely relative to whatever else was on screen, never compared
@@ -958,6 +1044,12 @@ export class WizardComponent implements OnInit, OnDestroy, AfterViewInit {
     return !(groups.length === 1 && groups[0].headerLabel === '');
   }
 
+  /** Same as hasRealGrouping, for the merged region+country grid (2026-09-18). */
+  get combinedDestinationsHaveRealGrouping(): boolean {
+    const groups = this.combinedDestinationGroups();
+    return !(groups.length === 1 && groups[0].headerLabel === '');
+  }
+
   isGeographyLoading(question: WizardQuestion): boolean {
     return !!this.geographyLoading()[question.key];
   }
@@ -972,13 +1064,12 @@ export class WizardComponent implements OnInit, OnDestroy, AfterViewInit {
 
     this.wizard.setAnswer(question.key, value);
 
-    // Selecting a region theme or country immediately scopes the next geography question.
-    if (question.key === 'region_theme') {
-      this.loadGeography('country_region', 'country', value as string);
-    }
-    if (question.key === 'country_region') {
-      // Multi-select, 2026-08-12 — gathers cities from ANY of the selected countries.
-      void this.loadGeography('city', 'city', undefined, this.selectedCountryIds());
+    // Region and country are peer, simultaneous multi-select choices, 2026-09-18 (owner's
+    // correction — region no longer gates/re-scopes country's own fetch, see
+    // DESTINATION_PICKER_KEYS's docblock). Either changing recomputes the SAME union for the
+    // next (city) step — see effectiveCountryIds.
+    if (question.key === 'region_theme' || question.key === 'country_region') {
+      void this.loadGeography('city', 'city', undefined, this.effectiveCountryIds());
     }
     // Bug fixed 2026-09-03 (owner caught it live: un-picked Chillseeker on the persona step —
     // now possible thanks to the toggle-off fix above — but "Peaceful & quiet" stayed locked on
@@ -1026,7 +1117,6 @@ export class WizardComponent implements OnInit, OnDestroy, AfterViewInit {
         await this.loadGeographyForCurrentStep();
         this.prefillRecommendedDates();
         this.prefillDefaultAdultsCount();
-        this.prefillAccommodationTypePreference();
         this.prefillMealStyle();
         this.syncDefaultBudget();
         this.scrollToActiveStep();
@@ -1068,16 +1158,21 @@ export class WizardComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   /**
-   * `city` is still single-select (stores the node's `id` directly). `country_region` became
-   * multi-select, 2026-08-12 (owner's ask) — toggles the node's SLUG in an array instead
-   * (matching the persona_tags/preference_tags multi-choice convention, since its session_field
-   * no longer ends in `_id`), so onAnswerChange's implies/excludes pipeline resolves it exactly
-   * like any other free_text_answers.* multi-choice field.
+   * `city` is still single-select (stores the node's `id` directly). `country_region`/
+   * `region_theme` are both multi-select — toggle the node's SLUG in their own answer array
+   * instead (matching the persona_tags/preference_tags multi-choice convention, since neither
+   * session_field ends in `_id`), so onAnswerChange's implies/excludes pipeline resolves it
+   * exactly like any other free_text_answers.* multi-choice field.
+   *
+   * Branches on `node.type` (not a `question` argument) since 2026-09-18 — region_theme and
+   * country_region cards now render together in ONE merged grid (see
+   * showCombinedDestinationPicker/combinedDestinationGroups), so there's no longer a single
+   * `question` this click belongs to.
    *
    * Owner's call, 2026-08-14: picking a city is exactly-one by definition, so there's nothing
    * left to decide once a card is clicked — the separate Proceed button on the `grad` step was
-   * pure friction. Clicking a city card now answers AND advances in one tap; country_region
-   * stays a plain toggle since it's multi-select (still needs its own Proceed).
+   * pure friction. Clicking a city card now answers AND advances in one tap; region/country
+   * stay a plain toggle since they're multi-select (still need their own Proceed).
    *
    * Owner's ask, 2026-08-24: "advances" now means straight to Booking, not to the next wizard
    * step — picking a city here reuses the exact same selectResultsCity() the results screen's
@@ -1086,32 +1181,33 @@ export class WizardComponent implements OnInit, OnDestroy, AfterViewInit {
    * a beat (switchResultsCity's own network round-trip) before the tab lands anywhere — not a
    * bug, just the real request time.
    */
-  onDestinationCardSelect(question: WizardQuestion, node: TaxonomyNode): void {
-    if (question.key === 'country_region') {
-      const current = (this.wizard.getAnswer('country_region') as string[] | undefined) ?? [];
+  onDestinationCardSelect(node: TaxonomyNode): void {
+    const answerKey = node.type === 'region_theme' ? 'region_theme' : node.type === 'country' ? 'country_region' : null;
+
+    if (answerKey) {
+      const current = (this.wizard.getAnswer(answerKey) as string[] | undefined) ?? [];
       const next = current.includes(node.slug) ? current.filter((s) => s !== node.slug) : [...current, node.slug];
-      this.onAnswerChange(question, next);
+      this.wizard.setAnswer(answerKey, next);
+      void this.loadGeography('city', 'city', undefined, this.effectiveCountryIds());
       return;
     }
 
-    if (question.key === 'city') {
-      // Captured BEFORE onAnswerChange below, 2026-08-25 (owner caught the scroll-jump live,
-      // twice) — marking the card selected (checkmark badge appearing, border changing) can
-      // itself reflow the grid, so locking scrollY any later than this already missed it. See
-      // selectResultsCity's docblock for the rest of the story.
-      this.selectResultsCity(node, this.scrollContainer.container()?.scrollTop ?? 0);
-      return;
-    }
-
-    this.onAnswerChange(question, node.id);
+    // Captured BEFORE the redirect below, 2026-08-25 (owner caught the scroll-jump live,
+    // twice) — marking the card selected (checkmark badge appearing, border changing) can
+    // itself reflow the grid, so locking scrollY any later than this already missed it. See
+    // selectResultsCity's docblock for the rest of the story.
+    this.selectResultsCity(node, this.scrollContainer.container()?.scrollTop ?? 0);
   }
 
-  isDestinationSelected(question: WizardQuestion, node: TaxonomyNode): boolean {
-    if (question.key === 'country_region') {
+  isDestinationSelected(node: TaxonomyNode): boolean {
+    if (node.type === 'region_theme') {
+      return ((this.wizard.getAnswer('region_theme') as string[] | undefined) ?? []).includes(node.slug);
+    }
+    if (node.type === 'country') {
       return ((this.wizard.getAnswer('country_region') as string[] | undefined) ?? []).includes(node.slug);
     }
 
-    return this.wizard.getAnswer(question.key) === node.id;
+    return this.wizard.getAnswer('city') === node.id;
   }
 
   /** The general-knowledge vibe/atmosphere writeup seeded onto the node — see
@@ -1229,27 +1325,14 @@ export class WizardComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
-  /** Owner's ask, 2026-09-02: the first live UI for `tip_smestaja` (Hotel/Apartment/Villa/
-   *  Holiday home/Guest house/Chalet) defaults to every option SELECTED, opt-out rather than
-   *  opt-in — "sto manje koraka manje odustajanja," most travelers don't care about property
-   *  type specifically, so forcing a pick would be pure friction; the minority with a real
-   *  preference just unchecks what they don't want. Same "prefill, never overwrite a real pick"
-   *  rule as prefillRecommendedDates/prefillDefaultAdultsCount — only fires once, before the
-   *  traveler has touched this question at all. Depends on loadGeographyForCurrentStep() having
-   *  already populated geographyOptions for this step (same ordering as the other two prefills). */
-  private prefillAccommodationTypePreference(): void {
-    const step = this.wizard.currentStep();
-    if (!step?.questions.some((q) => q.key === 'accommodation_type_preference')) return;
-    if (this.wizard.getAnswer('accommodation_type_preference') != null) return;
-
-    const options = this.geographyOptions()['accommodation_type_preference'];
-    if (!options?.length) return;
-
-    this.wizard.setAnswer(
-      'accommodation_type_preference',
-      options.map((o) => o.slug)
-    );
-  }
+  /** REVERTED 2026-09-17 — this used to prefill every option SELECTED by default (opt-out), from
+   *  when `tip_smestaja` only had 6 property types (Hotel/Apartment/Villa/Holiday home/Guest
+   *  house/Chalet). Expanding to the real 16-type Hotels.com list the same day (see WizardSeeder)
+   *  made "all pre-checked" visually heavy — owner's call: leave it unanswered by default
+   *  instead. Functionally equivalent either way (both applyAccommodationTypePreferenceFilter and
+   *  applyHotelsLodgingTypeFilter already treat an empty answer as "no filter," same as sending
+   *  every id would), just a lighter starting UI; picking a few now means "only these," not
+   *  "everything except these." */
 
   /** Owner's ask, 2026-09-05 — meal_style is the one remaining mandatory question that could
    *  block Proceed outright ("imamo mandatori samo na jednom mestu i to malo koci ceo proces").
@@ -1512,10 +1595,13 @@ export class WizardComponent implements OnInit, OnDestroy, AfterViewInit {
       if (!question.taxonomyType) continue;
 
       if (question.taxonomyType === 'country') {
-        const chosenTheme = this.wizard.getAnswer('region_theme') as string | undefined;
-        await this.loadGeography(question.key, 'country', chosenTheme);
+        // No longer scoped by region_theme's parentId, 2026-09-18 — region and country are
+        // fetched independently and merged client-side (see effectiveCountryIds).
+        // filterByCampaignOwnership (backend) already bounds this to whatever the campaign
+        // actually offers, regardless of parentId.
+        await this.loadGeography(question.key, 'country');
       } else if (question.taxonomyType === 'city') {
-        await this.loadGeography(question.key, 'city', undefined, this.selectedCountryIds());
+        await this.loadGeography(question.key, 'city', undefined, this.effectiveCountryIds());
       } else if (fetchedByTaxonomyType.has(question.taxonomyType)) {
         this.geographyOptions.update((g) => ({ ...g, [question.key]: fetchedByTaxonomyType.get(question.taxonomyType!)! }));
       } else {
@@ -1550,25 +1636,46 @@ export class WizardComponent implements OnInit, OnDestroy, AfterViewInit {
     this.geographyOptions.update((g) => ({ ...g, [AMENITY_YES_KEY]: combined }));
   }
 
-  /** country_region is multi-select (owner's ask, 2026-08-12) — the answer is an array of
-   *  country SLUGS (see onDestinationCardSelect), resolved here to IDs via whatever
-   *  geographyOptions['country_region'] already holds, for passing as suggestedGeography's
-   *  parentIds.
-   *
-   *  Bug fixed 2026-08-14: nothing selected used to resolve to `[]`, which the backend reads as
-   *  "no parent filter at all" — that queried cities from EVERY country in the DB, not just the
-   *  ones actually offered on this narrowed screen (owner caught it live: Bruges/Belgium showing
-   *  up in a Mediterranean summer-sea campaign). Owner's call: an untouched country step means
-   *  "every OFFERED country stays in", so falls back to every id currently in
-   *  geographyOptions['country_region'] (the already budget/cultural/climate-narrowed candidate
-   *  set) instead of an empty array. */
-  private selectedCountryIds(): string[] {
-    const countryOptions = this.geographyOptions()['country_region'] ?? [];
-    const selectedSlugs = (this.wizard.getAnswer('country_region') as string[] | undefined) ?? [];
-    const slugs = selectedSlugs.length > 0 ? selectedSlugs : countryOptions.map((n) => n.slug);
+  /** region_theme is multi-select as of 2026-09-18 (was single-choice) — resolves the answer's
+   *  slug array to ids via whatever geographyOptions['region_theme'] already holds. Same slug
+   *  vs id distinction the old regionThemeIdFor() bug fix (2026-09-17) already established:
+   *  taxonomy_multi_choice answers are always slug arrays (see question-input.ts's
+   *  onMultiChoiceToggle), never numeric ids directly. */
+  private regionThemeIds(): string[] {
+    const selected = (this.wizard.getAnswer('region_theme') as string[] | undefined) ?? [];
+    const options = this.geographyOptions()['region_theme'] ?? [];
 
-    return slugs
-      .map((slug) => countryOptions.find((n) => n.slug === slug)?.id)
+    return selected
+      .map((slug) => options.find((n) => n.slug === slug)?.id)
       .filter((id): id is string => !!id);
+  }
+
+  /**
+   * The union the owner asked for, 2026-09-18: every country under every selected region_theme
+   * UNION every individually-selected country — region and country are peer, simultaneous
+   * choices now, not a sequential drill-down (see DESTINATION_PICKER_KEYS's docblock). Feeds
+   * the City step's parentIds. Purely structural (parent-child over data already sitting in
+   * geographyOptions) — NOT a campaign-ownership concern, that's already applied upstream by
+   * the backend's filterByCampaignOwnership before these lists ever reach geographyOptions.
+   *
+   * Bug fixed 2026-08-14 (Bruges/Belgium leaking into a Mediterranean campaign) still applies
+   * here, generalized: when NEITHER a region nor a country is picked yet, falls back to every
+   * id currently offered in geographyOptions['country_region'] rather than an empty array —
+   * an untouched destination step means "every OFFERED country stays in", never "none".
+   */
+  private effectiveCountryIds(): string[] {
+    const countryOptions = this.geographyOptions()['country_region'] ?? [];
+    const selectedCountrySlugs = (this.wizard.getAnswer('country_region') as string[] | undefined) ?? [];
+    const themeIds = new Set(this.regionThemeIds());
+
+    const union = new Map<string, TaxonomyNode>();
+    for (const country of countryOptions) {
+      const underSelectedTheme = !!country.parent?.id && themeIds.has(country.parent.id);
+      if (underSelectedTheme || selectedCountrySlugs.includes(country.slug)) {
+        union.set(country.id, country);
+      }
+    }
+
+    return union.size > 0 ? [...union.keys()] : countryOptions.map((n) => n.id);
   }
 }
