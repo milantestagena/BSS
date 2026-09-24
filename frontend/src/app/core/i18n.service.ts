@@ -81,6 +81,12 @@ const STRINGS: Record<'en' | 'de', Record<string, string>> = {
     cityStepHint: "Click a card's description to see more details about the place.",
     cityAmenityPriceHint:
       "Click a city's name to see the offer. Some amenities can push the price up significantly — if the selection looks too limited, try increasing your price range or removing one.",
+    // 2026-09-24 (owner's ask, launch with the existing hand-researched prices): honest heads-up
+    // that the price shown is our estimate and the cheapest options sell out first. Deliberately
+    // does NOT claim "high demand" for every destination (unprovable for 60+ places, and reads as
+    // scarcity pressure) — owner accepted this wording over the original.
+    cityDemandPriceNote:
+      "Prices are our estimate of what's available now. The cheapest apartments sell out first, so real prices can be higher.",
     search: 'Search',
     budgetExcludesFlightNote:
       "Doesn't include the flight — prices change too much from day to day for us to estimate them reliably. We'll show you flight prices once we know where you're headed.",
@@ -201,6 +207,8 @@ const STRINGS: Record<'en' | 'de', Record<string, string>> = {
     cityStepHint: 'Klicke auf die Beschreibung einer Karte, um mehr über den Ort zu erfahren.',
     cityAmenityPriceHint:
       'Klicke auf den Namen einer Stadt, um das Angebot zu sehen. Manche Ausstattungsmerkmale können den Preis deutlich erhöhen – wenn die Auswahl zu klein ist, erhöhe deine Preisspanne oder entferne eine Anforderung.',
+    cityDemandPriceNote:
+      'Die Preise sind unsere Schätzung dessen, was aktuell verfügbar ist. Die günstigsten Apartments sind zuerst ausgebucht, daher können die tatsächlichen Preise höher sein.',
     search: 'Suchen',
     budgetExcludesFlightNote:
       'Ohne Flug – die Preise ändern sich von Tag zu Tag zu stark, um sie zuverlässig zu schätzen. Sobald wir dein Reiseziel kennen, zeigen wir dir die Flugpreise.',
