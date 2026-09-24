@@ -27,7 +27,7 @@ class SearchSessionQueryResolver
         // — the frontend only ever treats this as "the redirect link," never cares which
         // provider produced it.
         $bookingUrl = $session->campaign?->provider() === 'hotels_com'
-            ? $compiler->toHotelsUrl()
+            ? $compiler->toHotelsUrl((string) request()->header('X-Locale', 'en'))
             : $compiler->toBookingUrl();
 
         return [

@@ -242,9 +242,198 @@ class SearchSessionQueryCompilerTest extends TestCase
         $this->assertStringContainsString('sort=REVIEW_RELEVANT', $url);
     }
 
-    /** Neither jeftino nor kvalitet picked -> no sort param at all, letting Hotels.com's own
-     *  default apply rather than guessing a third value that was never actually captured. */
-    public function test_hotels_url_omits_sort_when_neither_jeftino_nor_kvalitet_picked(): void
+    /** Owner's live test 2026-09-24: 2 adults + 2 children landed on a 2-adult Hotels.com search.
+     *  Format confirmed from a real Hotels.com URL the owner captured the same day
+     *  (`adults=1,1&rooms=2&children=1_10,1_8,2_2`): per-room adults list, `<room>_<age>` children. */
+    public function test_hotels_url_sends_children_for_a_single_room(): void
+    {
+        $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'skijatos8', 'label' => 'Skiathos', 'sort_order' => 0]);
+        $session = SearchSession::create([
+            'status' => 'in_progress', 'city_id' => $city->id,
+            'date_from' => '2026-09-26', 'date_to' => '2026-10-03',
+            'adults_count' => 2, 'children_ages' => [5, 9], 'number_of_rooms' => 1,
+        ]);
+
+        $url = (new SearchSessionQueryCompiler($session))->toHotelsUrl();
+
+        $this->assertStringContainsString('children='.rawurlencode('1_5,1_9'), $url);
+        $this->assertStringContainsString('adults=2', $url);
+    }
+
+    public function test_hotels_url_sends_an_infant_as_age_zero(): void
+    {
+        $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'skijatos9', 'label' => 'Skiathos', 'sort_order' => 0]);
+        $session = SearchSession::create([
+            'status' => 'in_progress', 'city_id' => $city->id,
+            'date_from' => '2026-09-26', 'date_to' => '2026-10-03',
+            'adults_count' => 2, 'children_ages' => [0], 'number_of_rooms' => 1,
+        ]);
+
+        $this->assertStringContainsString('children='.rawurlencode('1_0'), (new SearchSessionQueryCompiler($session))->toHotelsUrl());
+    }
+
+    public function test_hotels_url_omits_children_when_there_are_none(): void
+    {
+        $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'skijatos10', 'label' => 'Skiathos', 'sort_order' => 0]);
+        $session = SearchSession::create([
+            'status' => 'in_progress', 'city_id' => $city->id, 'date_from' => '2026-09-26', 'date_to' => '2026-10-03',
+            'adults_count' => 2, 'number_of_rooms' => 1,
+        ]);
+
+        $url = (new SearchSessionQueryCompiler($session))->toHotelsUrl();
+
+        $this->assertStringNotContainsString('children=', $url);
+        $this->assertStringContainsString('adults=2&', $url);
+        $this->assertStringContainsString('rooms=1&', $url);
+    }
+
+    /** The owner's real example: 2 parents, 3 children, 2 rooms -> `adults=1,1&rooms=2` and children
+     *  tagged with their room number. Adults are split evenly, children dealt round-robin. */
+    public function test_hotels_url_splits_a_family_across_rooms(): void
+    {
+        $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'skijatos11', 'label' => 'Skiathos', 'sort_order' => 0]);
+        $session = SearchSession::create([
+            'status' => 'in_progress', 'city_id' => $city->id, 'date_from' => '2026-09-26', 'date_to' => '2026-10-03',
+            'adults_count' => 2, 'children_ages' => [10, 8, 2], 'number_of_rooms' => 2,
+        ]);
+
+        $url = (new SearchSessionQueryCompiler($session))->toHotelsUrl();
+
+        $this->assertStringContainsString('adults='.rawurlencode('1,1').'&', $url);
+        $this->assertStringContainsString('rooms=2&', $url);
+        // room 1 gets the 1st and 3rd child (10, 2), room 2 the 2nd (8), listed in room order.
+        $this->assertStringContainsString('children='.rawurlencode('1_10,1_2,2_8'), $url);
+    }
+
+    public function test_hotels_url_spreads_extra_adults_over_the_first_rooms(): void
+    {
+        $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'skijatos12', 'label' => 'Skiathos', 'sort_order' => 0]);
+        $session = SearchSession::create([
+            'status' => 'in_progress', 'city_id' => $city->id, 'date_from' => '2026-09-26', 'date_to' => '2026-10-03',
+            'adults_count' => 5, 'number_of_rooms' => 2,
+        ]);
+
+        $this->assertStringContainsString('adults='.rawurlencode('3,2').'&', (new SearchSessionQueryCompiler($session))->toHotelsUrl());
+    }
+
+    /** A room needs an adult, so a lone parent never gets more rooms than adults. */
+    public function test_hotels_url_never_asks_for_more_rooms_than_adults(): void
+    {
+        $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'skijatos13', 'label' => 'Skiathos', 'sort_order' => 0]);
+        $session = SearchSession::create([
+            'status' => 'in_progress', 'city_id' => $city->id, 'date_from' => '2026-09-26', 'date_to' => '2026-10-03',
+            'adults_count' => 1, 'children_ages' => [4, 6, 9], 'number_of_rooms' => 2,
+        ]);
+
+        $url = (new SearchSessionQueryCompiler($session))->toHotelsUrl();
+
+        $this->assertStringContainsString('rooms=1&', $url);
+        $this->assertStringContainsString('adults=1&', $url);
+        $this->assertStringContainsString('children='.rawurlencode('1_4,1_6,1_9'), $url);
+    }
+
+    /** Real point-of-sale values, owner-captured 2026-09-24 (currency lives in the URL, not only a
+     *  cookie). English visitors -> EUR-priced en_IE site; German -> de.hotels.com. */
+    public function test_hotels_url_forces_euro_and_the_english_point_of_sale_by_default(): void
+    {
+        $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'skijatos5', 'label' => 'Skiathos', 'sort_order' => 0]);
+        $session = SearchSession::create([
+            'status' => 'in_progress', 'city_id' => $city->id,
+            'date_from' => '2026-09-26', 'date_to' => '2026-10-03', 'adults_count' => 2,
+        ]);
+
+        $url = (new SearchSessionQueryCompiler($session))->toHotelsUrl();
+
+        $this->assertStringStartsWith('https://www.hotels.com/Hotel-Search?', $url);
+        $this->assertStringContainsString('currency=EUR', $url);
+        $this->assertStringContainsString('locale=en_IE', $url);
+        $this->assertStringContainsString('siteid=300000025', $url);
+    }
+
+    /** Stays on www.hotels.com: a de.hotels.com landingPage made the affiliate wrapper return
+     *  "Page not found" in the owner's live test (2026-09-24). */
+    public function test_hotels_url_selects_the_german_point_of_sale_by_parameters_for_german_visitors(): void
+    {
+        $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'skijatos6', 'label' => 'Skiathos', 'sort_order' => 0]);
+        $session = SearchSession::create([
+            'status' => 'in_progress', 'city_id' => $city->id,
+            'date_from' => '2026-09-26', 'date_to' => '2026-10-03', 'adults_count' => 2,
+        ]);
+
+        $url = (new SearchSessionQueryCompiler($session))->toHotelsUrl('de');
+
+        $this->assertStringStartsWith('https://www.hotels.com/Hotel-Search?', $url);
+        $this->assertStringNotContainsString('de.hotels.com', $url);
+        $this->assertStringContainsString('currency=EUR', $url);
+        $this->assertStringContainsString('locale=de_DE', $url);
+        $this->assertStringContainsString('siteid=300000752', $url);
+    }
+
+    public function test_hotels_url_falls_back_to_english_for_an_unknown_locale(): void
+    {
+        $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'skijatos7', 'label' => 'Skiathos', 'sort_order' => 0]);
+        $session = SearchSession::create([
+            'status' => 'in_progress', 'city_id' => $city->id,
+            'date_from' => '2026-09-26', 'date_to' => '2026-10-03', 'adults_count' => 2,
+        ]);
+
+        $this->assertStringStartsWith('https://www.hotels.com/', (new SearchSessionQueryCompiler($session))->toHotelsUrl('sr'));
+    }
+
+    /** Real param, owner-captured 2026-09-24 after clicking Hotels.com's "Family friendly" filter. */
+    public function test_hotels_url_sends_family_friendly_traveler_type_for_family_atmosphere(): void
+    {
+        $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'skijatos2', 'label' => 'Skiathos', 'sort_order' => 0]);
+        $session = SearchSession::create([
+            'status' => 'in_progress',
+            'city_id' => $city->id,
+            'date_from' => '2026-09-26',
+            'date_to' => '2026-10-03',
+            'adults_count' => 2,
+            'free_text_answers' => ['preference_tags' => ['porodicna_atmosfera']],
+        ]);
+
+        $url = (new SearchSessionQueryCompiler($session))->toHotelsUrl();
+
+        $this->assertStringContainsString('travelerType=family_friendly', $url);
+        $this->assertStringNotContainsString('lgbtq_welcoming', $url);
+    }
+
+    public function test_hotels_url_omits_traveler_type_without_family_or_lgbt_tags(): void
+    {
+        $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'skijatos3', 'label' => 'Skiathos', 'sort_order' => 0]);
+        $session = SearchSession::create([
+            'status' => 'in_progress',
+            'city_id' => $city->id,
+            'date_from' => '2026-09-26',
+            'date_to' => '2026-10-03',
+            'adults_count' => 2,
+        ]);
+
+        $this->assertStringNotContainsString('travelerType', (new SearchSessionQueryCompiler($session))->toHotelsUrl());
+    }
+
+    public function test_hotels_url_repeats_traveler_type_when_family_and_lgbt_are_both_picked(): void
+    {
+        $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'skijatos4', 'label' => 'Skiathos', 'sort_order' => 0]);
+        $session = SearchSession::create([
+            'status' => 'in_progress',
+            'city_id' => $city->id,
+            'date_from' => '2026-09-26',
+            'date_to' => '2026-10-03',
+            'adults_count' => 2,
+            'free_text_answers' => ['preference_tags' => ['porodicna_atmosfera', 'zeli_lgbt_friendly']],
+        ]);
+
+        $url = (new SearchSessionQueryCompiler($session))->toHotelsUrl();
+
+        $this->assertStringContainsString('travelerType=lgbtq_welcoming', $url);
+        $this->assertStringContainsString('travelerType=family_friendly', $url);
+    }
+
+    /** Neither jeftino nor kvalitet picked -> REVIEW_RELEVANT ("Sort by guest rating + our picks"),
+     *  the owner's chosen default 2026-09-24 (previously left unset). */
+    public function test_hotels_url_defaults_to_review_relevant_when_neither_jeftino_nor_kvalitet_picked(): void
     {
         $city = TaxonomyNode::create(['type' => 'city', 'slug' => 'alanija4', 'label' => 'Alanya', 'sort_order' => 0]);
         $session = SearchSession::create([
@@ -257,7 +446,8 @@ class SearchSessionQueryCompilerTest extends TestCase
 
         $url = (new SearchSessionQueryCompiler($session))->toHotelsUrl();
 
-        $this->assertStringNotContainsString('sort=', $url);
+        $this->assertStringContainsString('sort=REVIEW_RELEVANT', $url);
+        $this->assertStringNotContainsString('PRICE_LOW_TO_HIGH', $url);
     }
 
     public function test_booking_url_includes_repeated_age_params_for_each_child(): void

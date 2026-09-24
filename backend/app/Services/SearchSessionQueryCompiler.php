@@ -252,6 +252,72 @@ class SearchSessionQueryCompiler
     }
 
     /**
+     * Hotels.com point-of-sale per visitor language, confirmed 2026-09-24 from two real URLs the
+     * owner captured after switching the site's own region/currency selector: the currency is NOT a
+     * cookie-only setting, it lives in the URL (`currency=EUR`, plus `siteid` + `locale`), and Germany
+     * is its own domain. Forcing EUR matters because `price=` (our budget-derived cap, computed in
+     * EUR) is read in whatever currency the visitor's session uses — the owner's own US-POS session
+     * showed "Less than $2,625" for a €2625 cap (~9% too strict), and a hardcoded FX rate would have
+     * been wrong for anyone already seeing EUR. English visitors get the Irish English EUR POS
+     * (`en_IE`, the only EUR-priced English POS captured), German visitors the German one.
+     *
+     * Every link stays on `www.hotels.com` and only `siteid`/`locale` differ: pointing the affiliate
+     * wrapper's `landingPage` at `de.hotels.com` returns Hotels.com's "Page not found" (owner's live
+     * test, 2026-09-24), so the German POS must be selected by parameters, same mechanism that
+     * already worked for English.
+     *
+     * @var array<string, array{siteid: string, locale: string}>
+     */
+    private const HOTELS_POS = [
+        'de' => ['siteid' => '300000752', 'locale' => 'de_DE'],
+        'en' => ['siteid' => '300000025', 'locale' => 'en_IE'],
+    ];
+
+    /**
+     * Who sleeps in which room, in Hotels.com's real query shape — confirmed 2026-09-24 from a URL
+     * the owner captured for "2 parents, 3 children, 2 rooms":
+     * `adults=1,1&rooms=2&children=1_10,1_8,2_2`, i.e. `adults` is a comma list with one entry PER
+     * ROOM, and `children` is a comma list of `<room>_<age>` (room numbers start at 1; an infant
+     * is age 0). Previously the link sent a bare `adults=<total>&rooms=<n>` and no children at all.
+     *
+     * The session only knows totals (adults, children ages, number of rooms — the wizard sets the
+     * latter itself, ceil(travelers/3) when a 4-5 person group isn't staying together), not who is
+     * in which room, so this picks a sensible split: a room needs at least one adult, so rooms are
+     * capped at the adult count; adults go as evenly as possible (extras to the first rooms);
+     * children are dealt round-robin, which keeps room sizes balanced.
+     *
+     * @return array{adults: string, rooms: int, children: ?string}
+     */
+    private function hotelsOccupancy(): array
+    {
+        $adults = max(1, (int) $this->session->adults_count);
+        $rooms = max(1, min((int) ($this->session->number_of_rooms ?: 1), $adults));
+
+        $adultsPerRoom = array_fill(0, $rooms, intdiv($adults, $rooms));
+        for ($i = 0; $i < $adults % $rooms; $i++) {
+            $adultsPerRoom[$i]++;
+        }
+
+        $childrenByRoom = array_fill(1, $rooms, []);
+        foreach (array_values($this->session->children_ages ?? []) as $i => $age) {
+            $childrenByRoom[($i % $rooms) + 1][] = max(0, (int) $age);
+        }
+
+        $children = [];
+        foreach ($childrenByRoom as $room => $ages) {
+            foreach ($ages as $age) {
+                $children[] = "{$room}_{$age}";
+            }
+        }
+
+        return [
+            'adults' => implode(',', $adultsPerRoom),
+            'rooms' => $rooms,
+            'children' => $children === [] ? null : implode(',', $children),
+        ];
+    }
+
+    /**
      * A REAL, working public hotels.com search URL — same "no API key, no partner approval"
      * spirit as toBookingUrl() above, built from a real captured example: the owner ran an
      * actual search (Prague, 2026-10-09 to 2026-10-12, 2 adults) and sent the resulting URL.
@@ -263,23 +329,25 @@ class SearchSessionQueryCompiler
      * redirect, same "plain text destination, let the site resolve it" shape as toBookingUrl()'s
      * `ss` fallback branch).
      *
-     * No Hotels.com equivalent of Booking's dest_id/nflt filter-chip system has been captured
-     * yet (facilities, sort order, children) — don't guess parameter names here, add them once
-     * a real example exists for each, same discipline as everything else in this class.
+     * Every parameter here comes from a real captured Hotels.com URL — don't guess names, add
+     * them once a real example exists, same discipline as everything else in this class. Since
+     * the first version: amenities (see applyHotelsAmenitiesFilter), `sort`, point-of-sale/
+     * currency (HOTELS_POS), and adults/rooms/children (hotelsOccupancy) were all captured and
+     * added.
      *
      * `travelerType`/`star`/`guestRating` (2026-09-08, owner's explicit ask to build ahead of
      * real data — "uradi ga sad, testiramo kad unesem prave vrednosti") — confirmed real
      * parameter names/values, see HotelsComFilters. `lgbtq_welcoming` had real coverage when
      * tested (63 results, Prague); `romantic` was tested and confirmed near-zero coverage
      * (Prague AND Cyprus both empty) so it's deliberately never sent regardless of any future
-     * relationship_type mapping. `star=40`/`guestRating=45` (4+ stars / 8+ rating) for the
+     * relationship_type mapping. `star=40`/`guestRating=40` (4+ stars / 8+ rating) for the
      * `kvalitet` preference are UNVERIFIED for real per-destination coverage the way
      * lgbtq_welcoming/romantic were — common enough attributes that zero-coverage seems unlikely,
      * but not confirmed live the same way. `travelerType` supports multiple values (a real HTML
      * checkbox group, not a single-value field) — built by hand like toBookingUrl()'s repeated
      * `age=` params, not through the flat $params map.
      */
-    public function toHotelsUrl(): ?string
+    public function toHotelsUrl(string $locale = 'en'): ?string
     {
         $destination = $this->destinationNode();
         if (! $destination) {
@@ -291,14 +359,28 @@ class SearchSessionQueryCompiler
             return null;
         }
 
+        $pos = self::HOTELS_POS[$locale] ?? self::HOTELS_POS['en'];
+
+        $occupancy = $this->hotelsOccupancy();
+
         $params = [
             'destination' => $destination->label,
             'startDate' => $checkin->toDateString(),
             'endDate' => $checkout->toDateString(),
-            'adults' => $this->session->adults_count ?: 1,
-            'rooms' => $this->session->number_of_rooms ?: 1,
+            'adults' => $occupancy['adults'],
+            'rooms' => $occupancy['rooms'],
             'flexibility' => '0_DAY',
+            'siteid' => $pos['siteid'],
+            'locale' => $pos['locale'],
+            'currency' => 'EUR',
         ];
+
+        // Children, 2026-09-24 (owner's live test: 2 adults + 2 children in the wizard landed on a
+        // 2-adult Hotels.com search — the Hotels link never sent children at all, unlike
+        // toBookingUrl()'s group_children/age).
+        if ($occupancy['children'] !== null) {
+            $params['children'] = $occupancy['children'];
+        }
 
         $tags = $this->allPreferenceTagSlugs();
 
@@ -318,14 +400,12 @@ class SearchSessionQueryCompiler
         // "da l je order po ceni ako biram jeftino a po rekomended ako biram kvalitet"). Mirrors
         // toBookingUrl()'s order= block above/elsewhere in this class — jeftino/kvalitet are
         // mutually exclusive (seedPreferenceTags' excludes relation), jeftino checked first only
-        // as a stable tie-break if that relation is ever bypassed. Neither picked -> sort left
-        // unset, letting Hotels.com's own default ("Recommended") apply, rather than guessing a
-        // third value that was never actually captured.
-        if ($tags->contains('jeftino')) {
-            $params['sort'] = 'PRICE_LOW_TO_HIGH';
-        } elseif ($tags->contains('kvalitet')) {
-            $params['sort'] = 'REVIEW_RELEVANT';
-        }
+        // as a stable tie-break if that relation is ever bypassed. Neither picked -> ALSO
+        // REVIEW_RELEVANT ("Sort by guest rating + our picks" in Hotels.com's own dropdown), owner's
+        // call 2026-09-24 — it was previously left unset (Hotels.com's plain "Recommended"), but the
+        // owner prefers guest-rating-first as the default, same idea as toBookingUrl()'s
+        // review_score_and_price default.
+        $params['sort'] = $tags->contains('jeftino') ? 'PRICE_LOW_TO_HIGH' : 'REVIEW_RELEVANT';
 
         $query = [];
         foreach ($params as $key => $value) {
@@ -337,6 +417,17 @@ class SearchSessionQueryCompiler
         // no other traveler-experience filter maps to an existing session signal yet.
         if ($tags->contains('zeli_lgbt_friendly')) {
             $query[] = 'travelerType='.rawurlencode('lgbtq_welcoming');
+        }
+
+        // porodicna_atmosfera -> travelerType=family_friendly, confirmed 2026-09-24 from a real
+        // Hotels.com URL after clicking its "Family friendly" filter (owner's capture, Skiathos).
+        // Same signal toBookingParams() already maps to Booking's family_friendly_property: the
+        // `porodica` group_type suggests this tag (seedRelations) and the wizard auto-picks that
+        // group as soon as children are entered, so a family session gets it without extra
+        // clicks. Repeated `travelerType=` when combined with lgbtq_welcoming — same repeated-
+        // param shape as room_amenities_group, which Hotels.com accepted live.
+        if ($tags->contains('porodicna_atmosfera')) {
+            $query[] = 'travelerType='.rawurlencode('family_friendly');
         }
 
         // Real price range, 2026-09-17/18 — owner caught it live across three captures. First,
