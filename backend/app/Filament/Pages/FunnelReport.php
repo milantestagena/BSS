@@ -47,8 +47,35 @@ class FunnelReport extends Page
             ];
         }
 
+        // Two rows right under the first step, 2026-09-25 — the FB/IG campaign was delivering
+        // landing-page views but zero sessions ever answered the first question, and step_viewed
+        // alone can't tell "bounced instantly" (never touched anything) from "tried and got
+        // stuck" (touched, never finished). `first_interaction` = first real user action on any
+        // input; `step_completed` = advanced past the step (see Wizard.recordFirstInteraction /
+        // goNext on the frontend).
+        $firstStepKey = $steps->first()?->key;
+        array_splice($rows, 1, 0, [
+            [
+                'label' => '↳ Touched something (first interaction)',
+                'count' => WizardEvent::where('event_type', 'first_interaction')
+                    ->distinct('search_session_id')
+                    ->count('search_session_id'),
+            ],
+            [
+                'label' => '↳ Finished the first step',
+                'count' => $firstStepKey
+                    ? WizardEvent::where('event_type', 'step_completed')
+                        ->where('payload->stepKey', $firstStepKey)
+                        ->distinct('search_session_id')
+                        ->count('search_session_id')
+                    : 0,
+            ],
+        ]);
+
         $rows[] = [
-            'label' => 'Reached Booking.com',
+            // Was "Reached Booking.com" — the redirect goes to Hotels.com since the 2026-09-18
+            // provider switch; the event is still named booking_redirect.
+            'label' => 'Reached Hotels.com',
             'count' => WizardEvent::where('event_type', 'booking_redirect')
                 ->distinct('search_session_id')
                 ->count('search_session_id'),

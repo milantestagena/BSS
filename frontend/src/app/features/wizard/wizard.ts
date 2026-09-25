@@ -356,6 +356,10 @@ export class WizardComponent implements OnInit, OnDestroy, AfterViewInit {
    *  afterward. Reset per session in startWizard(). */
   private budgetManuallyEdited = false;
 
+  /** One-shot guard for recordFirstInteraction() — per page load, same lifetime as the session
+   *  this component starts in ngOnInit. */
+  private firstInteractionRecorded = false;
+
   constructor(
     public wizard: WizardService,
     public auth: AuthService,
@@ -545,6 +549,34 @@ export class WizardComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
+  /** Same as trackPixelEvent but for events Meta has no standard name for (`trackCustom`) — like
+   *  it, only does anything once the visitor has accepted cookies and the Pixel actually loaded
+   *  (see AnalyticsService), so nothing is ever sent without consent. */
+  private trackPixelCustomEvent(eventName: string, params?: Record<string, unknown>): void {
+    try {
+      const fbq = (window as unknown as { fbq?: MetaPixelFn }).fbq;
+      fbq?.('trackCustom', eventName, params);
+    } catch {
+      // Best-effort, see trackPixelEvent.
+    }
+  }
+
+  /**
+   * First real touch of the wizard by this visitor, 2026-09-25. Added after the funnel showed the
+   * FB/IG ad campaign delivering landing-page views (Meta: 52, ours: ~60 sessions) but ZERO
+   * sessions ever answering even the first question — and no way to tell "bounced instantly" from
+   * "tried and got stuck". Fires once per page load into our own funnel log (`first_interaction`,
+   * see FunnelReport) and as a Meta custom event (`WizardEngaged`) so ads can be measured — and
+   * later optimized — on people who actually DO something, not just load the page. Called only
+   * from real user actions (onTravelersChange/onAnswerChange), never from the silent defaults.
+   */
+  private recordFirstInteraction(source: string): void {
+    if (this.firstInteractionRecorded) return;
+    this.firstInteractionRecorded = true;
+    void this.wizard.recordEvent('first_interaction', { stepKey: this.wizard.currentStep()?.key ?? null, source });
+    this.trackPixelCustomEvent('WizardEngaged');
+  }
+
   /** Re-runs the results screen against a different shortlisted city — same session, no wizard
    *  steps re-walked. See selectResultsCity's docblock for the tab-handling story.
    *
@@ -708,6 +740,8 @@ export class WizardComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   onTravelersChange(value: TravelersValue): void {
+    this.recordFirstInteraction('travelers');
+
     // A group of ≤3 never gets asked about rooms at all — silently defaults to 1. A group of
     // exactly 4 or 5 gets the "stay together?" yes/no on this same step instead (see
     // showRoomsTogetherQuestion / onRoomsTogetherChoice) — don't overwrite an answer they may
@@ -1055,6 +1089,7 @@ export class WizardComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   onAnswerChange(question: WizardQuestion, value: unknown): void {
+    this.recordFirstInteraction(question.key);
     // Owner's ask, 2026-08-13: once they've touched total_budget themselves (typed a value or
     // clicked the +/- stepper), the auto-computed default must stop overwriting it — even if
     // adults_count/group_type/etc. change again afterward on the same step.
@@ -1101,6 +1136,13 @@ export class WizardComponent implements OnInit, OnDestroy, AfterViewInit {
       // screen this used to gate (shortlisted-city pills, flight link, back-to-session) is gone
       // along with it, see wizard.html.
       const newStepKey = this.wizard.currentStep()?.key;
+      // 2026-09-25 — "answered this step and moved on", distinct from step_viewed (which fires on
+      // merely LOOKING at it): only when the step really changed, so a rejected/failed advance
+      // never counts. See recordFirstInteraction's docblock for why.
+      if (prevStepKey && newStepKey && newStepKey !== prevStepKey) {
+        void this.wizard.recordEvent('step_completed', { stepKey: prevStepKey });
+        this.trackPixelCustomEvent('WizardStepDone', { step: prevStepKey });
+      }
       if (newStepKey) void this.wizard.recordEvent('step_viewed', { stepKey: newStepKey });
       // "Screen 1" -> "screen 2" boundary: all Q&A (smestaj is the last screen-1 step) just
       // finished, zemlja_regija (destination cards) is next. Owner's call, 2026-08-04: a
