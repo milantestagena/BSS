@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Models\WizardEvent;
 use App\Models\WizardStep;
 use Filament\Pages\Page;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Owner's ask, 2026-09-05 ("da imamo log za svakog dokle je stigo pa odustao") — a real
@@ -53,7 +54,15 @@ class FunnelReport extends Page
         // stuck" (touched, never finished). `first_interaction` = first real user action on any
         // input; `step_completed` = advanced past the step (see Wizard.recordFirstInteraction /
         // goNext on the frontend).
-        $firstStepKey = $steps->first()?->key;
+        //
+        // Bug fixed 2026-09-27 (caught live: "Finished the first step" was stuck at 0 while
+        // hundreds of sessions clearly answered questions and reached later steps): this used to
+        // key off $steps->first() — the globally first WizardStep by sort_order (trip_type) —
+        // but every real campaign presets/skips trip_type, so literally no session's very first
+        // RENDERED step is ever trip_type, and no step_completed row can ever carry that key.
+        // Fixed to match each session against ITS OWN first_interaction step, via a join, rather
+        // than one hardcoded global "first" step key — correct regardless of which step a given
+        // campaign actually starts on.
         array_splice($rows, 1, 0, [
             [
                 'label' => '↳ Touched something (first interaction)',
@@ -63,12 +72,15 @@ class FunnelReport extends Page
             ],
             [
                 'label' => '↳ Finished the first step',
-                'count' => $firstStepKey
-                    ? WizardEvent::where('event_type', 'step_completed')
-                        ->where('payload->stepKey', $firstStepKey)
-                        ->distinct('search_session_id')
-                        ->count('search_session_id')
-                    : 0,
+                'count' => DB::table('wizard_events as fi')
+                    ->join('wizard_events as sc', function ($join) {
+                        $join->on('sc.search_session_id', '=', 'fi.search_session_id')
+                            ->where('sc.event_type', 'step_completed')
+                            ->whereRaw("sc.payload->>'stepKey' = fi.payload->>'stepKey'");
+                    })
+                    ->where('fi.event_type', 'first_interaction')
+                    ->distinct('fi.search_session_id')
+                    ->count('fi.search_session_id'),
             ],
         ]);
 

@@ -20,9 +20,17 @@ class FunnelReportTest extends TestCase
     }
 
     /** 2026-09-25: the ad campaign delivered visits but zero answered even the first question, and
-     *  step_viewed alone couldn't say whether people bounced or got stuck. */
+     *  step_viewed alone couldn't say whether people bounced or got stuck.
+     *
+     *  Includes a real, LOWER-sort_order 'trip_type' step that nobody ever views — every real
+     *  campaign presets/skips it (see FunnelReport's docblock) — to pin down the 2026-09-27 bug:
+     *  "Finished the first step" must match each session against ITS OWN first-interaction step
+     *  (here, 'travelers'), not a hardcoded global "first" WizardStep that real traffic never
+     *  actually reaches. The old, broken version of this query would report 0 here regardless of
+     *  real engagement, because no session's step_completed ever carries stepKey='trip_type'. */
     public function test_report_separates_touching_the_form_from_finishing_the_first_step(): void
     {
+        WizardStep::create(['key' => 'trip_type', 'label' => 'Trip type', 'sort_order' => 0, 'is_active' => true]);
         WizardStep::create(['key' => 'travelers', 'label' => 'Who is traveling', 'sort_order' => 1, 'is_active' => true]);
         WizardStep::create(['key' => 'timing', 'label' => 'When', 'sort_order' => 2, 'is_active' => true]);
 
@@ -37,12 +45,14 @@ class FunnelReportTest extends TestCase
         $this->event(1, 'booking_redirect', ['destination' => 'Skiathos']);
         // A repeat event for the same session must not inflate a distinct-session count.
         $this->event(1, 'step_completed', ['stepKey' => 'travelers']);
-        // Completing a LATER step must not count as finishing the first one.
+        // Session 3 completed a LATER step but never recorded a first_interaction at all — must
+        // not count as "finished the first step" (no first_interaction row to match against).
         $this->event(3, 'step_completed', ['stepKey' => 'timing']);
 
         $this->actingAs(User::factory()->create(['is_admin' => true]));
         $rows = collect(Livewire::test(FunnelReport::class)->get('rows'))->pluck('count', 'label');
 
+        $this->assertSame(0, $rows['Trip type']);
         $this->assertSame(4, $rows['Who is traveling']);
         $this->assertSame(2, $rows['↳ Touched something (first interaction)']);
         $this->assertSame(1, $rows['↳ Finished the first step']);
